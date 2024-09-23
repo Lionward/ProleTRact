@@ -23,6 +23,7 @@
 <ol>
   <li>Run the Streamlit app:</li>
   <pre><code>streamlit run visualize_TRs.py</code></pre>
+  <pre><code> ssh -L 8501:localhost:8501 phaedra</code></pre>
   <li>Upload your VCF file using the file uploader in the sidebar.</li>
   <li>Use the zoom slider to adjust the visualized region of the sequence.</li>
   <li>Navigate through different tandem repeat regions using the "Next" and "Previous" buttons or you can manually input the region e.g. chr1:1000-2000.</li>
