@@ -1,34 +1,38 @@
-<h1>Tandem Repeat Visualization Tool</h1>
+<h1>TandemTwist-O-Scope</h1>
 
-<p>This repository provides a <strong>Tandem Repeat Visualization Tool</strong> developed using Streamlit. The tool processes variant call files (VCF) that are produced by tandemtiwster to visualize tandem repeats in a user-friendly and interactive way. It allows users to explore motifs in a specific genomic region, offering zoom-in functionality, motif highlighting, and summary statistics.</p>
+<p>This repository contains a <strong>Tandem Repeat Visualization Tool</strong> designed using Streamlit. The tool processes Variant Call Format (VCF) files, visualizing tandem repeats in an intuitive, interactive format. Users can explore motifs, compare alleles, and gain insights into the structure of tandem repeats, enhancing their ability to interpret genomic variation.</p>
 
 <h2>Features</h2>
 <ul>
-  <li><strong>Motif Visualization:</strong> Visualizes motif sequences across alleles with distinct colors and labeled interruptions.</li>
-  <li><strong>Allele Comparison:</strong> Displays motif occurrences for each allele separately and compares them side by side.</li>
-  <li><strong>Interactive Zooming:</strong> Allows users to zoom in on specific regions of the sequence.</li>
-  <li><strong>Hover Functionality:</strong> Highlights motifs when hovering over the legend, linking motifs in the sequence.</li>
-  <li><strong>Summary Statistics:</strong> Displays total motif counts and records in the sidebar.</li>
+  <li><strong>Dynamic Sequence Visualization:</strong> Displays the sequence with color-coded motifs, highlighting interruptions in red and making it easy to identify motif patterns and interruptions.</li>
+  <li><strong>Motif Comparison Across Alleles:</strong> Visualizes motifs for each allele separately, providing a side-by-side comparison of motif structures and copy numbers.</li>
+  <li><strong>Hover Functionality:</strong> Enables users to hover over motifs and interruptions, with tooltip descriptions of the corresponding motif or interruption for detailed analysis.</li>
+  <li><strong>Summary Statistics:</strong> Provides statistics on the total number of records and motifs directly in the sidebar.</li>
+  <li><strong>Region Navigation:</strong> Offers seamless navigation between tandem repeat regions via "Previous" and "Next" buttons, or manual input for specific genomic locations.</li>
 </ul>
 
 <h2>Installation</h2>
 <ol>
-  <li>Clone this repository:</li>
-  <pre><code>git clone git@github.com:Lionward/tandemtwister-vis.git</code></pre>
-  <li>Navigate to the project directory:</li>
-  <pre><code>cd tandemtwister-vis</code></pre>
+  <li>Clone this repository:
+    <pre><code>git clone git@github.com:Lionward/tandemtwister-vis.git</code></pre>
+  </li>
+  <li>Navigate to the project directory:
+    <pre><code>cd tandemtwister-vis</code></pre>
+  </li>
+  <li>Install the required dependencies:
+    <pre><code>pip install -r requirements.txt</code></pre>
+  </li>
 </ol>
 
 <h2>Usage</h2>
 <ol>
   <li>Run the Streamlit app:</li>
-  <pre><code>streamlit run visualize_TRs.py</code></pre>
-  <pre><code> ssh -L 8501:localhost:8501 phaedra</code></pre>
+    <pre><code>streamlit run visualize_TRs.py</code></pre>
+    <pre><code> ssh -L 8501:localhost:8501 phaedra</code></pre>
+  </li>
   <li>Upload your VCF file using the file uploader in the sidebar.</li>
-  <li>Use the zoom slider to adjust the visualized region of the sequence.</li>
-  <li>Navigate through different tandem repeat regions using the "Next" and "Previous" buttons or you can manually input the region e.g. chr1:1000-2000.</li>
+  <li>Navigate through different tandem repeat regions using the "Next" and "Previous" buttons or input the region manually (e.g., <code>chr1:1000-2000</code>).</li>
 </ol>
-
 
 <h2>Dependencies</h2>
 <ul>
@@ -37,7 +41,13 @@
   <li>plotly</li>
   <li>matplotlib</li>
   <li>pandas</li>
+  <li>seaborn</li>
+  <li>altair</li>
 </ul>
+
+<h2></h2>
+<p>Below is an example screenshot of the Tandem Repeat Visualization Tool in action:</p>
+<img src="Example" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
 
 <h2>Contributing</h2>
 <p>If you'd like to contribute to this project, please fork the repository, make your changes, and submit a pull request. Any contributions are welcome!</p>
