@@ -20,7 +20,6 @@
     <pre><code>cd tandemtwister-vis</code></pre>
   </li>
   <li>Install the required dependencies:
-    <pre><code>pip install -r requirements.txt</code></pre>
   </li>
 </ol>
 
