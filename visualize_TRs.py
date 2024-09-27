@@ -49,6 +49,8 @@ def parse_record(vcf_file,region):
             if ids_h1 == ids_h2:
                 alt_allele2 = alt_allele1
             alt_allele2 = ''
+    if ids_h1 is None:
+        ids_h1 = []
     if ids_h2 is None:
         ids_h2 = []
     motif_names = rec.info['MOTIFS']
@@ -559,7 +561,8 @@ if 'records_map' in st.session_state:
 
     # Sidebar for region navigation
     st.sidebar.markdown("### Select Region to Visualize")
-    region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None)
+    # activate the variable when pressing inter button
+    region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
     #_level = st.sidebar.slider('Zoom Level', min_value=1, max_value=100, value=100)
     display_option = st.sidebar.radio("Select Display Type", 
                                 ("Sequence with Highlighted Motifs", "Bars"))
@@ -578,18 +581,29 @@ if 'records_map' in st.session_state:
             st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
         
     if region:
+
         try:
             chr_input, start_end_input = region.split(':')
             start_input, end_input = map(int, start_end_input.split('-'))
-            record_key = f"{chr_input}:{start_input}-{end_input}"
+            start_input-=1
+            end_input-=1
+
+            input_region = f"{chr_input}:{start_input}-{end_input}"
+            record_key = st.session_state.records[input_region]
+
         except:
             st.sidebar.info("Invalid region format, showing the first record")
             record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
     else:
+        st.write(st.session_state.records_map[st.session_state.regions_idx])
         record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
 
 
     record = parse_record(vcf_file_path, record_key)
+    if len(record["motif_ids_h1"]) == 0 and len(record["motif_ids_h2"]) == 0:
+        st.warning(f"No motifs found in the region: {st.session_state.records_map[st.session_state.regions_idx]}")
+        st.stop()
+        
     subheader = st.subheader(f"TR-region: {record_key}")
     left_column, right_column = st.columns([4, 1])
     # define the motif colors
