@@ -35,6 +35,7 @@ def parse_record(vcf_file,region):
         break
     ids_h1 = rec.info['MOTIF_IDs_H1']
     ids_h2 = rec.info['MOTIF_IDs_H2']
+    ref_CN = rec.info['CN_ref']
     alt_allele1 = "."
     alt_allele2 = "."
     ref_allele = rec.alts[0] if rec.alts != None else ""
@@ -53,6 +54,8 @@ def parse_record(vcf_file,region):
         ids_h1 = []
     if ids_h2 is None:
         ids_h2 = []
+    CN_H1 = rec.info['CN_H1']
+    CN_H2 = rec.info['CN_H2']
     motif_names = rec.info['MOTIFS']
     if isinstance(motif_names, tuple):
         motif_names = list(motif_names)
@@ -66,6 +69,9 @@ def parse_record(vcf_file,region):
             'motifs': motif_names,
             'motif_ids_h1': ids_h1,
             'motif_ids_h2': ids_h2,
+            'ref_CN': ref_CN,
+            'CN_H1': CN_H1,
+            'CN_H2': CN_H2,
             'spans': rec.samples[0]['SP'],
             'ref_allele': ref_allele,
             'alt_allele1': alt_allele1,
@@ -131,7 +137,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence, motif_ids, spans,
 
 
 # Function to display motifs relative to the sequence, with spans aligned horizontally
-def display_motifs_with_bars(record, left_column, right_column,motif_colors):
+def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col):
     motif_names = record['motifs']
 
     motif_count_h1 = count_motifs(record['motif_ids_h1'], record['spans'][0])
@@ -143,29 +149,32 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors):
     motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
     motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
     # iterate over the motifs and set them to 0 if they are not in the motif_count
+    CN1_col.markdown(f""" 
+        <div style="font-size: 20px; color: #FF5733;">
+            <strong>Allele 1 Total copy number:</strong> {str(record['spans'][0]).count('-')}
+        </div>
+    """, unsafe_allow_html=True)
 
     with right_column:
         display_motif_legend(motif_names, motif_colors, right_column)
 
-    with left_column:
-        st.markdown(f""" 
+    if record['alt_allele2'] != '':
+        CN2_col.markdown(f"""
             <div style="font-size: 20px; color: #FF5733;">
-                <strong>Allele 1 Total copy number:</strong> {str(record['spans'][0]).count('-')}
+                <strong>Allele 2 Total copy number:</strong> {str(record['spans'][1]).count('-')}
             </div>
         """, unsafe_allow_html=True)
 
+
+    with left_column:
+   
         display_motifs_as_bars(motif_colors, record['motif_ids_h1'], record['spans'][0], record['alt_allele1'], motif_names)
         plot_container_h1 = st.empty()
         with plot_container_h1:
             plot_motif_bar(motif_count_h1, motif_names, motif_colors)
         
         if record['alt_allele2'] != '':
-            st.markdown(f"""
-                <div style="font-size: 20px; color: #FF5733;">
-                    <strong>Allele 2 Total copy number:</strong> {str(record['spans'][1]).count('-')}
-                </div>
-            """, unsafe_allow_html=True)
-
+    
             display_motifs_as_bars(motif_colors, record['motif_ids_h2'], record['spans'][1], record['alt_allele2'], motif_names)
             plot_container_h2 = st.empty()
             with plot_container_h2:
@@ -275,7 +284,7 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None):
 
 
 # Function to visualize tandem repeat with highlighted motifs on the sequence
-def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors):
+def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors,CN1_col,CN2_col):
     motif_names = record['motifs']
 
 
@@ -287,18 +296,24 @@ def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_co
     found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
     motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
     motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
-   
-    with right_column:
-        display_motif_legend(motif_names, motif_colors, right_column)
-    with left_column:
-        # create a spot for the plots to refresh
-        total_copy_number_h1 = str(record['spans'][0]).count('-')
-        st.markdown(f"""
+    total_copy_number_h1 = str(record['spans'][0]).count('-')
+    CN1_col.markdown(f"""
             <div style="font-size: 20px; color: #FF5733;">
                 <strong>Allele 1 Total copy number:</strong> {total_copy_number_h1}
             </div>
         """, unsafe_allow_html=True)
-        
+    if record['alt_allele2'] != '':
+            total_copy_number_h2 = str(record['spans'][1]).count('-')
+            CN2_col.markdown(f"""
+                <div style="font-size: 20px; color: #FF5733;">
+                    <strong>Allele 2 Total copy number:</strong> {total_copy_number_h2}
+                </div>
+            """, unsafe_allow_html=True)   
+    with right_column:
+        display_motif_legend(motif_names, motif_colors, right_column)
+    with left_column:
+        # create a spot for the plots to refresh
+
         # Render the scrollable sequence with highlighted motifs for allele 1
         alt_allele1 = record['alt_allele1'] if record['alt_allele1'] != "." else record['ref_allele']
         display_dynamic_sequence_with_highlighted_motifs(alt_allele1, record['motif_ids_h1'], record['spans'][0], motif_colors, motif_names)
@@ -310,12 +325,7 @@ def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_co
             plot_motif_bar(motif_count_h1, motif_names, motif_colors)
 
         if record['alt_allele2'] != '':
-            total_copy_number_h2 = str(record['spans'][1]).count('-')
-            st.markdown(f"""
-                <div style="font-size: 20px; color: #FF5733;">
-                    <strong>Allele 2 Total copy number:</strong> {total_copy_number_h2}
-                </div>
-            """, unsafe_allow_html=True)
+
             alt_allele2 = record['alt_allele2'] #if record['alt_allele2'] != "." else record['ref_allele']
             display_dynamic_sequence_with_highlighted_motifs(alt_allele2, record['motif_ids_h2'], record['spans'][1], motif_colors, motif_names)
             
@@ -607,8 +617,8 @@ if 'records_map' in st.session_state:
     display_option = st.sidebar.radio("Select Display Type", 
                                 ("Sequence with Highlighted Motifs", "Bars"))
 
-    col1, _, col2 = st.columns([1,2, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
-
+    col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
+    REF, CN1_col, CN2_col = st.columns([1, 1, 1])
     # Place the "Previous region" and "Next region" buttons in these columns
     with col1:
         if st.button("Previous region"):
@@ -643,7 +653,19 @@ if 'records_map' in st.session_state:
         st.warning(f"No motifs found in the region: {st.session_state.records_map[st.session_state.regions_idx]}")
         st.stop()
         
-    subheader = st.subheader(f"TR-region: {record_key}")
+    middel.markdown(f"""
+        <div style="font-size: 18px; color: #90EE90; margin-bottom: 5px; text-align: center; 
+                    padding: 5px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+                    background-color: #333; display: inline-block;">
+            <strong>Tandem Repeat Region: {record['chr']}:{record['pos']}-{record['pos']}</strong>
+        </div>
+    """, unsafe_allow_html=True)
+    # show the reference copy number
+    REF.markdown(f"""
+        <div style="font-size: 20px; color: #4CAF50; margin-bottom: 10px;">
+            <strong>Reference Copy Number:</strong> {record['ref_CN']}
+        </div>
+    """, unsafe_allow_html=True)
     left_column, right_column = st.columns([4, 1])
     # define the motif colors
 
@@ -651,6 +673,71 @@ if 'records_map' in st.session_state:
     motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
 
     if display_option == "Sequence with Highlighted Motifs":
-        visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors)
+        visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors,CN1_col,CN2_col)
     else:
-        display_motifs_with_bars(record, left_column, right_column,motif_colors)
+        display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col)
+
+    # # add a visulization which shows the ref and alt alleles in a new page
+    # if st.button("Show Ref and Alt Alleles"):
+    #     def highlight_differences(ref, alt):
+    #         highlighted_sequence = ""
+    #         for i, (r, a) in enumerate(zip(ref, alt)):
+    #             if r != a:
+    #                 highlighted_sequence += f"<span style='background-color:#FF0000; padding:2px; border-radius:4px;' title='Position {i+1}'>"
+    #                 highlighted_sequence += a
+    #                 highlighted_sequence += "</span>"
+    #             else:
+    #                 highlighted_sequence += a
+    #         return highlighted_sequence
+
+    #     def highlight_motifs(sequence, motif_ids, spans, motif_colors, motif_names):
+    #         ranges = parse_motif_range(spans)
+    #         highlighted_sequence = ""
+    #         previous_end = 0
+            
+    #         for idx, (start, end) in enumerate(ranges):
+    #             motif = motif_ids[idx]
+    #             color = motif_colors[int(motif)]
+    #             motif_name = motif_names[int(motif)]
+                
+    #             if start > previous_end:
+    #                 highlighted_sequence += sequence[previous_end:start]
+                
+    #             motif_sequence = sequence[start:end+1]
+    #             highlighted_sequence += (
+    #                 f"<span style='background-color:{color}; padding:2px; border-radius:4px;' title='Motif: {motif_name}'>"
+    #                 f"{motif_sequence}</span>"
+    #             )
+
+    #             previous_end = end + 1
+
+    #         if previous_end < len(sequence):
+    #             highlighted_sequence += sequence[previous_end:]
+            
+    #         return highlighted_sequence
+
+    #     st.write("Ref Allele")
+    #     highlighted_ref = highlight_motifs(record['ref_allele'], record['motif_ids_h1'], record['spans'][0], motif_colors, record['motifs'])
+    #     st.markdown(f"""
+    #         <div style="font-family:monospace; font-size:16px; width:100%; max-height:120px; overflow-x:auto; white-space:nowrap; padding:10px; border:1px solid black; border-radius:8px;">
+    #             {highlighted_ref}
+    #         </div>
+    #     """, unsafe_allow_html=True)
+        
+    #     st.write("Alt Allele 1")
+    #     highlighted_alt1 = highlight_differences(record['ref_allele'], record['alt_allele1'])
+    #     highlighted_alt1 = highlight_motifs(highlighted_alt1, record['motif_ids_h1'], record['spans'][0], motif_colors, record['motifs'])
+    #     st.markdown(f"""
+    #         <div style="font-family:monospace; font-size:16px; width:100%; max-height:120px; overflow-x:auto; white-space:nowrap; padding:10px; border:1px solid black; border-radius:8px;">
+    #             {highlighted_alt1}
+    #         </div>
+    #     """, unsafe_allow_html=True)
+        
+    #     st.write("Alt Allele 2")
+    #     highlighted_alt2 = highlight_differences(record['ref_allele'], record['alt_allele2'])
+    #     highlighted_alt2 = highlight_motifs(highlighted_alt2, record['motif_ids_h2'], record['spans'][1], motif_colors, record['motifs'])
+    #     st.markdown(f"""
+    #         <div style="font-family:monospace; font-size:16px; width:100%; max-height:120px; overflow-x:auto; white-space:nowrap; padding:10px; border:1px solid black; border-radius:8px;">
+    #             {highlighted_alt2}
+    #         </div>
+    #     """, unsafe_allow_html=True)
