@@ -11,41 +11,54 @@ from matplotlib.colors import ListedColormap
 import plotly.express as px
 import plotly.graph_objects as go
 import altair as alt
+from collections import OrderedDict
 
-
-# Function to parse the VCF record
+@st.cache_data()
 def parse_vcf(vcf_file):
     vcf = pysam.VariantFile(vcf_file)
     
-    records = {}
-    
-
+    records_ids = {}
+    records_map = {}
+    idx = 0
     for  rec in vcf.fetch():
-        ids_h1 = rec.info['MOTIF_IDs_H1']
-        ids_h2 = rec.info['MOTIF_IDs_H2']
-        alt_allele1 = "."
-        alt_allele2 = "."
-        ref_allele = rec.alts[0] if rec.alts != None else ""
-        if rec.alts != None:
-            if len(rec.alts) > 0:
-                alt_allele1 = rec.alts[0]
-                if alt_allele1 == '.':
-                    alt_allele1 = ''
-            if len(rec.alts) > 1:
-                alt_allele2 = rec.alts[1]
-            else:
-                if ids_h1 == ids_h2:
-                    alt_allele2 = alt_allele1
-                alt_allele2 = ''
-        if ids_h2 is None:
-            ids_h2 = []
-        motif_names = rec.info['MOTIFS']
-        if isinstance(motif_names, tuple):
-            motif_names = list(motif_names)
-        elif not isinstance(motif_names, list):
-            motif_names = [motif_names]
-        
-        record = {
+        records_ids[rec.id] = f"{rec.chrom}:{rec.pos}-{rec.stop}"
+        records_map[idx] = rec.id
+        idx += 1
+    return records_ids, records_map
+
+def parse_record(vcf_file,region):
+    
+    vcf = pysam.VariantFile(vcf_file)
+    rec = vcf.fetch(region=region)
+    # get the record with the id
+    for rec in vcf.fetch(region=region):
+        break
+    ids_h1 = rec.info['MOTIF_IDs_H1']
+    ids_h2 = rec.info['MOTIF_IDs_H2']
+    alt_allele1 = "."
+    alt_allele2 = "."
+    ref_allele = rec.alts[0] if rec.alts != None else ""
+    if rec.alts != None:
+        if len(rec.alts) > 0:
+            alt_allele1 = rec.alts[0]
+            if alt_allele1 == '.':
+                alt_allele1 = ''
+        if len(rec.alts) > 1:
+            alt_allele2 = rec.alts[1]
+        else:
+            if ids_h1 == ids_h2:
+                alt_allele2 = alt_allele1
+            alt_allele2 = ''
+    if ids_h2 is None:
+        ids_h2 = []
+    motif_names = rec.info['MOTIFS']
+    if isinstance(motif_names, tuple):
+        motif_names = list(motif_names)
+    elif not isinstance(motif_names, list):
+        motif_names = [motif_names]
+
+   
+    record = {
             'chr': rec.chrom,
             'pos': rec.pos,
             'motifs': motif_names,
@@ -56,11 +69,7 @@ def parse_vcf(vcf_file):
             'alt_allele1': alt_allele1,
             'alt_allele2': alt_allele2
         }
-        records[rec.id] = record
-    
-       
-
-    return records
+    return record
 
 def parse_motif_range(motif_range):
     pattern = re.compile(r'\((\d+)-(\d+)\)')
@@ -129,13 +138,17 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors):
     motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][1])
     found_motifs_h2 = list(motif_count_h2.keys())
     found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
+    motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
+    motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
     # iterate over the motifs and set them to 0 if they are not in the motif_count
+
     for motif in motif_names:
+        motif_index = motif_names.index(motif)
         if motif not in found_motifs_h1:
-            motif_count_h1[motif_names.index(motif)] = 0
+            motif_count_h1[motif_index] = 0
         if motif not in found_motifs_h2:
-            motif_count_h2[motif_names.index(motif)] = 0
-    
+            motif_count_h2[motif_index] = 0
+
     with right_column:
         display_motif_legend(motif_names, motif_colors, right_column)
 
@@ -226,7 +239,6 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None):
     motif_labels = []
     motif_counts = []
     for label, value in sorted(motif_count.items()):
-        st.write(label)
         motif_labels.append(motif_names[int(label)])  # Ensure correct mapping of label to name
         motif_counts.append(value)
     
@@ -260,8 +272,15 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None):
 def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors):
     motif_names = record['motifs']
 
+
     motif_count_h1 = count_motifs(record['motif_ids_h1'], record['spans'][0])
+    found_motifs_h1 = list(motif_count_h1.keys())
+    found_motifs_h1 = [motif_names[int(m)] for m in found_motifs_h1]
     motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][1])
+    found_motifs_h2 = list(motif_count_h2.keys())
+    found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
+    motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
+    motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
    
     with right_column:
         display_motif_legend(motif_names, motif_colors, right_column)
@@ -281,6 +300,7 @@ def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_co
         # Create an empty container for the plot to refresh
         plot_container_h1 = st.empty()
         with plot_container_h1:
+            
             plot_motif_bar(motif_count_h1, motif_names, motif_colors)
 
         if record['alt_allele2'] != '':
@@ -337,7 +357,8 @@ def display_motif_legend(motifs, motif_colors, right_column):
         # Assign each legend item a unique class for hover effect
         st.markdown(
             f'<div id="legend-motif-{idx}" class="legend-item motif-{idx}" style="background-color:{color};color:white;padding:5px;margin-bottom:10px;border-radius:5px;'
-            f' text-align:center;font-weight:bold;font-size:12px;border:2px solid #000;box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);">'
+            f' text-align:center;font-weight:bold;font-size:12px;border:2px solid #000;box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);'
+            f' white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{motif}">'
             f' Motif {idx}: {motif}</div>', unsafe_allow_html=True)
     # show the inturruptions as well as the gray catagory
     st.markdown(
@@ -348,34 +369,191 @@ def display_motif_legend(motifs, motif_colors, right_column):
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def fetch_vcf_region(vcf_file_path, region):
+    vcf = pysam.VariantFile(vcf_file_path)
+    records = []
+    for rec in vcf.fetch(region=region):  # Fetch based on user input region
+        ids_h1 = rec.info['MOTIF_IDs_H1']
+        ids_h2 = rec.info['MOTIF_IDs_H2']
+        alt_allele1 = "."
+        alt_allele2 = "."
+        ref_allele = rec.alts[0] if rec.alts != None else ""
+        if rec.alts != None:
+            if len(rec.alts) > 0:
+                alt_allele1 = rec.alts[0]
+                if alt_allele1 == '.':
+                    alt_allele1 = ''
+            if len(rec.alts) > 1:
+                alt_allele2 = rec.alts[1]
+            else:
+                if ids_h1 == ids_h2:
+                    alt_allele2 = alt_allele1
+                alt_allele2 = ''
+        if ids_h2 is None:
+            ids_h2 = []
+        motif_names = rec.info['MOTIFS']
+        if isinstance(motif_names, tuple):
+            motif_names = list(motif_names)
+        elif not isinstance(motif_names, list):
+            motif_names = [motif_names]
+
+        record = {
+            'chr': rec.chrom,
+            'pos': rec.pos,
+            'motifs': motif_names,
+            'motif_ids_h1': ids_h1,
+            'motif_ids_h2': ids_h2,
+            'spans': rec.samples[0]['SP'],
+            'ref_allele': ref_allele,
+            'alt_allele1': alt_allele1,
+            'alt_allele2': alt_allele2
+        }
+        records[rec.id] = record
+    return records
+
+def lazy_load_vcf(vcf_file_path, start_index, chunk_size):
+    vcf = pysam.VariantFile(vcf_file_path)
+    records = []
+    for i, rec in enumerate(vcf.fetch()):
+        if start_index <= i < start_index + chunk_size:
+            records.append(rec)
+        if i >= start_index + chunk_size:
+            break
+    return records
+
 # Streamlit UI
 
-st.sidebar.title("Tandem Repeat Visualization")
+st.sidebar.markdown("""
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #333;
+            --background-color: #f9f9f9;
+            --text-color: #555;
+            --border-color: #4CAF50;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #90EE90;
+                --secondary-color: #ddd;
+                --background-color: #333;
+                --text-color: #ccc;
+                --border-color: #90EE90;
+            }
+        }
+
+        .sidebar-container {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        .sidebar-container h1 {
+            color: var(--primary-color);
+        }
+
+        .sidebar-container hr {
+            border: 1px solid var(--border-color);
+        }
+
+        .sidebar-container p {
+            color: var(--text-color);
+            font-size: 16px;
+        }
+
+        .upload-container {
+            background-color: var(--background-color);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .upload-container h3 {
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        .upload-container p {
+            color: var(--secondary-color);
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .instructions-container {
+            background-color: var(--background-color);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .instructions-container h3 {
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        .instructions-container ul {
+            color: var(--secondary-color);
+            font-size: 14px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Sidebar content
+st.sidebar.markdown("""
+    <div class='sidebar-container'>
+        <h1>Tandem Repeat Visualization</h1>
+        <hr>
+        <p>Visualize and analyze tandem repeats in your genomic data.</p>
+    </div>
+""", unsafe_allow_html=True)
+
+# Container for file upload
+st.sidebar.markdown("""
+    <div class='upload-container'>
+        <h3>Upload VCF File</h3>
+        <p>Please enter the path of your VCF file to get started.</p>
+    </div>
+""", unsafe_allow_html=True)
+        
+# enter the path to the vcf file
+path_changed = False
+old_vcf_file_path = st.session_state.get('vcf_file_path', None)
+# make a file uploader
+st.sidebar.text_input("Enter the path to the VCF file", value=None, key="vcf_file_path")
+vcf_file_path = st.session_state.get('vcf_file_path', None)
+
+if vcf_file_path != old_vcf_file_path:
+    path_changed = True
+    st.session_state.vcf_file_path = vcf_file_path
+    st.session_state.pop('records', None)
+    st.session_state.pop('records_map', None)
+# check if records are in st.session_state and if path has changed
+
+if 'records' not in st.session_state or path_changed:
+    if st.sidebar.button("upload_file"):
+        st.write("uploading file")
+        #vcf_file_path = "/confidential/tGenVar/Lion/TandemTwist/MC/HG002_tandemtwister.vcf.gz"
+        #vcf_file = st.sidebar.file_uploader("Upload VCF file", type=["vcf", "gz"])
+        if 'records' not in st.session_state:
+            st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
+      
 
 
-vcf_file = st.sidebar.file_uploader("Upload VCF file", type=["vcf", "gz"])
+            
+        
+        # definde a container for the subheader
+    # Example usage in Streamlit UI
+    
 
-if 'records' not in st.session_state and vcf_file:
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-        tmp_file.write(vcf_file.read())
-        tmp_file_path = tmp_file.name
-    st.session_state.records = parse_vcf(tmp_file_path)
-
-records = st.session_state.get('records', {})
-# definde a container for the subheader
-
-# Example usage in Streamlit UI
 subheader = st.empty()
 
+# if 'records_keys' not in st.session_state or st.session_state.get('records_keys', {}) == []:
+#     st.session_state.records_keys = list(st.session_state.get('records', {}).keys())
 
-
-
-if records:
-    # clear all the previous visualizations by clearing the page
-
-    st.sidebar.markdown(f"Total number of Records: {len(records)}")
-    records_keys = list(records.keys())
-
+# records_keys = st.session_state.get('records_keys', [])
+# if len(records_keys) > 0:
+if 'records_map' in st.session_state:
     if 'regions_idx' not in st.session_state:
         st.session_state.regions_idx = 0
 
@@ -384,9 +562,9 @@ if records:
     region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None)
     #_level = st.sidebar.slider('Zoom Level', min_value=1, max_value=100, value=100)
     display_option = st.sidebar.radio("Select Display Type", 
-                                  ("Sequence with Highlighted Motifs", "Bars"))
+                                ("Sequence with Highlighted Motifs", "Bars"))
 
-    col1, col2 = st.sidebar.columns([1, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
+    col1, _, col2 = st.columns([1,2, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
 
     # Place the "Previous region" and "Next region" buttons in these columns
     with col1:
@@ -397,7 +575,7 @@ if records:
     with col2:
         if st.button("Next region"):
             region = None
-            st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(records_keys) - 1)
+            st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
         
     if region:
         try:
@@ -406,12 +584,12 @@ if records:
             record_key = f"{chr_input}:{start_input}-{end_input}"
         except:
             st.sidebar.info("Invalid region format, showing the first record")
-            record_key = records_keys[st.session_state.regions_idx]
+            record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
     else:
-        record_key = records_keys[st.session_state.regions_idx]
+        record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
 
 
-    record = records[record_key]
+    record = parse_record(vcf_file_path, record_key)
     subheader = st.subheader(f"TR-region: {record_key}")
     left_column, right_column = st.columns([4, 1])
     # define the motif colors
@@ -423,4 +601,3 @@ if records:
         visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors)
     else:
         display_motifs_with_bars(record, left_column, right_column,motif_colors)
-    #
