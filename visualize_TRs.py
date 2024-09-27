@@ -148,6 +148,11 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors):
         display_motif_legend(motif_names, motif_colors, right_column)
 
     with left_column:
+        st.markdown(f""" 
+            <div style="font-size: 20px; color: #FF5733;">
+                <strong>Allele 1 Total copy number:</strong> {str(record['spans'][0]).count('-')}
+            </div>
+        """, unsafe_allow_html=True)
 
         display_motifs_as_bars(motif_colors, record['motif_ids_h1'], record['spans'][0], record['alt_allele1'], motif_names)
         plot_container_h1 = st.empty()
@@ -155,6 +160,12 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors):
             plot_motif_bar(motif_count_h1, motif_names, motif_colors)
         
         if record['alt_allele2'] != '':
+            st.markdown(f"""
+                <div style="font-size: 20px; color: #FF5733;">
+                    <strong>Allele 2 Total copy number:</strong> {str(record['spans'][1]).count('-')}
+                </div>
+            """, unsafe_allow_html=True)
+
             display_motifs_as_bars(motif_colors, record['motif_ids_h2'], record['spans'][1], record['alt_allele2'], motif_names)
             plot_container_h2 = st.empty()
             with plot_container_h2:
@@ -552,7 +563,8 @@ old_vcf_file_path = st.session_state.get('vcf_file_path', None)
 # make a file uploader
 st.sidebar.text_input("", value=None, key="vcf_file_path")
 vcf_file_path = st.session_state.get('vcf_file_path', None)
-
+if vcf_file_path is None:
+    st.stop()
 if vcf_file_path != old_vcf_file_path:
     path_changed = True
     st.session_state.vcf_file_path = vcf_file_path
@@ -564,19 +576,17 @@ if 'records' not in st.session_state or path_changed:
     # posistion the button in the center
     _, _,middle, _ = st.sidebar.columns([1,0.3, 2, 1])
     if middle.button("Upload VCF File"):
-        st.write("uploading file")
-        #vcf_file_path = "/confidential/tGenVar/Lion/TandemTwist/MC/HG002_tandemtwister.vcf.gz"
-        #vcf_file = st.sidebar.file_uploader("Upload VCF file", type=["vcf", "gz"])
-        if 'records' not in st.session_state:
-            st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
-      
+        try:
+            st.write("uploading file")
+            if 'records' not in st.session_state:
+                st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
+        except:
+            st.error("Invalid file format, please upload a valid VCF file.")
+            st.stop()
 
-
-            
-        
-        # definde a container for the subheader
+    # definde a container for the subheader
     # Example usage in Streamlit UI
-    
+
 
 subheader = st.empty()
 
@@ -625,7 +635,6 @@ if 'records_map' in st.session_state:
             st.sidebar.info("Invalid region format, showing the first record")
             record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
     else:
-        st.write(st.session_state.records_map[st.session_state.regions_idx])
         record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
 
 
