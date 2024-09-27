@@ -144,12 +144,12 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors):
     motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
     # iterate over the motifs and set them to 0 if they are not in the motif_count
 
-    for motif in motif_names:
-        motif_index = motif_names.index(motif)
-        if motif not in found_motifs_h1:
-            motif_count_h1[motif_index] = 0
-        if motif not in found_motifs_h2:
-            motif_count_h2[motif_index] = 0
+    # for motif in motif_names:
+    #     motif_index = motif_names.index(motif)
+    #     if motif not in found_motifs_h1:
+    #         motif_count_h1[motif_index] = 0
+    #     if motif not in found_motifs_h2:
+    #         motif_count_h2[motif_index] = 0
 
     with right_column:
         display_motif_legend(motif_names, motif_colors, right_column)
