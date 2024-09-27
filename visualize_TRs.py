@@ -144,13 +144,6 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors):
     motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
     # iterate over the motifs and set them to 0 if they are not in the motif_count
 
-    # for motif in motif_names:
-    #     motif_index = motif_names.index(motif)
-    #     if motif not in found_motifs_h1:
-    #         motif_count_h1[motif_index] = 0
-    #     if motif not in found_motifs_h2:
-    #         motif_count_h2[motif_index] = 0
-
     with right_column:
         display_motif_legend(motif_names, motif_colors, right_column)
 
@@ -433,6 +426,7 @@ st.sidebar.markdown("""
             --background-color: #f9f9f9;
             --text-color: #555;
             --border-color: #4CAF50;
+            --hover-color: #388E3C;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -442,62 +436,88 @@ st.sidebar.markdown("""
                 --background-color: #333;
                 --text-color: #ccc;
                 --border-color: #90EE90;
+                --hover-color: #76C76A;
             }
         }
 
         .sidebar-container {
             text-align: center;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
         }
 
         .sidebar-container h1 {
             color: var(--primary-color);
+            font-size: 28px;
+            margin-bottom: 10px;
+            animation: fadeIn 1.5s ease-in-out;
         }
 
         .sidebar-container hr {
             border: 1px solid var(--border-color);
+            margin: 20px 0;
+            animation: grow 1s ease-in-out;
         }
 
         .sidebar-container p {
             color: var(--text-color);
             font-size: 16px;
+            margin-bottom: 20px;
+            animation: fadeIn 2s ease-in-out;
         }
 
-        .upload-container {
+        .upload-container, .instructions-container {
             background-color: var(--background-color);
-            padding: 15px;
-            border-radius: 8px;
+            padding: 5px;
+            border-radius: 30px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
+            transition: transform 0.3s ease;
         }
 
-        .upload-container h3 {
+        .upload-container:hover, .instructions-container:hover {
+            transform: translateY(-5px);
+        }
+
+        .upload-container h3, .instructions-container h3 {
             color: var(--primary-color);
             text-align: center;
+            margin-bottom: 10px;
         }
 
-        .upload-container p {
+        .upload-container p, .instructions-container ul {
             color: var(--secondary-color);
             font-size: 14px;
             text-align: center;
         }
 
-        .instructions-container {
-            background-color: var(--background-color);
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .instructions-container h3 {
-            color: var(--primary-color);
+        .button-container {
             text-align: center;
         }
 
-        .instructions-container ul {
-            color: var(--secondary-color);
-            font-size: 14px;
+        .button-container button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
         }
+
+        .button-container button:hover {
+            background-color: var(--hover-color);
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes grow {
+            0% { width: 0; }
+            100% { width: 100%; }
+        }
+    
     </style>
 """, unsafe_allow_html=True)
 
@@ -510,19 +530,27 @@ st.sidebar.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Container for file upload
+# Container for file upload make it smaller
 st.sidebar.markdown("""
     <div class='upload-container'>
         <h3>Upload VCF File</h3>
         <p>Please enter the path of your VCF file to get started.</p>
+        
     </div>
 """, unsafe_allow_html=True)
-        
+
+# Example button for user action
+# st.sidebar.markdown("""
+#     <div class="button-container">
+#         <button>Get Started</button>
+#     </div>
+# """, unsafe_allow_html=True)
+
 # enter the path to the vcf file
 path_changed = False
 old_vcf_file_path = st.session_state.get('vcf_file_path', None)
 # make a file uploader
-st.sidebar.text_input("Enter the path to the VCF file", value=None, key="vcf_file_path")
+st.sidebar.text_input("", value=None, key="vcf_file_path")
 vcf_file_path = st.session_state.get('vcf_file_path', None)
 
 if vcf_file_path != old_vcf_file_path:
@@ -533,7 +561,9 @@ if vcf_file_path != old_vcf_file_path:
 # check if records are in st.session_state and if path has changed
 
 if 'records' not in st.session_state or path_changed:
-    if st.sidebar.button("upload_file"):
+    # posistion the button in the center
+    _, _,middle, _ = st.sidebar.columns([1,0.3, 2, 1])
+    if middle.button("Upload VCF File"):
         st.write("uploading file")
         #vcf_file_path = "/confidential/tGenVar/Lion/TandemTwist/MC/HG002_tandemtwister.vcf.gz"
         #vcf_file = st.sidebar.file_uploader("Upload VCF file", type=["vcf", "gz"])
