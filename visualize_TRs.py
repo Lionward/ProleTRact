@@ -66,6 +66,7 @@ def parse_record(vcf_file,region):
     record = {
             'chr': rec.chrom,
             'pos': rec.pos,
+            'stop': rec.stop,
             'motifs': motif_names,
             'motif_ids_h1': ids_h1,
             'motif_ids_h2': ids_h2,
@@ -174,7 +175,6 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
             plot_motif_bar(motif_count_h1, motif_names, motif_colors)
         
         if record['alt_allele2'] != '':
-    
             display_motifs_as_bars(motif_colors, record['motif_ids_h2'], record['spans'][1], record['alt_allele2'], motif_names)
             plot_container_h2 = st.empty()
             with plot_container_h2:
@@ -188,7 +188,6 @@ def display_motifs_as_bars(motif_colors, motif_ids, spans, sequence, motif_names
     # Ensure motif_names is a list
     if not isinstance(motif_names, list):
         motif_names = [motif_names]
-
     # Initialize bar container for visualizing motifs
     bar_container = "<div style='width:100%; position: relative; height: 30px; border:2px solid black; border-radius: 8px;'>"
     previous_end = 0
@@ -635,8 +634,8 @@ if 'records_map' in st.session_state:
         try:
             chr_input, start_end_input = region.split(':')
             start_input, end_input = map(int, start_end_input.split('-'))
-            start_input-=1
-            end_input-=1
+            # start_input
+            # end_input-=
 
             input_region = f"{chr_input}:{start_input}-{end_input}"
             record_key = st.session_state.records[input_region]
@@ -657,7 +656,7 @@ if 'records_map' in st.session_state:
         <div style="font-size: 18px; color: #90EE90; margin-bottom: 5px; text-align: center; 
                     padding: 5px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
                     background-color: #333; display: inline-block;">
-            <strong>Tandem Repeat Region: {record['chr']}:{record['pos']}-{record['pos']}</strong>
+            <strong>Tandem Repeat Region: {record['chr']}:{record['pos']-1}-{record['stop']-1}</strong>
         </div>
     """, unsafe_allow_html=True)
     # show the reference copy number
