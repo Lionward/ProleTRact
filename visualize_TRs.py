@@ -141,7 +141,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
         </div>
     """, unsafe_allow_html=True)
 # Function to display motifs relative to the sequence, with spans aligned horizontally
-def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison=False):
+def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
     motif_names = record['motifs']
     motif_count_ref = count_motifs(record['motif_ids_ref'], record['spans'][0])
     found_motifs_ref = list(motif_count_ref.keys())
@@ -173,21 +173,27 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
 
 
     with left_column:
-        if show_comparison == True:
-            display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
-        display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
-        plot_container_h1 = st.empty()
-        with plot_container_h1:
-            if show_comparison == False:
-                plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+        tab1, tab2 = st.tabs(["Alleles", "Alleles vs Ref"])
         
-        if record['alt_allele2'] != '':
-            display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
-            plot_container_h2 = st.empty()
-
-            with plot_container_h2:
+        with tab2:
+            display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
+            display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+            if record['alt_allele2'] != '':
+                display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
+        with tab1:
+            display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+            plot_container_h1 = st.empty()
+            with plot_container_h1:
                 if show_comparison == False:
-                    plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                    plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+            
+            if record['alt_allele2'] != '':
+                display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
+                plot_container_h2 = st.empty()
+
+                with plot_container_h2:
+                    if show_comparison == False:
+                        plot_motif_bar(motif_count_h2, motif_names, motif_colors)
 
 
 def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequence, motif_names):
@@ -300,7 +306,7 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None):
 
 
 # Function to visualize tandem repeat with highlighted motifs on the sequence
-def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison=False):
+def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
     motif_names = record['motifs']
     reference_copy_number = record['ref_CN']
     motif_count_ref = count_motifs(record['motif_ids_ref'], record['spans'][0])
@@ -331,29 +337,36 @@ def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_co
     with right_column:
         display_motif_legend(motif_names, motif_colors, right_column)
     with left_column:
+        tab1, tab2 = st.tabs(["Alleles", "Alleles vs Ref"])
         # create a spot for the plots to refresh
-        if show_comparison == True:
+        with tab2:
             display_dynamic_sequence_with_highlighted_motifs("Ref", record['ref_allele'], record['motif_ids_ref'], record['spans'][0], motif_colors, motif_names)
+            alt_allele1 = record['alt_allele1']
+            display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+            if record['alt_allele2'] != '':
+                alt_allele2 = record['alt_allele2'] #if record['alt_allele2'] != "." else record['ref_allele']
+                display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+        with tab1:
         # Render the scrollable sequence with highlighted motifs for allele 1
-        alt_allele1 = record['alt_allele1']
-        display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+            alt_allele1 = record['alt_allele1']
+            display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
 
-        # Create an empty container for the plot to refresh
-        plot_container_h1 = st.empty()
-        with plot_container_h1:
-            if show_comparison == False:
-                plot_motif_bar(motif_count_h1, motif_names, motif_colors)
-
-        if record['alt_allele2'] != '':
-
-            alt_allele2 = record['alt_allele2'] #if record['alt_allele2'] != "." else record['ref_allele']
-            display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
-            
-            # Create another empty container for the plot to refresh
-            plot_container_h2 = st.empty()
-            with plot_container_h2:
+            # Create an empty container for the plot to refresh
+            plot_container_h1 = st.empty()
+            with plot_container_h1:
                 if show_comparison == False:
-                    plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                    plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+
+            if record['alt_allele2'] != '':
+
+                alt_allele2 = record['alt_allele2'] #if record['alt_allele2'] != "." else record['ref_allele']
+                display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+                
+                # Create another empty container for the plot to refresh
+                plot_container_h2 = st.empty()
+                with plot_container_h2:
+                    if show_comparison == False:
+                        plot_motif_bar(motif_count_h2, motif_names, motif_colors)
 
 
 
@@ -690,22 +703,21 @@ if 'records_map' in st.session_state:
             <strong>Reference Copy Number:</strong> {record['ref_CN']}
         </div>
     """, unsafe_allow_html=True)
+
     left_column, right_column = st.columns([4, 1])
     # define the motif colors
-
     motif_colors = get_color_palette(len(record['motifs']))
     motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
+  
     col1,col2 = st.sidebar.columns([1,1])
 
-    if col1.button ("Compare Alleles to Reference"):
-        st.session_state.show_comparison = True
-    if col2.button ("Hide Comparison"):
-        st.session_state.show_comparison = False
+
+
     if display_option == "Sequence with Highlighted Motifs":
-        visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison=st.session_state.get('show_comparison', False))
+        visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
 
     elif display_option == "Bars":
-        display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison=st.session_state.get('show_comparison', False))
+        display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
   
     # # add a visulization which shows the ref and alt alleles in a new page
 
