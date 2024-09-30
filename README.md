@@ -37,10 +37,8 @@
 <ul>
   <li>Streamlit</li>
   <li>pysam</li>
-  <li>plotly</li>
   <li>matplotlib</li>
   <li>pandas</li>
-  <li>seaborn</li>
   <li>altair</li>
 </ul>
 
