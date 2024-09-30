@@ -1,17 +1,10 @@
 import streamlit as st
 import pysam
 import re
-import tempfile
-import random
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
-import numpy as np
-from matplotlib.colors import ListedColormap
-import plotly.express as px
-import plotly.graph_objects as go
 import altair as alt
-from collections import OrderedDict
+
 
 @st.cache_data()
 def parse_vcf(vcf_file):
@@ -157,7 +150,7 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
     # iterate over the motifs and set them to 0 if they are not in the motif_count
     CN1_col.markdown(f""" 
         <div style="font-size: 20px; color: #FF5733;">
-            <strong>Allele 1 Total copy number:</strong> {str(record['spans'][0]).count('-')}
+            <strong>Allele 1 Total copy number:</strong> {str(record['spans'][1]).count('-')}
         </div>
     """, unsafe_allow_html=True)
 
@@ -167,7 +160,7 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
     if record['alt_allele2'] != '':
         CN2_col.markdown(f"""
             <div style="font-size: 20px; color: #FF5733;">
-                <strong>Allele 2 Total copy number:</strong> {str(record['spans'][1]).count('-')}
+                <strong>Allele 2 Total copy number:</strong> {str(record['spans'][2]).count('-')}
             </div>
         """, unsafe_allow_html=True)
 
