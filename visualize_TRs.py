@@ -4,12 +4,42 @@ import re
 import matplotlib.pyplot as plt
 import pandas as pd
 import altair as alt
+st.set_page_config(layout="wide")
+import os
+import multiprocessing
+import plotly.graph_objects as go
+# make the base layout deault as dark
+import os
+import multiprocessing
+import pysam
 
+def process_vcf(file):
+    records_ids = {}
+    records_map = {}
+    sample_name = file.split(".")[0]
+    vcf = pysam.VariantFile(st.session_state.hgsvc_path  + file)
+    idx = 0
+    for rec in vcf.fetch():
+        records_ids[rec.id] = f"{rec.chrom}:{rec.pos}-{rec.stop}"
+        records_map[idx] = rec.id
+        idx += 1
+    return sample_name, records_ids, records_map
 
 @st.cache_data()
+def parse_hgsvc_pop():
+    st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
+    files = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('.vcf.gz')]
+    # add the path to the files
+    num_cores = min(10, multiprocessing.cpu_count())
+    with multiprocessing.Pool(num_cores) as pool:
+        results = pool.starmap(process_vcf, [(file,) for file in files])
+
+    samples = {sample_name: (records_ids, records_map) for sample_name, records_ids, records_map in results}
+    return files, samples
+
+
 def parse_vcf(vcf_file):
     vcf = pysam.VariantFile(vcf_file)
-    
     records_ids = {}
     records_map = {}
     idx = 0
@@ -18,6 +48,86 @@ def parse_vcf(vcf_file):
         records_map[idx] = rec.id
         idx += 1
     return records_ids, records_map
+
+@st.cache_data()
+def parse_record_assembly(vcf_file,region):
+
+        vcf = pysam.VariantFile(st.session_state.get('hgsvc_path', '') + vcf_file)
+        rec = vcf.fetch(region=region)
+        # get the record with the id
+        # print how many records are in the vcf file
+
+        for rec in vcf.fetch(region=region):
+        
+            break
+        try:
+        
+            ids_h = rec.info['MOTIF_IDs_H']
+            ref_CN = rec.info['CN_ref']
+            alt_allele = "."
+
+            ref_allele = rec.ref
+            if rec.alts != None:
+                if len(rec.alts) > 0:
+                    alt_allele = rec.alts[0]
+                    if alt_allele == '.':
+                        alt_allele = ''
+                else:
+                    alt_allele = '' 
+            if ids_h is None:
+                ids_h = []
+        
+            CN_H = rec.info['CN_hap']
+    
+            motif_names = rec.info['MOTIFS']
+            if isinstance(motif_names, tuple):
+                motif_names = list(motif_names)
+            elif not isinstance(motif_names, list):
+                motif_names = [motif_names]
+        
+        
+            record = {
+                    'chr': rec.chrom,
+                    'pos': rec.pos,
+                    'stop': rec.stop,
+                    'motifs': motif_names,
+                    'motif_ids_h': ids_h,
+                    'motif_ids_ref': rec.info['MOTIF_IDs_REF'],
+                    'ref_CN': ref_CN,
+                    'CN_H': CN_H,
+                    'spans': rec.samples[0]['SP'],
+                    'ref_allele': ref_allele,
+                    'alt_allele': alt_allele,
+                }
+        except:
+            record = {
+                    'chr': "",
+                    'pos': -1,
+                    'stop': -1,
+                    'motifs': [],
+                    'motif_ids_h': [],
+                    'motif_ids_ref': [],
+                    'ref_CN': 0,
+                    'CN_H': 0,
+                    'spans': [],
+                    'ref_allele': '',
+                    'alt_allele': '',
+                }
+        return record
+
+
+def get_results_hgsvc_pop(region):
+    samples_results = {}
+    samples_keys = list(st.session_state.get('hgsvc_pop_records', {}).keys())
+    file_paths = st.session_state.get('vcf_files_with_path', {})
+    
+    for i in range(len(samples_keys)):
+        sample_name = samples_keys[i]
+       
+        record = parse_record_assembly(file_paths[i],region)
+        samples_results[sample_name] = record
+    return samples_results
+
 
 def parse_record(vcf_file,region):
     
@@ -155,6 +265,7 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
     """, unsafe_allow_html=True)
 
     with right_column:
+        
         display_motif_legend(motif_names, motif_colors, right_column)
 
     if record['alt_allele2'] != '':
@@ -166,8 +277,12 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
 
 
     with left_column:
-        tab1, tab2 = st.tabs(["Alleles", "Alleles vs Ref"])
-        
+        tab1, tab2 , tab3 = st.tabs(["Alleles", "Alleles vs Ref", "Alleles vs Pop"])
+        # make the tabs font size bigger
+        st.markdown(
+            "<style>.tab-content {font-size: 20px;}</style>",
+            unsafe_allow_html=True,
+        )
         with tab2:
             display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
             display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
@@ -188,6 +303,70 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
                     if show_comparison == False:
                         plot_motif_bar(motif_count_h2, motif_names, motif_colors)
 
+        with tab3:
+            # get the records for the population
+            sequences = []
+            span_list = []
+            motif_ids_list = []
+            # add the alleles 
+            sequences.append({'name': "Ref", 'sequence': record['ref_allele']})
+            span_list.append(record['spans'][0])
+            motif_ids_list.append(record['motif_ids_ref'])
+            sequences.append({'name': "Allel1", 'sequence':  record['alt_allele1']})
+            span_list.append(record['spans'][1])
+            motif_ids_list.append(record['motif_ids_h1'])
+            if record['alt_allele2'] != '':
+                sequences.append({'name': "Allel2", 'sequence': record['alt_allele2']})
+                span_list.append(record['spans'][2])
+                motif_ids_list.append(record['motif_ids_h2'])
+
+            motif_colors = get_color_palette(len(record['motifs']))
+            motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
+            
+            for key in hgsvc_records.keys():
+                if hgsvc_records[key]['alt_allele'] == '':
+                    continue
+                sequences.append({'name': key, 'sequence': hgsvc_records[key]['alt_allele']})
+                span_list.append(hgsvc_records[key]['spans'][1])
+                motif_ids_list.append(hgsvc_records[key]['motif_ids_h'])
+
+           
+            df = create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
+        
+            # Create a stacked bar chart with Altair
+  
+            # add interrutuption to the colors
+           
+            # plot the stacked bar chart
+            # Create the Altair chart
+            df['Length'] = df['End'] - df['Start'] 
+            
+            # sort the data frame by start and end per sequence
+
+            df['Order'] = df.index  # Use the index to maintain the original order from the DataFrame
+            # Create the Altair chart with explicit order encoding
+            chart_height = max(400, len(sequences) * 20)
+            chart = alt.Chart(df).mark_bar().encode(
+                y=alt.Y(
+                    'sample', 
+                    sort=None, 
+                    axis=alt.Axis(labelOverlap=False, ticks=False)  # Ensure all labels are shown, and avoid overlapping
+                ),
+                x=alt.X('Length', title='Length', stack='zero'),  # Stack motifs without sorting them
+                color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
+                order=alt.Order('Order', sort='ascending'),  # Explicitly order the bars by the 'Order' column
+                tooltip=['sample', 'Motif', 'Start', 'End', 'Sequence']
+            ).properties(
+                width=800,
+                height=chart_height,  # Use the dynamically calculated chart height
+                title="Motif Occurrences"
+            ).configure_axis(
+                labelFontSize=10,  # Adjust label font size if necessary to fit more labels
+                titleFontSize=12
+            )
+
+            # Display the chart in Streamlit
+            st.altair_chart(chart, use_container_width=True)
 
 def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequence, motif_names):
     sequence_length = len(sequence)
@@ -269,19 +448,20 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None):
     motif_labels = []
     motif_counts = []
     for label, value in sorted(motif_count.items()):
-        motif_labels.append(motif_names[int(label)])  # Ensure correct mapping of label to name
-        motif_counts.append(value)
-    
+        motif_name = motif_names[int(label)]
+        if motif_name:
+            motif_labels.append(motif_name)
+            motif_counts.append(value)
+        
     # Create DataFrame with motif labels and counts
     data = {
         'Motif': motif_labels,
         'Count': motif_counts
     }
     df = pd.DataFrame(data)
-
+    
     # Ensure colors match the order of the motifs in the bar chart
-    color_list = [motif_colors[int(label)] for label in sorted(motif_count.keys())]
-
+    color_list = [motif_colors[int(label)] for label in sorted(motif_count.keys()) if motif_colors is not None and int(label) < len(motif_colors)]    
     # Plot using Altair, ensuring the colors match the motifs
     bar_chart = alt.Chart(df).mark_bar().encode(
         x=alt.X('Motif', sort=None),
@@ -298,8 +478,69 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None):
     st.altair_chart(bar_chart, use_container_width=True)
 
 
+
+def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif_names):
+    data = []
+  
+    for idx, sequence in enumerate(sequences):
+        sequence_name = sequence['name']
+        motif_ids_seq = motif_ids[idx]
+        spans = spans_list[idx]
+        ranges = parse_motif_range(spans)
+        sequence_length = len(sequence['sequence'])
+        previous_end = 0
+ 
+        for i, (start, end) in enumerate(ranges):
+            motif = motif_ids_seq[i]
+            color = motif_colors[int(motif)]
+
+            # Handle interruption between motifs
+            if start > previous_end:
+                data.append({
+                    'sample': sequence_name,
+                    'Start': previous_end,
+                    'End': start,
+                    'Motif': 'Interruption',
+                    'Color': '#FF0000',
+                    'Sequence': sequence['sequence'][previous_end:start],
+                })
+
+            # Add motif data
+            data.append({
+                'sample': sequence_name,
+                'Start': start,
+                'End': end + 1,  # Altair works with non-inclusive end
+                'Motif': motif_names[int(motif)],
+                'Color': color,
+                'Sequence': sequence['sequence'][start:end+1],
+            })
+
+            previous_end = end + 1
+
+        # Add interruption after the last motif if any
+        if previous_end < sequence_length:
+            data.append({
+                'sample': sequence_name,
+                'Start': previous_end,
+                'End': sequence_length,
+                'Motif': 'Interruption',
+                'Color': '#FF0000',
+                'Sequence': sequence['sequence'][previous_end:],
+            })
+
+    return pd.DataFrame(data)
+
+
+                
+def visulize_hgsvc_stack_bar(hgsvc_records,motif_colors,record_sample):
+
+    plot_stack_bar_interactive(hgsvc_records, record['motifs'], motif_colors, record_sample)
+   
+
+
+
 # Function to visualize tandem repeat with highlighted motifs on the sequence
-def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
+def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
     motif_names = record['motifs']
     reference_copy_number = record['ref_CN']
     motif_count_ref = count_motifs(record['motif_ids_ref'], record['spans'][0])
@@ -314,14 +555,14 @@ def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_co
     found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
     motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
     motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
-    total_copy_number_h1 = str(record['spans'][0]).count('-')
+    total_copy_number_h1 = str(record['spans'][1]).count('-')
     CN1_col.markdown(f"""
             <div style="font-size: 20px; color: #FF5733;">
                 <strong>Allele 1 Total copy number:</strong> {total_copy_number_h1}
             </div>
         """, unsafe_allow_html=True)
     if record['alt_allele2'] != '':
-            total_copy_number_h2 = str(record['spans'][1]).count('-')
+            total_copy_number_h2 = str(record['spans'][2]).count('-')
             CN2_col.markdown(f"""
                 <div style="font-size: 20px; color: #FF5733;">
                     <strong>Allele 2 Total copy number:</strong> {total_copy_number_h2}
@@ -330,7 +571,7 @@ def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_co
     with right_column:
         display_motif_legend(motif_names, motif_colors, right_column)
     with left_column:
-        tab1, tab2 = st.tabs(["Alleles", "Alleles vs Ref"])
+        tab1, tab2,tab3 = st.tabs(["Alleles", "Alleles vs Ref", "Alleles vs Pop"])
         # create a spot for the plots to refresh
         with tab2:
             display_dynamic_sequence_with_highlighted_motifs("Ref", record['ref_allele'], record['motif_ids_ref'], record['spans'][0], motif_colors, motif_names)
@@ -360,7 +601,70 @@ def visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_co
                 with plot_container_h2:
                     if show_comparison == False:
                         plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+        with tab3:
+            # get the records for the population
+            sequences = []
+            span_list = []
+            motif_ids_list = []
+            # add the alleles 
+            sequences.append({'name': "Ref", 'sequence': record['ref_allele']})
+            span_list.append(record['spans'][0])
+            motif_ids_list.append(record['motif_ids_ref'])
+            sequences.append({'name': "Allel1", 'sequence': alt_allele1})
+            span_list.append(record['spans'][1])
+            motif_ids_list.append(record['motif_ids_h1'])
+            if record['alt_allele2'] != '':
+                sequences.append({'name': "Allel2", 'sequence': alt_allele2})
+                span_list.append(record['spans'][2])
+                motif_ids_list.append(record['motif_ids_h2'])
 
+            motif_colors = get_color_palette(len(record['motifs']))
+            motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
+            
+            for key in hgsvc_records.keys():
+                if hgsvc_records[key]['alt_allele'] == '':
+                    continue
+                sequences.append({'name': key, 'sequence': hgsvc_records[key]['alt_allele']})
+                span_list.append(hgsvc_records[key]['spans'][1])
+                motif_ids_list.append(hgsvc_records[key]['motif_ids_h'])
+
+           
+            df = create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
+        
+            # Create a stacked bar chart with Altair
+  
+            # add interrutuption to the colors
+           
+            # plot the stacked bar chart
+            # Create the Altair chart
+            df['Length'] = df['End'] - df['Start'] 
+            
+            # sort the data frame by start and end per sequence
+
+            df['Order'] = df.index  # Use the index to maintain the original order from the DataFrame
+            # Create the Altair chart with explicit order encoding
+            chart_height = max(400, len(sequences) * 20)
+            chart = alt.Chart(df).mark_bar().encode(
+                y=alt.Y(
+                    'sample', 
+                    sort=None, 
+                    axis=alt.Axis(labelOverlap=False, ticks=False)  # Ensure all labels are shown, and avoid overlapping
+                ),
+                x=alt.X('Length', title='Length', stack='zero'),  # Stack motifs without sorting them
+                color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
+                order=alt.Order('Order', sort='ascending'),  # Explicitly order the bars by the 'Order' column
+                tooltip=['sample', 'Motif', 'Start', 'End', 'Sequence']
+            ).properties(
+                width=800,
+                height=chart_height,  # Use the dynamically calculated chart height
+                title="Motif Occurrences"
+            ).configure_axis(
+                labelFontSize=10,  # Adjust label font size if necessary to fit more labels
+                titleFontSize=12
+            )
+
+            # Display the chart in Streamlit
+            st.altair_chart(chart, use_container_width=True)
 
 
 def display_summary_statistics(records):
@@ -609,6 +913,7 @@ if vcf_file_path != old_vcf_file_path:
     path_changed = True
     st.session_state.vcf_file_path = vcf_file_path
     st.session_state.pop('records', None)
+
     st.session_state.pop('records_map', None)
 # check if records are in st.session_state and if path has changed
 
@@ -616,13 +921,13 @@ if 'records' not in st.session_state or path_changed:
     # posistion the button in the center
     _, _,middle, _ = st.sidebar.columns([1,0.3, 2, 1])
     if middle.button("Upload VCF File"):
-        try:
-            st.write("uploading file")
-            if 'records' not in st.session_state:
-                st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
-        except:
-            st.error("Invalid file format, please upload a valid VCF file.")
-            st.stop()
+        # try:
+        if 'records' not in st.session_state:
+            st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
+            st.session_state.vcf_files_with_path , st.session_state.hgsvc_pop_records, = parse_hgsvc_pop()
+        # except:
+        #     st.error("Invalid file format, please upload a valid VCF file.")
+        #     st.stop()
 
     # definde a container for the subheader
     # Example usage in Streamlit UI
@@ -679,6 +984,7 @@ if 'records_map' in st.session_state:
 
 
     record = parse_record(vcf_file_path, record_key)
+    hgsvc_records = get_results_hgsvc_pop( record_key)
     if len(record["motif_ids_h1"]) == 0 and len(record["motif_ids_h2"]) == 0:
         st.warning(f"No motifs found in the region: {st.session_state.records_map[st.session_state.regions_idx]}")
         st.stop()
@@ -707,72 +1013,8 @@ if 'records_map' in st.session_state:
 
 
     if display_option == "Sequence with Highlighted Motifs":
-        visulize_TR_with_dynamic_sequence(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
+        visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
 
     elif display_option == "Bars":
         display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
   
-    # # add a visulization which shows the ref and alt alleles in a new page
-
-    #     def highlight_differences(ref, alt):
-    #         highlighted_sequence = ""
-    #         for i, (r, a) in enumerate(zip(ref, alt)):
-    #             if r != a:
-    #                 highlighted_sequence += f"<span style='background-color:#FF0000; padding:2px; border-radius:4px;' title='Position {i+1}'>"
-    #                 highlighted_sequence += a
-    #                 highlighted_sequence += "</span>"
-    #             else:
-    #                 highlighted_sequence += a
-    #         return highlighted_sequence
-
-    #     def highlight_motifs(sequence, motif_ids, spans, motif_colors, motif_names):
-    #         ranges = parse_motif_range(spans)
-    #         highlighted_sequence = ""
-    #         previous_end = 0
-            
-    #         for idx, (start, end) in enumerate(ranges):
-    #             motif = motif_ids[idx]
-    #             color = motif_colors[int(motif)]
-    #             motif_name = motif_names[int(motif)]
-                
-    #             if start > previous_end:
-    #                 highlighted_sequence += sequence[previous_end:start]
-                
-    #             motif_sequence = sequence[start:end+1]
-    #             highlighted_sequence += (
-    #                 f"<span style='background-color:{color}; padding:2px; border-radius:4px;' title='Motif: {motif_name}'>"
-    #                 f"{motif_sequence}</span>"
-    #             )
-
-    #             previous_end = end + 1
-
-    #         if previous_end < len(sequence):
-    #             highlighted_sequence += sequence[previous_end:]
-            
-    #         return highlighted_sequence
-
-    #     st.write("Ref Allele")
-    #     highlighted_ref = highlight_motifs(record['ref_allele'], record['motif_ids_h1'], record['spans'][0], motif_colors, record['motifs'])
-    #     st.markdown(f"""
-    #         <div style="font-family:monospace; font-size:16px; width:100%; max-height:120px; overflow-x:auto; white-space:nowrap; padding:10px; border:1px solid black; border-radius:8px;">
-    #             {highlighted_ref}
-    #         </div>
-    #     """, unsafe_allow_html=True)
-        
-    #     st.write("Alt Allele 1")
-    #     highlighted_alt1 = highlight_differences(record['ref_allele'], record['alt_allele1'])
-    #     highlighted_alt1 = highlight_motifs(highlighted_alt1, record['motif_ids_h1'], record['spans'][0], motif_colors, record['motifs'])
-    #     st.markdown(f"""
-    #         <div style="font-family:monospace; font-size:16px; width:100%; max-height:120px; overflow-x:auto; white-space:nowrap; padding:10px; border:1px solid black; border-radius:8px;">
-    #             {highlighted_alt1}
-    #         </div>
-    #     """, unsafe_allow_html=True)
-        
-    #     st.write("Alt Allele 2")
-    #     highlighted_alt2 = highlight_differences(record['ref_allele'], record['alt_allele2'])
-    #     highlighted_alt2 = highlight_motifs(highlighted_alt2, record['motif_ids_h2'], record['spans'][1], motif_colors, record['motifs'])
-    #     st.markdown(f"""
-    #         <div style="font-family:monospace; font-size:16px; width:100%; max-height:120px; overflow-x:auto; white-space:nowrap; padding:10px; border:1px solid black; border-radius:8px;">
-    #             {highlighted_alt2}
-    #         </div>
-    #     """, unsafe_allow_html=True)
