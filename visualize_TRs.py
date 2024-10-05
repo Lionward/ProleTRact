@@ -6,68 +6,37 @@ import pandas as pd
 import altair as alt
 st.set_page_config(layout="wide")
 import os
-import multiprocessing
-import plotly.graph_objects as go
-# make the base layout deault as dark
-import os
-import multiprocessing
 import pysam
-import numpy as np
-def process_vcf(file):
-    records_ids = {}
-    records_map = {}
-    sample_name = file.split(".")[0]
-    vcf = pysam.VariantFile(st.session_state.hgsvc_path  + file)
-    idx = 0
-    for rec in vcf.fetch():
-        records_ids[rec.id] = f"{rec.chrom}:{rec.pos}-{rec.stop}"
-        records_map[idx] = rec.id
-        idx += 1
-    return sample_name, records_ids, records_map
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 @st.cache_data()
-def parse_hgsvc_pop(vcf_status):
-
-    st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
-    st.write(f"Loading VCF files from the HGSVC dataset ({vcf_status})...")
-    if vcf_status == "Pathogenic":
-        files = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('_pathogenic.vcf.gz')]
-    elif vcf_status == "Healthy":
-        files = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('.vcf.gz')]
-    # add the path to the files
-    num_cores = min(len(files), multiprocessing.cpu_count())
-    with multiprocessing.Pool(num_cores) as pool:
-        results = pool.starmap(process_vcf, [(file,) for file in files])
-
-    st.info(f"Loaded {len(files)} VCF files from the HGSVC dataset.")
-    samples = {sample_name: (records_ids, records_map) for sample_name, records_ids, records_map in results}
-    return files, samples
-
-
 def parse_vcf(vcf_file):
     vcf = pysam.VariantFile(vcf_file)
     records_ids = {}
     records_map = {}
     idx = 0
     for  rec in vcf.fetch():
+        
         records_ids[rec.id] = f"{rec.chrom}:{rec.pos}-{rec.stop}"
         records_map[idx] = rec.id
         idx += 1
+        
     return records_ids, records_map
 
-@st.cache_data()
-def parse_record_assembly(vcf_file,region):
+def load_vcf(vcf_file):
+    return pysam.VariantFile(vcf_file)
 
-        vcf = pysam.VariantFile(st.session_state.get('hgsvc_path', '') + vcf_file)
-        rec = vcf.fetch(region=region)
-        # get the record with the id
-        # print how many records are in the vcf file
-
+#@st.cache_data(show_spinner=False)
+def parse_record_assembly(vcf,region,hgsvc_path):        
+        chr,start_end = region.split(":")
+        start,end = start_end.split("-")
+        start = int(start) -1
+        end = int(end) -1
+        region = f"{chr}:{start}-{end}"
         for rec in vcf.fetch(region=region):
-        
             break
         try:
-        
             ids_h = rec.info['MOTIF_IDs_H']
             ref_CN = rec.info['CN_ref']
             alt_allele = "."
@@ -122,16 +91,25 @@ def parse_record_assembly(vcf_file,region):
         return record
 
 
-def get_results_hgsvc_pop(region):
+def get_results_hgsvc_pop(region, files, file_paths):
     samples_results = {}
-    samples_keys = list(st.session_state.get('hgsvc_pop_records', {}).keys())
-    file_paths = st.session_state.get('vcf_files_with_path', {})
-    
-    for i in range(len(samples_keys)):
-        sample_name = samples_keys[i]
-       
-        record = parse_record_assembly(file_paths[i],region)
+
+    # open all files once  using pysam 
+    #st.session_state.files = [load_vcf(st.session_state.hgsvc_path + f) for f in file_paths]
+
+    for i in range(len(files)):
+        sample_name = file_paths[i].split(".")[0]
+        record = parse_record_assembly(st.session_state.files[i], region, st.session_state.hgsvc_path)
         samples_results[sample_name] = record
+
+    # with ThreadPoolExecutor(max_workers=len(file_paths)) as executor:
+
+    #         futures = [executor.submit(parse_record_assembly, files[i], region, st.session_state.hgsvc_path ) for i in range(len(file_paths))]
+    #         for i, future in enumerate(futures):
+    #             sample_name = file_paths[i].split(".")[0]
+    #             record = future.result()
+    #             samples_results[sample_name] = record
+
     return samples_results
 
 
@@ -315,6 +293,7 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
             span_list = []
             motif_ids_list = []
             # add the alleles 
+            st.write(hgsvc_records)
             plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_list, motif_ids_list)
 
 
@@ -525,7 +504,7 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_lis
                     sort=None, 
                     axis=alt.Axis(labelOverlap=False, ticks=False)  # Ensure all labels are shown, and avoid overlapping
                 ),
-                x=alt.X('Length', title='Copy number', stack='zero'),  # Stack motifs without sorting them
+                x=alt.X('Length', title='Length', stack='zero'),  # Stack motifs without sorting them
                 color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
                 order=alt.Order('Order', sort='ascending'),  # Explicitly order the bars by the 'Order' column
                 tooltip=['sample', 'Motif', 'Start', 'End', 'Sequence']
@@ -584,7 +563,7 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_lis
 
     annotation_df = pd.DataFrame({
         'Motif': unique_motifs,
-        'count': [-2] * len(unique_motifs),  # Unterhalb der y=0-Achse für Sichtbarkeit platzieren
+        'count': [0] * len(unique_motifs),  # Unterhalb der y=0-Achse für Sichtbarkeit platzieren
         'color': [motif_colors[motif_names.index(m)] for m in unique_motifs]
     })
 
@@ -780,15 +759,6 @@ def fetch_vcf_region(vcf_file_path, region):
         records[rec.id] = record
     return records
 
-def lazy_load_vcf(vcf_file_path, start_index, chunk_size):
-    vcf = pysam.VariantFile(vcf_file_path)
-    records = []
-    for i, rec in enumerate(vcf.fetch()):
-        if start_index <= i < start_index + chunk_size:
-            records.append(rec)
-        if i >= start_index + chunk_size:
-            break
-    return records
 
 # Streamlit UI
 
@@ -939,14 +909,21 @@ if vcf_file_path != old_vcf_file_path:
 if 'records' not in st.session_state or path_changed:
     # posistion the button in the center
     _, _,middle, _ = st.sidebar.columns([1,0.3, 2, 1])
-   
-    vcf_status = st.sidebar.radio("Select the type of VCF file", ("Healthy", "Pathogenic"))
+    
+    st.session_state.vcf_status = st.sidebar.radio("Select the type of VCF file", ("Healthy", "Pathogenic"))
     if middle.button("Upload VCF File"):
         # try:
         if 'records' not in st.session_state:
             st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
-
-            st.session_state.vcf_files_with_path , st.session_state.hgsvc_pop_records, = parse_hgsvc_pop(vcf_status)
+            st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
+            #samples_keys = list(st.session_state.get('hgsvc_pop_records', {}).keys())
+            if st.session_state.vcf_status == "Pathogenic":
+                st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('pathogenic.vcf.gz')]
+            elif st.session_state.vcf_status == "Healthy":
+                st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('.vcf.gz')]
+            st.session_state.files = [load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
+            
+            
         # except:
         #     st.error("Invalid file format, please upload a valid VCF file.")
         #     st.stop()
@@ -1022,7 +999,8 @@ if 'records_map' in st.session_state:
 
 
     record = parse_record(vcf_file_path, record_key)
-    hgsvc_records = get_results_hgsvc_pop( record_key)
+    hgsvc_records = get_results_hgsvc_pop(record_key, st.session_state.files ,st.session_state.file_paths)
+    #st.session_state.hgsvc_pop_records, = parse_hgsvc_pop(vcf_status,region)
     if len(record["motif_ids_h1"]) == 0 and len(record["motif_ids_h2"]) == 0:
         st.warning(f"No motifs found in the region: {st.session_state.records_map[st.session_state.regions_idx]}")
         st.stop()
