@@ -9,7 +9,7 @@ import os
 import pysam
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-
+import plotly.graph_objects as go
 @st.cache_data()
 def parse_vcf(vcf_file):
     vcf = pysam.VariantFile(vcf_file)
@@ -17,7 +17,6 @@ def parse_vcf(vcf_file):
     records_map = {}
     idx = 0
     for  rec in vcf.fetch():
-        
         records_ids[rec.id] = f"{rec.chrom}:{rec.pos}-{rec.stop}"
         records_map[idx] = rec.id
         idx += 1
@@ -27,8 +26,7 @@ def parse_vcf(vcf_file):
 def load_vcf(vcf_file):
     return pysam.VariantFile(vcf_file)
 
-#@st.cache_data(show_spinner=False)
-def parse_record_assembly(vcf,region,hgsvc_path):        
+def parse_record_assembly(vcf,region):        
         chr,start_end = region.split(":")
         start,end = start_end.split("-")
         start = int(start) -1
@@ -93,23 +91,10 @@ def parse_record_assembly(vcf,region,hgsvc_path):
 
 def get_results_hgsvc_pop(region, files, file_paths):
     samples_results = {}
-
-    # open all files once  using pysam 
-    #st.session_state.files = [load_vcf(st.session_state.hgsvc_path + f) for f in file_paths]
-
     for i in range(len(files)):
         sample_name = file_paths[i].split(".")[0]
-        record = parse_record_assembly(st.session_state.files[i], region, st.session_state.hgsvc_path)
+        record = parse_record_assembly(st.session_state.files[i], region)
         samples_results[sample_name] = record
-
-    # with ThreadPoolExecutor(max_workers=len(file_paths)) as executor:
-
-    #         futures = [executor.submit(parse_record_assembly, files[i], region, st.session_state.hgsvc_path ) for i in range(len(file_paths))]
-    #         for i, future in enumerate(futures):
-    #             sample_name = file_paths[i].split(".")[0]
-    #             record = future.result()
-    #             samples_results[sample_name] = record
-
     return samples_results
 
 
@@ -525,15 +510,48 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_lis
 
 
     # Filterung der Daten
-    filtered_df = df[df['sample'] != "Interruption"]
+    figure = go.Figure()
 
-    # Vorkommen jedes Motivs für jede Probe zählen
-    motif_counts = filtered_df.groupby(['sample', 'Motif']).size().reset_index(name='count')
-    # rename everything that is not ref and allele1 to allele2 to HGSVC
-    motif_counts['sample'] = motif_counts['sample'].apply(lambda x: 'HGSVC' if x != 'Ref' and x != 'Allel1' and x != 'Allel2' else x)
-    # remove interruptions 
-    motif_counts = motif_counts[motif_counts['Motif'] != 'Interruption']
-    # Farbkodierung für spezifische Kategorien definieren
+    # Einzigartige Proben erhalten
+    unique_samples = df['sample'].unique()
+    # Unterbrechungen entfernen
+    unique_samples = [sample for sample in unique_samples if sample != "Interruption"]
+
+    # Scatter-Plots für jede Probe und jedes Motiv hinzufügen
+    ref_data = []
+    allele_data = []
+
+    # Scatter-Plots für jede Probe und jedes Motiv hinzufügen
+    for sample in unique_samples:
+        sample_df = df[df['sample'] == sample]
+        unique_motifs = sample_df['Motif'].unique()
+        unique_motifs = [motif for motif in unique_motifs if motif != "Interruption"]
+        for motif in unique_motifs:
+            motif_df = sample_df[sample_df['Motif'] == motif]
+            trace = go.Scatter(
+                x=[motif],
+                y=[len(motif_df)],
+                mode='markers',
+                name=sample,
+                marker=dict(size=10)
+            )
+            # Daten für "Ref" und "Allel" sammeln
+            if sample in ["Ref", "Allel1", "Allel2"]:
+                if sample == "Ref":
+                    # change the marker to X
+                    trace['marker']['symbol'] = "x"
+                    ref_data.append(trace)
+                else:
+                    trace['marker']['symbol'] = "triangle-down"
+                    allele_data.append(trace)
+            else:
+
+                figure.add_trace(trace)
+
+    # Daten für "Ref" und "Allel" am Ende hinzufügen
+    for trace in ref_data + allele_data:
+        figure.add_trace(trace)
+    # Spezifische Farben für Referenz, Allele und HGSVC definieren
     color_mapping = {
         "Ref": "green",
         "Allel1": "red",
@@ -541,58 +559,119 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_lis
         "HGSVC": "blue"
     }
 
-    # Spalte für Farben basierend auf der Probe erstellen
-    motif_counts['color'] = motif_counts['sample'].map(color_mapping)
+    # Trace-Farben basierend auf dem Probenamen aktualisieren
+    figure.for_each_trace(lambda trace: trace.update(marker=dict(color=color_mapping.get(trace.name, 'gray'))))
 
-    motif_counts['order'] = motif_counts['sample'].apply(lambda x: 2 if x in ['Ref', 'Allel1', 'Allel2'] else 1)
-    # Update Altair chart to use the jittered x-axis
-    chart = alt.Chart(motif_counts).mark_circle(size=100).encode(
-        x=alt.X('Motif:N', title='Motif', axis=alt.Axis(labels=False)),
-        y=alt.Y('count:Q', title='Number of Occurrences'),
-        color=alt.Color('color:N', scale=None, legend=alt.Legend(title="Sample")),
-        order=alt.Order('order:Q', sort='ascending'),  # Ensures 'Ref', 'Allel1', 'Allel2' are above others
-        tooltip=['sample', 'Motif', 'count']
-    ).properties(
-        title='Motif Occurrences',
-        width=600,
-        height=400
-    )
-    # Einzigartige Motive für Annotationszwecke extrahieren
-    unique_motifs = motif_counts['Motif'].unique()
-    unique_motifs = [m for m in unique_motifs if m != 'Interruption']
-
-    annotation_df = pd.DataFrame({
-        'Motif': unique_motifs,
-        'count': [0] * len(unique_motifs),  # Unterhalb der y=0-Achse für Sichtbarkeit platzieren
-        'color': [motif_colors[motif_names.index(m)] for m in unique_motifs]
-    })
-
-    # Textschicht erstellen, um farbige Motivbeschriftungen auf der x-Achse hinzuzufügen
-    annotation_layer = alt.Chart(annotation_df).mark_text(
-        dy=10,  # Position des Textes anpassen
-        fontSize=12,
-        angle=45,  # Text um 45 Grad drehen
-        align='left',  # Text linksbündig ausrichten
-    ).encode(
-        x=alt.X('Motif', title=None,axis=alt.Axis(labels=False)),  # Titel der x-Achse entfernen
-        y=alt.Y('count:Q', title=None),  # Titel der y-Achse entfernen
-        text=alt.Text('Motif:N'),
-        color=alt.Color('color:N', scale=None), # Farbkodierung für Beschriftungen verwenden
-        tooltip=[alt.Tooltip('Motif', title='Motif')] 
+    # Doppelte Legendeneinträge entfernen und nur die definierten in color_mapping behalten
+    unique_legend_names = set()
+    for trace in figure.data:
+        if trace.name in unique_legend_names:
+            trace.showlegend = False
+        elif trace.name in color_mapping:
+            unique_legend_names.add(trace.name)
+            trace.showlegend = True
+        else:
+            trace.showlegend = False
+    # add the colore gray to the legend and call it HGSVC
+    figure.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(color='gray', size=10), name='HGSVC'))
+    # Layout mit Titel und Achsenbeschriftungen aktualisieren
+    figure.update_layout(
+        title="Motif Occurrences",
+        xaxis_title="Motif",
+        yaxis_title="HGSVC vs Alleles",
     )
 
-    # show legend of allesles, ref and hgsvc
-    legend = alt.Chart(pd.DataFrame({'sample': ['Ref', 'Allel1', 'Allel2', 'HGSVC']})).mark_point(size=0).encode(
-        color=alt.Color('sample:N', scale=alt.Scale(domain=['Ref', 'Allel1', 'Allel2', 'HGSVC'], range=['green', 'red', 'orange', 'blue']), legend=None)
-    )
+    # X-Achsen-Motive basierend auf ihrer Farbe färben
+    xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
+    figure.update_xaxes(tickmode='array', tickvals=list(xaxis_colors.keys()), ticktext=[
+        f'<span style="color:{xaxis_colors[motif]}">{motif}</span>' for motif in xaxis_colors.keys()
+    ], tickangle=45)
+   
+    
+    
 
 
+    # Plot mit Streamlit anzeigen
+    st.plotly_chart(figure, use_container_width=True)
 
-    # Hauptdiagramm mit der Annotationsschicht überlagern
-    final_chart = chart + annotation_layer + legend
+    # filtered_df = df[df['sample'] != "Interruption"]
 
-    # Mit Streamlit anzeigen
-    st.altair_chart(final_chart, use_container_width=True)
+    # # Vorkommen jedes Motivs für jede Probe zählen
+    # motif_counts = filtered_df.groupby(['sample', 'Motif']).size().reset_index(name='count')
+    # # rename everything that is not ref and allele1 to allele2 to HGSVC
+    # motif_counts['sample'] = motif_counts['sample'].apply(lambda x: 'HGSVC' if x != 'Ref' and x != 'Allel1' and x != 'Allel2' else x)
+    # # remove interruptions 
+    # motif_counts = motif_counts[motif_counts['Motif'] != 'Interruption']
+    # # Farbkodierung für spezifische Kategorien definieren
+    # color_mapping = {
+    #     "Ref": "green",
+    #     "Allel1": "red",
+    #     "Allel2": "orange",
+    #     "HGSVC": "blue"
+    # }
+
+    # # Spalte für Farben basierend auf der Probe erstellen
+    # motif_counts['color'] = motif_counts['sample'].map(color_mapping)
+
+    # motif_counts['order'] = motif_counts['sample'].apply(lambda x: 2 if x in ['Ref', 'Allel1', 'Allel2'] else 1)
+    # # Update Altair chart to use the jittered x-axis
+    # motif_counts['Motif_Tooltip'] = motif_counts.apply(
+    #     lambda row: f"{row['Motif']} (Color: {row['color']})", axis=1
+    # )
+
+    # # Create the chart and use the newly formatted column for the tooltip
+    # chart = alt.Chart(motif_counts).mark_circle(size=100).encode(
+    #     x=alt.X('Motif:N', title='Motif', axis=alt.Axis(labels=False)),
+    #     y=alt.Y('count:Q', title='Number of Occurrences'),
+    #     color=alt.Color('color:N', scale=None, legend=alt.Legend(title="Sample")),
+    #     order=alt.Order('order:Q', sort='ascending'),  # Ensures 'Ref', 'Allel1', 'Allel2' are above others
+    #     tooltip=[
+    #         alt.Tooltip('sample', title='Sample'), 
+    #         alt.Tooltip('Motif_Tooltip', title='Motif Info', type='nominal'),
+    #         alt.Tooltip('count', title='Count')
+    #     ]
+    # ).properties(
+    #     title='Motif Occurrences',
+    #     width=600,
+    #     height=400
+    # )
+
+    # # Einzigartige Motive für Annotationszwecke extrahieren
+    # unique_motifs = motif_counts['Motif'].unique()
+    # unique_motifs = [m for m in unique_motifs if m != 'Interruption']
+
+    # annotation_df = pd.DataFrame({
+    #     'Motif': unique_motifs,
+    #     'count': [0] * len(unique_motifs),  # Unterhalb der y=0-Achse für Sichtbarkeit platzieren
+    #     'color': [motif_colors[motif_names.index(m)] for m in unique_motifs]
+    # })
+
+    # # Textschicht erstellen, um farbige Motivbeschriftungen auf der x-Achse hinzuzufügen
+    # annotation_layer = alt.Chart(annotation_df).mark_text(
+    #     dy=10,  # Position des Textes anpassen
+    #     fontSize=12,
+    #     angle=45,  # Text um 45 Grad drehen
+    #     align='left',  # Text linksbündig ausrichten
+    # ).encode(
+    #     x=alt.X('Motif', title=None,axis=alt.Axis(labels=False)),  # Titel der x-Achse entfernen
+    #     y=alt.Y('count:Q', title=None),  # Titel der y-Achse entfernen
+    #     text=alt.Text('Motif:N'),
+    #     color=alt.Color('color:N', scale=None), # Farbkodierung für Beschriftungen verwenden
+    #     tooltip=[alt.Tooltip('Motif', title='Motif' , type='nominal')] 
+    # )
+
+    # # show legend of allesles, ref and hgsvc
+    # legend = alt.Chart(pd.DataFrame({'sample': ['Ref', 'Allel1', 'Allel2', 'HGSVC']})).mark_point(size=0).encode(
+    #     color=alt.Color('sample:N', scale=alt.Scale(domain=['Ref', 'Allel1', 'Allel2', 'HGSVC'], range=['green', 'red', 'orange', 'blue']), legend=None)
+    # )
+    
+
+
+    # # Hauptdiagramm mit der Annotationsschicht überlagern
+    # final_chart = chart + annotation_layer + legend
+
+    # # Mit Streamlit anzeigen
+    # st.altair_chart(final_chart, use_container_width=True)
     # plot for each motif the number of times 
 # Function to visualize tandem repeat with highlighted motifs on the sequence
 def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
