@@ -101,10 +101,25 @@ def get_results_hgsvc_pop(region, files, file_paths):
         samples_results[sample_name] = record
     return samples_results
 
+def get_results_cohort(region, files, file_paths):
+    samples_results = {}
+    chrom, start_end = region.split(":")
+    start, end = start_end.split("-")
+    start = int(start) - 1
+    end = int(end) - 1
+    region = f"{chrom}:{start}-{end}"
+
+    for i in range(len(files)):
+        sample_name = file_paths[i].split(".")[0]
+        record = parse_record(files[i], region)
+        samples_results[sample_name] = record
+    return samples_results
 
 def parse_record(vcf_file,region):
-    
-    vcf = pysam.VariantFile(vcf_file)
+    if isinstance(vcf_file, str):
+        vcf = pysam.VariantFile(vcf_file)
+    else:
+        vcf = vcf_file
     rec = vcf.fetch(region=region)
     # get the record with the id
     for rec in vcf.fetch(region=region):
@@ -218,18 +233,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
     """, unsafe_allow_html=True)
 # Function to display motifs relative to the sequence, with spans aligned horizontally
 def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
-    motif_names = record['motifs']
-    motif_count_ref = count_motifs(record['motif_ids_ref'], record['spans'][0])
-    found_motifs_ref = list(motif_count_ref.keys())
-    found_motifs_ref = [motif_names[int(m)] for m in found_motifs_ref]
-    motif_count_h1 = count_motifs(record['motif_ids_h1'], record['spans'][1])
-    found_motifs_h1 = list(motif_count_h1.keys())
-    found_motifs_h1 = [motif_names[int(m)] for m in found_motifs_h1]
-    motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][2])
-    found_motifs_h2 = list(motif_count_h2.keys())
-    found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
-    motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
-    motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
+    motif_names, motif_count_h1, motif_count_h2 = parse_motif_in_region(record)
     # iterate over the motifs and set them to 0 if they are not in the motif_count
     CN1_col.markdown(f""" 
         <div style="font-size: 20px; color: #FF5733;">
@@ -277,13 +281,23 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
                         plot_motif_bar(motif_count_h2, motif_names, motif_colors)
 
         with tab3:
-            # get the records for the population
-            sequences = []
-            span_list = []
-            motif_ids_list = []
             # add the alleles 
-            st.write(hgsvc_records)
-            plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_list, motif_ids_list)
+            plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
+
+def parse_motif_in_region(record):
+    motif_names = record['motifs']
+    motif_count_ref = count_motifs(record['motif_ids_ref'], record['spans'][0])
+    found_motifs_ref = list(motif_count_ref.keys())
+    found_motifs_ref = [motif_names[int(m)] for m in found_motifs_ref]
+    motif_count_h1 = count_motifs(record['motif_ids_h1'], record['spans'][1])
+    found_motifs_h1 = list(motif_count_h1.keys())
+    found_motifs_h1 = [motif_names[int(m)] for m in found_motifs_h1]
+    motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][2])
+    found_motifs_h2 = list(motif_count_h2.keys())
+    found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
+    motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
+    motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
+    return motif_names,motif_count_h1,motif_count_h2
 
 
 
@@ -451,8 +465,36 @@ def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif
     return pd.DataFrame(data)
 
 
+def plot_Cohort_results(cohort_records):
+    sequences = []
+    span_list = []
+    motif_ids_list = []
+    for key in cohort_records.keys():
+        sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
+        span_list.append(cohort_records[key]['spans'][1])
+        motif_ids_list.append(cohort_records[key]['motif_ids_h1'])
+        if cohort_records[key]['alt_allele2'] != '':
+            sequences.append({'name': f'{key}_alle2', 'sequence': cohort_records[key]['alt_allele2']})
+            span_list.append(cohort_records[key]['spans'][2])
+            motif_ids_list.append(cohort_records[key]['motif_ids_h2'])
 
-def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_list, motif_ids_list):
+    motif_names = cohort_records[list(cohort_records.keys())[0]]['motifs']
+    record = cohort_records[list(cohort_records.keys())[0]]
+    motif_colors, df = stack_plot(record, motif_names, sequences, span_list, motif_ids_list)
+
+    # Filterung der Daten
+    figure = go.Figure()
+
+    # Einzigartige Proben erhalten
+    unique_samples = df['sample'].unique()
+    # Unterbrechungen entfernen
+    unique_samples = [sample for sample in unique_samples if sample != "Interruption"]
+
+def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
+    sequences = []
+    span_list = []
+    motif_ids_list = []
+
     sequences.append({'name': "Ref", 'sequence': record['ref_allele']})
     span_list.append(record['spans'][0])
     motif_ids_list.append(record['motif_ids_ref'])
@@ -464,9 +506,6 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_lis
         span_list.append(record['spans'][2])
         motif_ids_list.append(record['motif_ids_h2'])
 
-    motif_colors = get_color_palette(len(record['motifs']))
-    motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
-            
     for key in hgsvc_records.keys():
         if hgsvc_records[key]['alt_allele'] == '':
             continue
@@ -474,43 +513,7 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_lis
         span_list.append(hgsvc_records[key]['spans'][1])
         motif_ids_list.append(hgsvc_records[key]['motif_ids_h'])
 
-           
-    df = create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
-    
-    df['Length'] = df['End'] - df['Start'] 
-            
-            # sort the data frame by start and end per sequence
-
-    df['Order'] = df.index  # Use the index to maintain the original order from the DataFrame
-            # Create the Altair chart with explicit order encoding
-    default_hight = 400 
-    chart_height = max(default_hight, len(sequences) * 7)
-                    
-    df['sample'] = df['sample'].apply(lambda x: x.replace("_pathogenic", ""))
-    chart = alt.Chart(df).mark_bar().encode(
-                y=alt.Y(
-                    'sample', 
-                    sort=None, 
-                    axis=alt.Axis(labelOverlap=False, ticks=False)  # Ensure all labels are shown, and avoid overlapping
-                ),
-                x=alt.X('Length', title='Length', stack='zero'),  # Stack motifs without sorting them
-                color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
-                order=alt.Order('Order', sort='ascending'),  # Explicitly order the bars by the 'Order' column
-                tooltip=['sample', 'Motif', 'Start', 'End', 'Sequence']
-            ).properties(
-                width=800,
-                height=chart_height,  # Use the dynamically calculated chart height
-                title="Motif Occurrences"
-            ).configure_axis(
-                labelFontSize=10,  # Adjust label font size if necessary to fit more labels
-                titleFontSize=12
-            )
-    if chart_height > default_hight:
-                # remove y axis labels
-        chart = chart.configure_axisY(labelFontSize=0)
-    
-            # Display the chart in Streamlit
-    st.altair_chart(chart, use_container_width=True)
+    motif_colors, df = stack_plot(record, motif_names, sequences, span_list, motif_ids_list)
 
 
     # Filterung der Daten
@@ -622,7 +625,66 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_lis
     # Display heatmap in Streamlit
     st.altair_chart(heatmap, use_container_width=True)
 
+def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
+    motif_colors = get_color_palette(len(record['motifs']))
+    motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
+    # plot the min and max copy number in a nice way 
+
+  
+           
+    df = create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
     
+    df['Length'] = df['End'] - df['Start'] 
+            
+            # sort the data frame by start and end per sequence
+
+    df['Order'] = df.index  # Use the index to maintain the original order from the DataFrame
+            # Create the Altair chart with explicit order encoding
+    default_hight = 600 
+    chart_height = max(default_hight, len(sequences) * 7)
+    
+    df['sample'] = df['sample'].apply(lambda x: x.replace("_pathogenic", ""))
+    # sort the samples by name 
+    df['sample'] = pd.Categorical(df['sample'], categories=sorted(df['sample'].unique()), ordered=True)
+    min_copy_number = df.groupby('sample')['Length'].sum().min()
+    max_copy_number = df.groupby('sample')['Length'].sum().max()
+
+    st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; font-size: 20px; color: #FF5733;">
+            <div>
+                <strong>Minimum Copy Number:</strong> {min_copy_number}
+            </div>
+            <div>
+                <strong>Maximum Copy Number:</strong> {max_copy_number}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    chart = alt.Chart(df).mark_bar().encode(
+                y=alt.Y(
+                    'sample', 
+                    sort=None, 
+                    axis=alt.Axis(labelOverlap=False, ticks=False)  # Ensure all labels are shown, and avoid overlapping
+                ),
+                x=alt.X('Length', title='Length', stack='zero'),  # Stack motifs without sorting them
+                color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
+                order=alt.Order('Order', sort='ascending'),  # Explicitly order the bars by the 'Order' column
+                tooltip=['sample', 'Motif', 'Start', 'End', 'Sequence']
+            ).properties(
+                width=800,
+                height=chart_height,  # Use the dynamically calculated chart height
+                title="Motif Occurrences"
+            ).configure_axis(
+                labelFontSize=10,  # Adjust label font size if necessary to fit more labels
+                titleFontSize=12
+            )
+    if chart_height > default_hight:
+                # remove y axis labels
+        chart = chart.configure_axisY(labelFontSize=0)
+    
+            # Display the chart in Streamlit
+    st.altair_chart(chart, use_container_width=True)
+    return motif_colors,df
+
 # Function to visualize tandem repeat with highlighted motifs on the sequence
 def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
     motif_names = record['motifs']
@@ -687,11 +749,8 @@ def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_c
                         plot_motif_bar(motif_count_h2, motif_names, motif_colors)
         with tab3:
             # get the records for the population
-            sequences = []
-            span_list = []
-            motif_ids_list = []
             # add the alleles 
-            plot_HGSVC_VS_allele(record, hgsvc_records, motif_names, sequences, span_list, motif_ids_list)
+            plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
 
 
 def display_summary_statistics(records):
@@ -742,8 +801,16 @@ def display_motif_legend(motifs, motif_colors, right_column):
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-
-        
+@st.cache_data()
+def get_records_info(vcf_file):
+    vcf = pysam.VariantFile(vcf_file)
+         
+    idx = 0 
+    cohorts_map = {}
+    for rec in vcf:
+        cohorts_map[idx] = rec.id
+        idx += 1
+    return cohorts_map
             
 def fetch_vcf_region(vcf_file_path, region):
     vcf = pysam.VariantFile(vcf_file_path)
@@ -912,107 +979,78 @@ st.sidebar.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Example button for user action
-# st.sidebar.markdown("""
-#     <div class="button-container">
-#         <button>Get Started</button>
-#     </div>
-# """, unsafe_allow_html=True)
 
-# enter the path to the vcf file
 path_changed = False
 old_vcf_file_path = st.session_state.get('vcf_file_path', None)
 
-st.sidebar.text_input("", value=None, key="vcf_file_path")
-vcf_file_path = st.session_state.get('vcf_file_path', None)
-if vcf_file_path is None:
-    st.stop()
-if vcf_file_path != old_vcf_file_path:
-    path_changed = True
-    st.session_state.vcf_file_path = vcf_file_path
-    st.session_state.pop('records', None)
 
-    st.session_state.pop('records_map', None)
-# check if records are in st.session_state and if path has changed
+st.session_state.analysis_mode = st.sidebar.radio("Select the type of analysis", ("indivisual sample", "Cohort"))
 
-if 'records' not in st.session_state or path_changed:
-    # posistion the button in the center
-    _, _,middle, _ = st.sidebar.columns([1,0.3, 2, 1])
-    
-    st.session_state.vcf_status = st.sidebar.radio("Select the type of VCF file", ("Healthy", "Pathogenic"))
-    if middle.button("Upload VCF File"):
-        # try:
-        if 'records' not in st.session_state:
-            st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
-            st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
-            #samples_keys = list(st.session_state.get('hgsvc_pop_records', {}).keys())
-            if st.session_state.vcf_status == "Pathogenic":
-                st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('pathogenic.vcf.gz')]
-            elif st.session_state.vcf_status == "Healthy":
-                st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('.vcf.gz')]
-            st.session_state.files = [load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
-            
-            
-        # except:
-        #     st.error("Invalid file format, please upload a valid VCF file.")
-        #     st.stop()
-
-    # definde a container for the subheader
-    # Example usage in Streamlit UI
-
-
-subheader = st.empty()
-
-# if 'records_keys' not in st.session_state or st.session_state.get('records_keys', {}) == []:
-#     st.session_state.records_keys = list(st.session_state.get('records', {}).keys())
-
-# records_keys = st.session_state.get('records_keys', [])
-# if len(records_keys) > 0:
-if 'records_map' in st.session_state:
-    if 'regions_idx' not in st.session_state:
-        st.session_state.regions_idx = 0
-
-    # Sidebar for region navigation
-    st.sidebar.markdown("### Select Region to Visualize")
-    # activate the variable when pressing inter button
-    region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
-    #_level = st.sidebar.slider('Zoom Level', min_value=1, max_value=100, value=100)
-    display_option = st.sidebar.radio("Select Display Type", 
-                                ("Sequence with Highlighted Motifs", "Bars"))
-
-    col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
-    REF, CN1_col, CN2_col = st.columns([1, 1, 1])
-    # Place the "Previous region" and "Next region" buttons in these columns
-    with col1:
-        if st.button("Previous region"):
-            region = None
-            st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
-
-    with col2:
-        if st.button("Next region"):
-            region = None
-            st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
+if st.session_state.analysis_mode == "indivisual sample":
+    st.sidebar.text_input("", value=None, key="vcf_file_path")
+    vcf_file_path = st.session_state.get('vcf_file_path', None)
+    if vcf_file_path is None:
+        st.stop()
+    if vcf_file_path != old_vcf_file_path:
+        path_changed = True
+        st.session_state.vcf_file_path = vcf_file_path
+        st.session_state.pop('records', None)
+        st.session_state.pop('records_map', None)
         
-    if region:
 
-        try:
-            chr_input, start_end_input = region.split(':')
-            start_input, end_input = map(int, start_end_input.split('-'))
-            # start_input
-            # end_input-=
+    if 'records' not in st.session_state or path_changed:
+        if st.session_state.analysis_mode == "indivisual sample":
+        
+        # posistion the button in the center
+            _, _,middle, _ = st.sidebar.columns([1,0.3, 2, 1])
+            
+            st.session_state.vcf_status = st.sidebar.radio("Select the type of VCF file", ("Healthy", "Pathogenic"))
+        if middle.button("Upload VCF File"):
+            # try:
+            if 'records' not in st.session_state:
+                st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
+                st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
+                #samples_keys = list(st.session_state.get('hgsvc_pop_records', {}).keys())
+                if st.session_state.vcf_status == "Pathogenic":
+                    st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('pathogenic.vcf.gz')]
+                elif st.session_state.vcf_status == "Healthy":
+                    st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('.vcf.gz')]
+                st.session_state.files = [load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
+                
+                
 
-            input_region = f"{chr_input}:{start_input}-{end_input}"
-            record_key = st.session_state.records[input_region]
-            # update the region index based on the record key
-            st.session_state.regions_idx = list(st.session_state.records_map.values()).index(input_region)
-           
+    subheader = st.empty()
 
-        except:
+    if 'records_map' in st.session_state:
+        if 'regions_idx' not in st.session_state:
+            st.session_state.regions_idx = 0
+
+        # Sidebar for region navigation
+        st.sidebar.markdown("### Select Region to Visualize")
+        # activate the variable when pressing inter button
+        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
+        #_level = st.sidebar.slider('Zoom Level', min_value=1, max_value=100, value=100)
+        display_option = st.sidebar.radio("Select Display Type", 
+                                    ("Sequence with Highlighted Motifs", "Bars"))
+
+        col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
+        REF, CN1_col, CN2_col = st.columns([1, 1, 1])
+        # Place the "Previous region" and "Next region" buttons in these columns
+        with col1:
+            if st.button("Previous region"):
+                region = None
+                st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
+
+        with col2:
+            if st.button("Next region"):
+                region = None
+                st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
+            
+        if region:
+
             try:
-        
-                chr_input, start_input, end_input = re.split(r'\s+', region)
-
-                start_input, end_input = int(start_input), int(end_input)
+                chr_input, start_end_input = region.split(':')
+                start_input, end_input = map(int, start_end_input.split('-'))
                 # start_input
                 # end_input-=
 
@@ -1020,46 +1058,88 @@ if 'records_map' in st.session_state:
                 record_key = st.session_state.records[input_region]
                 # update the region index based on the record key
                 st.session_state.regions_idx = list(st.session_state.records_map.values()).index(input_region)
+            
+
             except:
-                st.sidebar.info("Invalid region format, showing the first record")
-                record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
-    else:
-        record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
+                try:
+                    chr_input, start_input, end_input = re.split(r'\s+', region)
+                    start_input, end_input = int(start_input), int(end_input)
+                    input_region = f"{chr_input}:{start_input}-{end_input}"
+                    record_key = st.session_state.records[input_region]
+                    # update the region index based on the record key
+                    st.session_state.regions_idx = list(st.session_state.records_map.values()).index(input_region)
+                except:
+                    st.sidebar.info("Invalid region format, showing the first record")
+                    record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
+        else:
+            record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
 
 
-    record = parse_record(vcf_file_path, record_key)
-    hgsvc_records = get_results_hgsvc_pop(record_key, st.session_state.files ,st.session_state.file_paths)
-    #st.session_state.hgsvc_pop_records, = parse_hgsvc_pop(vcf_status,region)
-    if len(record["motif_ids_h1"]) == 0 and len(record["motif_ids_h2"]) == 0:
-        st.warning(f"No motifs found in the region: {st.session_state.records_map[st.session_state.regions_idx]}")
+        record = parse_record(vcf_file_path, record_key)
+        hgsvc_records = get_results_hgsvc_pop(record_key, st.session_state.files ,st.session_state.file_paths)
+        #st.session_state.hgsvc_pop_records, = parse_hgsvc_pop(vcf_status,region)
+        if len(record["motif_ids_h1"]) == 0 and len(record["motif_ids_h2"]) == 0:
+            st.warning(f"No motifs found in the region: {st.session_state.records_map[st.session_state.regions_idx]}")
+            st.stop()
+            
+        middel.markdown(f"""
+            <div style="font-size: 18px; color: #90EE90; margin-bottom: 5px; text-align: center; 
+                        padding: 5px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+                        background-color: #333; display: inline-block;">
+                <strong>Tandem Repeat Region: {record['chr']}:{record['pos']-1}-{record['stop']-1}</strong>
+            </div>
+        """, unsafe_allow_html=True)
+        # show the reference copy number
+        REF.markdown(f"""
+            <div style="font-size: 20px; color: #4CAF50; margin-bottom: 10px;">
+                <strong>Reference Copy Number:</strong> {record['ref_CN']}
+            </div>
+        """, unsafe_allow_html=True)
+
+        left_column, right_column = st.columns([4, 1])
+        # define the motif colors
+        motif_colors = get_color_palette(len(record['motifs']))
+        motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
+    
+        col1,col2 = st.sidebar.columns([1,1])
+
+
+
+        if display_option == "Sequence with Highlighted Motifs":
+            visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
+
+        elif display_option == "Bars":
+            display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
+    
+
+else:
+    st.sidebar.text_input("Enter the path to the cohort results", value=None, key="cohort_path")
+    st.session_state.path_to_cohort = st.session_state.get('cohort_path', None)
+    if st.session_state.path_to_cohort is None:
         st.stop()
-        
-    middel.markdown(f"""
-        <div style="font-size: 18px; color: #90EE90; margin-bottom: 5px; text-align: center; 
-                    padding: 5px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
-                    background-color: #333; display: inline-block;">
-            <strong>Tandem Repeat Region: {record['chr']}:{record['pos']-1}-{record['stop']-1}</strong>
-        </div>
-    """, unsafe_allow_html=True)
-    # show the reference copy number
-    REF.markdown(f"""
-        <div style="font-size: 20px; color: #4CAF50; margin-bottom: 10px;">
-            <strong>Reference Copy Number:</strong> {record['ref_CN']}
-        </div>
-    """, unsafe_allow_html=True)
+    st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('CCS.vcf.gz')]
+    st.session_state.cohort_files = [load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
+    st.session_state.cohorts_records_map = get_records_info(st.session_state.path_to_cohort+ st.session_state.cohort_file_paths[0])
+    col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
+    # Place the "Previous region" and "Next region" buttons in these columns
+    if 'cohorts_records_map' in st.session_state:
+        if 'regions_idx' not in st.session_state:
+            st.session_state.regions_idx = 0
+        with col1:
+            if st.button("Previous region"):
+                region = None
+                st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
 
-    left_column, right_column = st.columns([4, 1])
-    # define the motif colors
-    motif_colors = get_color_palette(len(record['motifs']))
-    motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
-  
-    col1,col2 = st.sidebar.columns([1,1])
+        with col2:
+            if st.button("Next region"):
+                region = None
+                st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
 
+        region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
+        st.session_state.cohort_results = get_results_cohort(region, st.session_state.cohort_files, st.session_state.cohort_file_paths)
+        if 'cohort_results' in st.session_state:   
+            region = st.session_state.regions_idx
+            plot_Cohort_results(st.session_state.cohort_results)
+        else:
+            st.stop()
 
-
-    if display_option == "Sequence with Highlighted Motifs":
-        visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
-
-    elif display_option == "Bars":
-        display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
-  
