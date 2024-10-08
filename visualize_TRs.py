@@ -462,7 +462,7 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None):
 
 def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif_names):
     data = []
-  
+    interruptions_dict = set()
     for idx, sequence in enumerate(sequences):
         sequence_name = sequence['name']
         motif_ids_seq = motif_ids[idx]
@@ -470,7 +470,7 @@ def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif
         ranges = parse_motif_range(spans)
         sequence_length = len(sequence['sequence'])
         previous_end = 0
- 
+        interruptions_dict_sample = {}
         for i, (start, end) in enumerate(ranges):
             motif = motif_ids_seq[i]
             color = motif_colors[int(motif)]
@@ -485,7 +485,10 @@ def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif
                     'Color': '#FF0000',
                     'Sequence': sequence['sequence'][previous_end:start],
                 })
-
+                if sequence['sequence'][previous_end:start] in interruptions_dict_sample:
+                    interruptions_dict_sample[sequence['sequence'][previous_end:start]] += 1
+                else:
+                    interruptions_dict_sample[sequence['sequence'][previous_end:start]] = 1
             # Add motif data
             data.append({
                 'sample': sequence_name,
@@ -497,6 +500,17 @@ def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif
             })
 
             previous_end = end + 1
+        def len_inturruption_is_equal_to_motif_length(motif_names,k):
+            for motif in motif_names:
+                if len(k) == len(motif):
+                    return True
+            return False
+        # filter the interruption_dict and keep only the one with sequence == any of the motif_lengths and are more than 1
+        inturruptions_dict_sample = {k: v for k, v in interruptions_dict_sample.items() if  len_inturruption_is_equal_to_motif_length(motif_names,k) and v > 1}
+        # add the inturruption_dict_sample to the inturruption_dict
+        for k,v in inturruptions_dict_sample.items():
+            interruptions_dict.add(k)
+            
 
         # Add interruption after the last motif if any
         if previous_end < sequence_length:
@@ -508,7 +522,14 @@ def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif
                 'Color': '#FF0000',
                 'Sequence': sequence['sequence'][previous_end:],
             })
-
+    
+    # print the interruptions as inturrption seen : 
+    if interruptions_dict:
+       
+        interruptions_list = " | ".join([f"`{seq}`" for seq in interruptions_dict])
+        st.markdown(f"**Interruptions Observed:** {interruptions_list}")
+    else:
+        st.subheader("No Significant Interruptions Detected")
     return pd.DataFrame(data)
 
 
@@ -615,7 +636,61 @@ def plot_Cohort_results(cohort_records):
 
     # Plotly-Figur in Streamlit anzeigen
     st.plotly_chart(figure, use_container_width=True)
+    bar_plot_motif_count(df)
+    # plot a heatmap of the count of the motifs for each sample
+    # Pivot the DataFrame to get the count of motifs for each sample
+    motif_counts = df[df['Motif'] != 'Interruption'].groupby(['sample', 'Motif']).size().reset_index(name='Count')
 
+    # Create a pivot table for the heatmap
+    heatmap_data = motif_counts.pivot(index='sample', columns='Motif', values='Count').fillna(0)
+
+    # Reset index and melt the DataFrame
+    heatmap_data_long = heatmap_data.reset_index().melt(id_vars='sample', var_name='Motif', value_name='Count')
+
+    # Create a heatmap using Altair
+    heatmap = alt.Chart(heatmap_data_long).mark_rect().encode(
+        x=alt.X('sample:N', title='Sample'),
+        y=alt.Y('Motif:N', title='Motif'),
+        color=alt.Color('Count:Q', scale=alt.Scale(scheme='reds'), title='Count'),
+        tooltip=['sample', 'Motif', 'Count']
+    ).properties(
+        width=400,
+        height=400,
+        title='Motif Occurrences Heatmap'
+    )
+
+
+    # Display the heatmap in Streamlit
+    st.altair_chart(heatmap, use_container_width=True)
+
+
+    
+def bar_plot_motif_count(df):
+    df = df[df['Motif'] != "Interruption"]
+    # Calculate total copy number for each sample across all motifs
+    total_copy_number = df.groupby('sample')['Motif'].sum().reset_index()
+    total_copy_number.columns = ['Sample', 'Total Copy Number']
+
+    # Display total copy number as bar chart
+    total_copy_number = df.groupby('sample')['Length'].sum().reset_index()
+    total_copy_number.columns = ['Sample', 'Total Copy Number']
+
+    # Create bar chart using Altair
+    bar_chart = alt.Chart(total_copy_number).mark_bar().encode(
+        x=alt.X('Sample', sort=None),
+        y='Total Copy Number',
+        tooltip=['Sample', 'Total Copy Number'],
+        color=alt.Color('Sample', scale=alt.Scale(scheme='category20'))
+    ).properties(
+        width=600,
+        height=400,
+        title="Total Copy Number per Sample"
+    )
+
+    # Display bar chart in Streamlit
+    st.altair_chart(bar_chart, use_container_width=True)
+
+    
 
 def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
     sequences = []
@@ -641,6 +716,7 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
         motif_ids_list.append(hgsvc_records[key]['motif_ids_h'])
 
     motif_colors, df = stack_plot(record, motif_names, sequences, span_list, motif_ids_list)
+    bar_plot_motif_count(df)
 
 
     # Filterung der Daten
@@ -738,6 +814,9 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
     combined_data = pd.concat([pivot_hgsvc_long, pivot_sample_long])
 
     # Create Altair heatmap
+    plot_heatmap(combined_data)
+
+def plot_heatmap(combined_data):
     heatmap = alt.Chart(combined_data).mark_rect().encode(
         x=alt.X('Sample:N', title='Sample'),
         y=alt.Y('Motif:N', title='Motif'),
@@ -773,9 +852,10 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
     df['sample'] = df['sample'].apply(lambda x: x.replace("_pathogenic", ""))
     # sort the samples by name 
     df['sample'] = pd.Categorical(df['sample'], categories=sorted(df['sample'].unique()), ordered=True)
-    min_copy_number = df.groupby('sample')['Length'].sum().min()
-    max_copy_number = df.groupby('sample')['Length'].sum().max()
-
+    # Filter out "Interruption" motifs before counting
+    filtered_df = df[df['Motif'] != 'Interruption']
+    min_copy_number = filtered_df.groupby('sample')['Motif'].count().min()
+    max_copy_number = filtered_df.groupby('sample')['Motif'].count().max()
     st.markdown(f"""
         <div style="display: flex; justify-content: space-between; font-size: 20px; color: #FF5733;">
             <div>
@@ -1264,83 +1344,83 @@ if st.session_state.analysis_mode == "indivisual sample":
 
         elif display_option == "Bars":
             display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
-    
-
-else:
+elif st.session_state.analysis_mode == "Cohort":
     st.sidebar.text_input("Enter the path to the cohort results", value=None, key="cohort_path")
     st.session_state.path_to_cohort = st.session_state.get('cohort_path', None)
     if st.session_state.path_to_cohort is None:
         st.stop()
-    try:
-        st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('CCS.vcf.gz')]
-        st.session_state.cohort_files = [load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
-        st.session_state.cohorts_records_map = get_records_info(st.session_state.path_to_cohort+ st.session_state.cohort_file_paths[0])
-        col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
-        # Place the "Previous region" and "Next region" buttons in these columns
-        if 'cohorts_records_map' in st.session_state:
-            if 'regions_idx' not in st.session_state:
-                st.session_state.regions_idx = 0
-            with col1:
-                if st.button("Previous region"):
-                    region = None
-                    st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
+    # try:
+    st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('.vcf.gz')]
+    st.session_state.cohort_files = [load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
+    st.session_state.cohorts_records_map = get_records_info(st.session_state.path_to_cohort+ st.session_state.cohort_file_paths[0])
+    col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
+    # Place the "Previous region" and "Next region" buttons in these columns
+    if 'cohorts_records_map' in st.session_state:
+        if 'regions_idx' not in st.session_state:
+            st.session_state.regions_idx = 0
+        with col1:
+            if st.button("Previous region"):
+                region = None
+                st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
 
-            with col2:
-                if st.button("Next region"):
-                    region = None
-                    st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
+        with col2:
+            if st.button("Next region"):
+                region = None
+                st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
 
-            region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
-            mode_placeholder = st.empty()
+        region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
+        mode_placeholder = st.empty()
 
-            # JavaScript code to detect dark or light mode and return the value
-            # check the background color of the page
-            
-            # print the region name in the middle 
-            middel.markdown(f"""
-                <div id="tandem-repeat-region" class="region-container" style="font-size: 25px; margin-bottom: 10px;">
-                    <strong>Tandem Repeat Region: {region}</strong>
-                </div>
-            """, unsafe_allow_html=True)
+        # JavaScript code to detect dark or light mode and return the value
+        # check the background color of the page
+        
+        # print the region name in the middle 
+        middel.markdown(f"""
+            <div id="tandem-repeat-region" class="region-container" style="font-size: 25px; margin-bottom: 10px;">
+                <strong>Tandem Repeat Region: {region}</strong>
+            </div>
+        """, unsafe_allow_html=True)
 
-            # Inject the CSS to handle light and dark mode
-            st.markdown("""
-                <style>
-                :root {
-                    --region-color-light: black;
-                    --region-color-dark: white;
-                }
+        # Inject the CSS to handle light and dark mode
+        st.markdown("""
+            <style>
+            :root {
+                --region-color-light: black;
+                --region-color-dark: white;
+            }
 
-                /* Default style for light mode */
+            /* Default style for light mode */
+            .region-container {
+                color: var(--region-color-light);
+            }
+
+            /* Apply different color for dark mode */
+            @media (prefers-color-scheme: dark) {
                 .region-container {
-                    color: var(--region-color-light);
+                    color: var(--region-color);
                 }
-
-                /* Apply different color for dark mode */
-                @media (prefers-color-scheme: dark) {
-                    .region-container {
-                        color: var(--region-color);
-                    }
-                }
-                </style>
-            """, unsafe_allow_html=True)
-            #     <style>
-            #     :root {
-            #     --text-color: #004d00; /* Darker green for light mode */
-            #     }
-            #     @media (prefers-color-scheme: dark) {
-            #     :root {
-            #         --text-color: #00ff00; /* Brighter green for dark mode */
-            #     }
-            #     }
-            #     </style>
-            # """, unsafe_allow_html=True)
-            st.session_state.cohort_results = get_results_cohort(region, st.session_state.cohort_files, st.session_state.cohort_file_paths)
-            if 'cohort_results' in st.session_state:   
-                region = st.session_state.regions_idx
-                plot_Cohort_results(st.session_state.cohort_results)
-            else:
-                st.stop()
-    except:
-        st.sidebar.error("Invalid path to the cohort results")
-        st.stop()
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        #     <style>
+        #     :root {
+        #     --text-color: #004d00; /* Darker green for light mode */
+        #     }
+        #     @media (prefers-color-scheme: dark) {
+        #     :root {
+        #         --text-color: #00ff00; /* Brighter green for dark mode */
+        #     }
+        #     }
+        #     </style>
+        # """, unsafe_allow_html=True)
+        st.session_state.cohort_results = get_results_cohort(region, st.session_state.cohort_files, st.session_state.cohort_file_paths)
+        if 'cohort_results' in st.session_state:   
+            region = st.session_state.regions_idx
+            plot_Cohort_results(st.session_state.cohort_results)
+        else:
+            st.stop()
+    # except:
+    #     st.sidebar.error("Invalid path to the cohort results")
+    #     st.stop()
+else:
+    st.stop()
