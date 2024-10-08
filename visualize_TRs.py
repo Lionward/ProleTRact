@@ -839,12 +839,13 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
   
            
     df = create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
-    
+
+
     df['Length'] = df['End'] - df['Start'] 
             
             # sort the data frame by start and end per sequence
 
-    df['Order'] = df.index  # Use the index to maintain the original order from the DataFrame
+  
             # Create the Altair chart with explicit order encoding
     default_hight = 600 
     chart_height = max(default_hight, len(sequences) * 7)
@@ -852,6 +853,9 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
     df['sample'] = df['sample'].apply(lambda x: x.replace("_pathogenic", ""))
     # sort the samples by name 
     df['sample'] = pd.Categorical(df['sample'], categories=sorted(df['sample'].unique()), ordered=True)
+    # sort the data frame by the name of the sample 
+    df = df.sort_values(by=['sample', 'Start', 'End'])
+    df['Order'] = range(len(df))
     # Filter out "Interruption" motifs before counting
     filtered_df = df[df['Motif'] != 'Interruption']
     min_copy_number = filtered_df.groupby('sample')['Motif'].count().min()
@@ -1200,7 +1204,16 @@ path_changed = False
 old_vcf_file_path = st.session_state.get('vcf_file_path', None)
 
 
+# Check if the analysis mode has changed
+previous_analysis_mode = st.session_state.get('previous_analysis_mode', None)
 st.session_state.analysis_mode = st.sidebar.radio("Select the type of analysis", ("indivisual sample", "Cohort"))
+
+# If the analysis mode has changed, reset the index to 0
+if previous_analysis_mode != st.session_state.analysis_mode:
+    st.session_state.regions_idx = 0
+
+# Store the current analysis mode for future comparison
+st.session_state.previous_analysis_mode = st.session_state.analysis_mode
 
 if st.session_state.analysis_mode == "indivisual sample":
     st.sidebar.text_input("", value=None, key="vcf_file_path")
@@ -1402,25 +1415,12 @@ elif st.session_state.analysis_mode == "Cohort":
             }
             </style>
         """, unsafe_allow_html=True)
-        #     <style>
-        #     :root {
-        #     --text-color: #004d00; /* Darker green for light mode */
-        #     }
-        #     @media (prefers-color-scheme: dark) {
-        #     :root {
-        #         --text-color: #00ff00; /* Brighter green for dark mode */
-        #     }
-        #     }
-        #     </style>
-        # """, unsafe_allow_html=True)
+
         st.session_state.cohort_results = get_results_cohort(region, st.session_state.cohort_files, st.session_state.cohort_file_paths)
         if 'cohort_results' in st.session_state:   
             region = st.session_state.regions_idx
             plot_Cohort_results(st.session_state.cohort_results)
         else:
             st.stop()
-    # except:
-    #     st.sidebar.error("Invalid path to the cohort results")
-    #     st.stop()
-else:
-    st.stop()
+
+
