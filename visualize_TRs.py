@@ -14,6 +14,53 @@ import plotly.express as px
 from scipy.spatial.distance import pdist, squareform
 from scipy.cluster.hierarchy import linkage, dendrogram
 import matplotlib.pyplot as plt
+import streamlit.components.v1 as components
+# JavaScript code to check the color scheme
+# ms = st.session_state
+# if "themes" not in ms: 
+#   ms.themes = {"current_theme": "light",
+#                     "refreshed": True,
+                    
+#                     "light": {"theme.base": "dark",
+#                               "theme.backgroundColor": "black",
+#                               "theme.primaryColor": "#c98bdb",
+#                               "theme.secondaryBackgroundColor": "#5591f5",
+#                               "theme.textColor": "white",
+#                               "theme.textColor": "white",
+#                               "button_face": "🌜"},
+
+#                     "dark":  {"theme.base": "light",
+#                               "theme.backgroundColor": "white",
+#                               "theme.primaryColor": "#5591f5",
+#                               "theme.secondaryBackgroundColor": "#82E1D7",
+#                               "theme.textColor": "#0a1464",
+#                               "button_face": "🌞"},
+#                     }
+  
+
+# def ChangeTheme():
+#   st.write("Changing theme")
+#   st.write("previous theme", ms.themes["current_theme"])
+
+#   previous_theme = ms.themes["current_theme"]
+#   tdict = ms.themes["light"] if ms.themes["current_theme"] == "light" else ms.themes["dark"]
+#   for vkey, vval in tdict.items(): 
+#     if vkey.startswith("theme"): st._config.set_option(vkey, vval)
+
+#   ms.themes["refreshed"] = False
+#   if previous_theme == "dark": 
+#     ms.themes["current_theme"] = "light"
+#   elif previous_theme == "light":
+#     ms.themes["current_theme"] = "dark"
+#     st.write("current theme", ms.themes["current_theme"])
+    
+# btn_face = ms.themes["light"]["button_face"] if ms.themes["current_theme"] == "light" else ms.themes["dark"]["button_face"]
+# st.button(btn_face, on_click=ChangeTheme)
+
+# if ms.themes["refreshed"] == False:
+#     ms.themes["refreshed"] = True
+#     st.rerun()
+
 @st.cache_data()
 def parse_vcf(vcf_file):
     vcf = pysam.VariantFile(vcf_file)
@@ -469,6 +516,8 @@ def plot_Cohort_results(cohort_records):
     sequences = []
     span_list = []
     motif_ids_list = []
+    # make space between the last print 
+    
     for key in cohort_records.keys():
         sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
         span_list.append(cohort_records[key]['spans'][1])
@@ -477,6 +526,10 @@ def plot_Cohort_results(cohort_records):
             sequences.append({'name': f'{key}_alle2', 'sequence': cohort_records[key]['alt_allele2']})
             span_list.append(cohort_records[key]['spans'][2])
             motif_ids_list.append(cohort_records[key]['motif_ids_h2'])
+        else :
+            sequences.append({'name': f'{key}_alle2', 'sequence': ""})
+            span_list.append("")
+            motif_ids_list.append([0])
 
     motif_names = cohort_records[list(cohort_records.keys())[0]]['motifs']
     record = cohort_records[list(cohort_records.keys())[0]]
@@ -489,6 +542,80 @@ def plot_Cohort_results(cohort_records):
     unique_samples = df['sample'].unique()
     # Unterbrechungen entfernen
     unique_samples = [sample for sample in unique_samples if sample != "Interruption"]
+    
+    # Scatter-Plots für jede Probe und jedes Motiv hinzufügen
+    ref_data = []
+    allele_data = []
+
+    # Scatter-Plots für jede Probe und jedes Motiv hinzufügen
+
+    for sample in unique_samples:
+        sample_df = df[df['sample'] == sample]
+        unique_motifs = sample_df['Motif'].unique()
+        unique_motifs = [motif for motif in unique_motifs if motif != "Interruption"]
+        for motif in unique_motifs:
+            motif_df = sample_df[sample_df['Motif'] == motif]
+            trace = go.Scatter(
+                x=[motif],
+                y=[len(motif_df)],
+                mode='markers',
+                name=sample,
+                marker=dict(size=20)
+            )
+            # Daten für "Ref" und "Allel" sammeln
+            if sample in ["Ref", "Allel1", "Allel2"]:
+                if sample == "Ref":
+                    # change the marker to X
+                    trace['marker']['symbol'] = "x"
+                    ref_data.append(trace)
+                else:
+                    trace['marker']['symbol'] = "triangle-down"
+                    
+                    allele_data.append(trace)
+            else:
+                figure.add_trace(trace)
+
+    # Daten für "Ref" und "Allel" am Ende hinzufügen
+    for trace in ref_data + allele_data:
+        figure.add_trace(trace)
+    import numpy as np
+    # Spezifische Farben für Referenz, Allele und HGSVC definieren
+    color_mapping = { sample: np.random.choice(px.colors.qualitative.Plotly) for sample in unique_samples}
+    color_mapping["Ref"] = "green"
+
+    # Trace-Farben basierend auf dem Probenamen aktualisieren
+    figure.for_each_trace(lambda trace: trace.update(marker=dict(color=color_mapping.get(trace.name, 'gray'))))
+
+    # Doppelte Legendeneinträge entfernen und nur die definierten in color_mapping behalten
+    unique_legend_names = set()
+    for trace in figure.data:
+        if trace.name in unique_legend_names:
+            trace.showlegend = False
+        elif trace.name in color_mapping:
+            unique_legend_names.add(trace.name)
+            trace.showlegend = True
+        else:
+            trace.showlegend = False
+    # add the colore gray to the legend and call it HGSVC
+    
+                # Layout mit Titel und Achsenbeschriftungen aktualisieren
+    figure.update_layout(
+        title="Motif Occurrences",
+        xaxis_title="Motif",
+        yaxis_title="HGSVC vs Alleles",
+    )
+
+    # X-Achsen-Motive basierend auf ihrer Farbe färben
+    xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
+    figure.update_xaxes(tickmode='array', tickvals=list(xaxis_colors.keys()), ticktext=[
+        f'<span style="color:{xaxis_colors[motif]}">{motif}</span>' for motif in xaxis_colors.keys()
+    ], tickangle=45)
+    # show the y axis from 0 to the maximum number of motifs
+    figure.update_yaxes(range=[0, df['sample'].value_counts().max()])
+
+    # Plotly-Figur in Streamlit anzeigen
+    st.plotly_chart(figure, use_container_width=True)
+
 
 def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
     sequences = []
@@ -659,6 +786,8 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
             </div>
         </div>
     """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
     chart = alt.Chart(df).mark_bar().encode(
                 y=alt.Y(
                     'sample', 
@@ -857,7 +986,6 @@ def fetch_vcf_region(vcf_file_path, region):
 
 
 # Streamlit UI
-
 st.sidebar.markdown("""
     <style>
         :root {
@@ -963,21 +1091,29 @@ st.sidebar.markdown("""
 
 # Sidebar content
 st.sidebar.markdown("""
-    <div class='sidebar-container'>
-        <h1>Tandem Repeat Visualization</h1>
+    <style>
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --sidebar-text-color: darkgray;
+            }
+        }
+    </style>
+    <div class='sidebar-container' style="color: var(--sidebar-text-color);">
+        <h1 style="color: var(--sidebar-text-color);">Tandem Repeat Visualization</h1>
         <hr>
-        <p>Visualize and analyze tandem repeats in your genomic data.</p>
+        <p style="color: var(--sidebar-text-color);">Visualize and analyze tandem repeats in your genomic data.</p>
     </div>
 """, unsafe_allow_html=True)
 
 # Container for file upload make it smaller
-st.sidebar.markdown("""
-    <div class='upload-container'>
-        <h3>Upload VCF File</h3>
-        <p>Please enter the path of your VCF file to get started.</p>
+# st.sidebar.markdown("""
+#     <div class='upload-container'>
+#         <h3>Upload VCF File</h3>
+#         <p>Please enter the path of your VCF file to get started.</p>
         
-    </div>
-""", unsafe_allow_html=True)
+#     </div>
+# """, unsafe_allow_html=True)
 
 
 path_changed = False
@@ -988,12 +1124,11 @@ st.session_state.analysis_mode = st.sidebar.radio("Select the type of analysis",
 
 if st.session_state.analysis_mode == "indivisual sample":
     st.sidebar.text_input("", value=None, key="vcf_file_path")
-    vcf_file_path = st.session_state.get('vcf_file_path', None)
-    if vcf_file_path is None:
+    if st.session_state.get('vcf_file_path', None) is None:
         st.stop()
-    if vcf_file_path != old_vcf_file_path:
+    if st.session_state.get('vcf_file_path', None) != old_vcf_file_path:
         path_changed = True
-        st.session_state.vcf_file_path = vcf_file_path
+        st.session_state.vcf_file_path = st.session_state.get('vcf_file_path', None)
         st.session_state.pop('records', None)
         st.session_state.pop('records_map', None)
         
@@ -1008,7 +1143,7 @@ if st.session_state.analysis_mode == "indivisual sample":
         if middle.button("Upload VCF File"):
             # try:
             if 'records' not in st.session_state:
-                st.session_state.records,st.session_state.records_map = parse_vcf(vcf_file_path)
+                st.session_state.records,st.session_state.records_map = parse_vcf( st.session_state.get('vcf_file_path', None))
                 st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
                 #samples_keys = list(st.session_state.get('hgsvc_pop_records', {}).keys())
                 if st.session_state.vcf_status == "Pathogenic":
@@ -1075,7 +1210,7 @@ if st.session_state.analysis_mode == "indivisual sample":
             record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
 
 
-        record = parse_record(vcf_file_path, record_key)
+        record = parse_record( st.session_state.get('vcf_file_path', None), record_key)
         hgsvc_records = get_results_hgsvc_pop(record_key, st.session_state.files ,st.session_state.file_paths)
         #st.session_state.hgsvc_pop_records, = parse_hgsvc_pop(vcf_status,region)
         if len(record["motif_ids_h1"]) == 0 and len(record["motif_ids_h2"]) == 0:
@@ -1083,12 +1218,31 @@ if st.session_state.analysis_mode == "indivisual sample":
             st.stop()
             
         middel.markdown(f"""
-            <div style="font-size: 18px; color: #90EE90; margin-bottom: 5px; text-align: center; 
-                        padding: 5px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
-                        background-color: #333; display: inline-block;">
-                <strong>Tandem Repeat Region: {record['chr']}:{record['pos']-1}-{record['stop']-1}</strong>
-            </div>
-        """, unsafe_allow_html=True)
+                <div id="tandem-repeat-region" class="region-container" style="font-size: 25px; margin-bottom: 10px;">
+                    <strong>Tandem Repeat Region: {st.session_state.records_map[st.session_state.regions_idx]}</strong>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("""
+                <style>
+                :root {
+                    --region-color-light: black;
+                    --region-color-dark: white;
+                }
+
+                /* Default style for light mode */
+                .region-container {
+                    color: var(--region-color-light);
+                }
+
+                /* Apply different color for dark mode */
+                @media (prefers-color-scheme: dark) {
+                    .region-container {
+                        color: var(--region-color);
+                    }
+                }
+                </style>
+            """, unsafe_allow_html=True)
         # show the reference copy number
         REF.markdown(f"""
             <div style="font-size: 20px; color: #4CAF50; margin-bottom: 10px;">
@@ -1117,29 +1271,76 @@ else:
     st.session_state.path_to_cohort = st.session_state.get('cohort_path', None)
     if st.session_state.path_to_cohort is None:
         st.stop()
-    st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('CCS.vcf.gz')]
-    st.session_state.cohort_files = [load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
-    st.session_state.cohorts_records_map = get_records_info(st.session_state.path_to_cohort+ st.session_state.cohort_file_paths[0])
-    col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
-    # Place the "Previous region" and "Next region" buttons in these columns
-    if 'cohorts_records_map' in st.session_state:
-        if 'regions_idx' not in st.session_state:
-            st.session_state.regions_idx = 0
-        with col1:
-            if st.button("Previous region"):
-                region = None
-                st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
+    try:
+        st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('CCS.vcf.gz')]
+        st.session_state.cohort_files = [load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
+        st.session_state.cohorts_records_map = get_records_info(st.session_state.path_to_cohort+ st.session_state.cohort_file_paths[0])
+        col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
+        # Place the "Previous region" and "Next region" buttons in these columns
+        if 'cohorts_records_map' in st.session_state:
+            if 'regions_idx' not in st.session_state:
+                st.session_state.regions_idx = 0
+            with col1:
+                if st.button("Previous region"):
+                    region = None
+                    st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
 
-        with col2:
-            if st.button("Next region"):
-                region = None
-                st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
+            with col2:
+                if st.button("Next region"):
+                    region = None
+                    st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
 
-        region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
-        st.session_state.cohort_results = get_results_cohort(region, st.session_state.cohort_files, st.session_state.cohort_file_paths)
-        if 'cohort_results' in st.session_state:   
-            region = st.session_state.regions_idx
-            plot_Cohort_results(st.session_state.cohort_results)
-        else:
-            st.stop()
+            region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
+            mode_placeholder = st.empty()
 
+            # JavaScript code to detect dark or light mode and return the value
+            # check the background color of the page
+            
+            # print the region name in the middle 
+            middel.markdown(f"""
+                <div id="tandem-repeat-region" class="region-container" style="font-size: 25px; margin-bottom: 10px;">
+                    <strong>Tandem Repeat Region: {region}</strong>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Inject the CSS to handle light and dark mode
+            st.markdown("""
+                <style>
+                :root {
+                    --region-color-light: black;
+                    --region-color-dark: white;
+                }
+
+                /* Default style for light mode */
+                .region-container {
+                    color: var(--region-color-light);
+                }
+
+                /* Apply different color for dark mode */
+                @media (prefers-color-scheme: dark) {
+                    .region-container {
+                        color: var(--region-color);
+                    }
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            #     <style>
+            #     :root {
+            #     --text-color: #004d00; /* Darker green for light mode */
+            #     }
+            #     @media (prefers-color-scheme: dark) {
+            #     :root {
+            #         --text-color: #00ff00; /* Brighter green for dark mode */
+            #     }
+            #     }
+            #     </style>
+            # """, unsafe_allow_html=True)
+            st.session_state.cohort_results = get_results_cohort(region, st.session_state.cohort_files, st.session_state.cohort_file_paths)
+            if 'cohort_results' in st.session_state:   
+                region = st.session_state.regions_idx
+                plot_Cohort_results(st.session_state.cohort_results)
+            else:
+                st.stop()
+    except:
+        st.sidebar.error("Invalid path to the cohort results")
+        st.stop()
