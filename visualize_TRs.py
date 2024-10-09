@@ -478,7 +478,7 @@ def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif
             # Handle interruption between motifs
             if start > previous_end:
                 data.append({
-                    'sample': sequence_name,
+                    'Sample': sequence_name,
                     'Start': previous_end,
                     'End': start,
                     'Motif': 'Interruption',
@@ -491,7 +491,7 @@ def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif
                     interruptions_dict_sample[sequence['sequence'][previous_end:start]] = 1
             # Add motif data
             data.append({
-                'sample': sequence_name,
+                'Sample': sequence_name,
                 'Start': start,
                 'End': end + 1,  # Altair works with non-inclusive end
                 'Motif': motif_names[int(motif)],
@@ -515,7 +515,7 @@ def create_motif_dataframe(sequences, motif_colors, motif_ids, spans_list, motif
         # Add interruption after the last motif if any
         if previous_end < sequence_length:
             data.append({
-                'sample': sequence_name,
+                'Sample': sequence_name,
                 'Start': previous_end,
                 'End': sequence_length,
                 'Motif': 'Interruption',
@@ -538,7 +538,7 @@ def plot_Cohort_results(cohort_records):
     span_list = []
     motif_ids_list = []
     # make space between the last print 
-    
+    sort_by = st.radio("Sort by:", ("Value", "Sample Name"), horizontal=True)
     for key in cohort_records.keys():
         sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
         span_list.append(cohort_records[key]['spans'][1])
@@ -554,13 +554,13 @@ def plot_Cohort_results(cohort_records):
 
     motif_names = cohort_records[list(cohort_records.keys())[0]]['motifs']
     record = cohort_records[list(cohort_records.keys())[0]]
-    motif_colors, df = stack_plot(record, motif_names, sequences, span_list, motif_ids_list)
+    motif_colors, df = stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by)
 
     # Filterung der Daten
     figure = go.Figure()
 
     # Einzigartige Proben erhalten
-    unique_samples = df['sample'].unique()
+    unique_samples = df['Sample'].unique()
     # Unterbrechungen entfernen
     unique_samples = [sample for sample in unique_samples if sample != "Interruption"]
     
@@ -571,7 +571,7 @@ def plot_Cohort_results(cohort_records):
     # Scatter-Plots für jede Probe und jedes Motiv hinzufügen
 
     for sample in unique_samples:
-        sample_df = df[df['sample'] == sample]
+        sample_df = df[df['Sample'] == sample]
         unique_motifs = sample_df['Motif'].unique()
         unique_motifs = [motif for motif in unique_motifs if motif != "Interruption"]
         for motif in unique_motifs:
@@ -623,7 +623,7 @@ def plot_Cohort_results(cohort_records):
     figure.update_layout(
         title="Motif Occurrences",
         xaxis_title="Motif",
-        yaxis_title="HGSVC vs Alleles",
+        yaxis_title="Count",
     )
 
     # X-Achsen-Motive basierend auf ihrer Farbe färben
@@ -632,52 +632,43 @@ def plot_Cohort_results(cohort_records):
         f'<span style="color:{xaxis_colors[motif]}">{motif}</span>' for motif in xaxis_colors.keys()
     ], tickangle=45)
     # show the y axis from 0 to the maximum number of motifs
-    figure.update_yaxes(range=[0, df['sample'].value_counts().max()])
+    figure.update_yaxes(range=[0, df['Sample'].value_counts().max()])
 
     # Plotly-Figur in Streamlit anzeigen
     st.plotly_chart(figure, use_container_width=True)
-    bar_plot_motif_count(df)
+    bar_plot_motif_count(df, sort_by=sort_by)
     # plot a heatmap of the count of the motifs for each sample
     # Pivot the DataFrame to get the count of motifs for each sample
-    motif_counts = df[df['Motif'] != 'Interruption'].groupby(['sample', 'Motif']).size().reset_index(name='Count')
+    motif_counts = df[df['Motif'] != 'Interruption'].groupby(['Sample', 'Motif']).size().reset_index(name='Count')
 
     # Create a pivot table for the heatmap
-    heatmap_data = motif_counts.pivot(index='sample', columns='Motif', values='Count').fillna(0)
+    heatmap_data = motif_counts.pivot(index='Sample', columns='Motif', values='Count').fillna(0)
 
     # Reset index and melt the DataFrame
-    heatmap_data_long = heatmap_data.reset_index().melt(id_vars='sample', var_name='Motif', value_name='Count')
+    heatmap_data_long = heatmap_data.reset_index().melt(id_vars='Sample', var_name='Motif', value_name='Count')
 
     # Create a heatmap using Altair
-    heatmap = alt.Chart(heatmap_data_long).mark_rect().encode(
-        x=alt.X('sample:N', title='Sample'),
-        y=alt.Y('Motif:N', title='Motif'),
-        color=alt.Color('Count:Q', scale=alt.Scale(scheme='reds'), title='Count'),
-        tooltip=['sample', 'Motif', 'Count']
-    ).properties(
-        width=400,
-        height=400,
-        title='Motif Occurrences Heatmap'
-    )
-
-
-    # Display the heatmap in Streamlit
-    st.altair_chart(heatmap, use_container_width=True)
-
+    plot_heatmap(heatmap_data_long, sort_by)
 
     
-def bar_plot_motif_count(df):
+def bar_plot_motif_count(df, sort_by="Value"):
     df = df[df['Motif'] != "Interruption"]
     # Calculate total copy number for each sample across all motifs
-    total_copy_number = df.groupby('sample')['Motif'].sum().reset_index()
-    total_copy_number.columns = ['Sample', 'Total Copy Number']
+    total_copy_number = df.groupby('Sample').size().reset_index(name='Total Copy Number')
+    total_copy_number = total_copy_number.sort_values(by='Total Copy Number', ascending=False)
 
-    # Display total copy number as bar chart
-    total_copy_number = df.groupby('sample')['Length'].sum().reset_index()
-    total_copy_number.columns = ['Sample', 'Total Copy Number']
+
+    # make it sort by value or by name 
 
     # Create bar chart using Altair
+
+    if sort_by == "Value":
+        x_sort = alt.EncodingSortField(field='Total Copy Number', op='sum', order='descending')
+    else:
+        x_sort = alt.SortField(field='Sample', order='ascending')
+    st.write(sort_by)
     bar_chart = alt.Chart(total_copy_number).mark_bar().encode(
-        x=alt.X('Sample', sort=None),
+        x=alt.X('Sample', sort=x_sort),
         y='Total Copy Number',
         tooltip=['Sample', 'Total Copy Number'],
         color=alt.Color('Sample', scale=alt.Scale(scheme='category20'))
@@ -686,7 +677,9 @@ def bar_plot_motif_count(df):
         height=400,
         title="Total Copy Number per Sample"
     )
-
+    # remove the legend
+    bar_chart = bar_chart.configure_legend(orient='none', disable=True)
+   
     # Display bar chart in Streamlit
     st.altair_chart(bar_chart, use_container_width=True)
 
@@ -696,7 +689,7 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
     sequences = []
     span_list = []
     motif_ids_list = []
-
+    sort_by = st.radio("Sort by:", ("Value", "Sample Name"), horizontal=True, key="sort_by_HGSVC")
     sequences.append({'name': "Ref", 'sequence': record['ref_allele']})
     span_list.append(record['spans'][0])
     motif_ids_list.append(record['motif_ids_ref'])
@@ -715,15 +708,15 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
         span_list.append(hgsvc_records[key]['spans'][1])
         motif_ids_list.append(hgsvc_records[key]['motif_ids_h'])
 
-    motif_colors, df = stack_plot(record, motif_names, sequences, span_list, motif_ids_list)
-    bar_plot_motif_count(df)
+    motif_colors, df = stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by)
+    bar_plot_motif_count(df, sort_by)
 
 
     # Filterung der Daten
     figure = go.Figure()
 
     # Einzigartige Proben erhalten
-    unique_samples = df['sample'].unique()
+    unique_samples = df['Sample'].unique()
     # Unterbrechungen entfernen
     unique_samples = [sample for sample in unique_samples if sample != "Interruption"]
 
@@ -733,7 +726,7 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
 
     # Scatter-Plots für jede Probe und jedes Motiv hinzufügen
     for sample in unique_samples:
-        sample_df = df[df['sample'] == sample]
+        sample_df = df[df['Sample'] == sample]
         unique_motifs = sample_df['Motif'].unique()
         unique_motifs = [motif for motif in unique_motifs if motif != "Interruption"]
         for motif in unique_motifs:
@@ -783,7 +776,7 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
         else:
             trace.showlegend = False
     # add the colore gray to the legend and call it HGSVC
-    figure.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(color='gray', size=20), name='HGSVC'))
+    figure.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(color='gray', size=20), name=st.session_state.analysis_mode))
     # Layout mit Titel und Achsenbeschriftungen aktualisieren
     figure.update_layout(
         title="Motif Occurrences",
@@ -797,14 +790,14 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
         f'<span style="color:{xaxis_colors[motif]}">{motif}</span>' for motif in xaxis_colors.keys()
     ], tickangle=45)
     # show the y axis from 0 to the maximum number of motifs
-    figure.update_yaxes(range=[0, df['sample'].value_counts().max()])
+    figure.update_yaxes(range=[0, df['Sample'].value_counts().max()])
     
     # Plotly-Figur in Streamlit anzeigen
     st.plotly_chart(figure, use_container_width=True)
     #Motif Overlap Radial Chart
     # Pivot tables for HGSVC and sample data
-    pivot_hgsvc = pd.pivot_table(df[df['sample'] == 'HGSVC'], index='Motif', columns='sample', values='Length', aggfunc='count', fill_value=0)
-    pivot_sample = pd.pivot_table(df[df['sample'] != 'HGSVC'], index='Motif', columns='sample', values='Length', aggfunc='count', fill_value=0)
+    pivot_hgsvc = pd.pivot_table(df[df['Sample'] == 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
+    pivot_sample = pd.pivot_table(df[df['Sample'] != 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
 
     # Convert pivot tables to long format for Altair
     pivot_hgsvc_long = pivot_hgsvc.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
@@ -814,12 +807,21 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
     combined_data = pd.concat([pivot_hgsvc_long, pivot_sample_long])
 
     # Create Altair heatmap
-    plot_heatmap(combined_data)
+    plot_heatmap(combined_data, sort_by=sort_by)
 
-def plot_heatmap(combined_data):
+def plot_heatmap(combined_data, sort_by="Value"):
+    
+
+    if sort_by == "Value":
+        x_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
+        y_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
+    else:
+        x_sort = alt.SortField(field='Sample', order='ascending')
+        y_sort = alt.SortField(field='Motif', order='ascending')
+
     heatmap = alt.Chart(combined_data).mark_rect().encode(
-        x=alt.X('Sample:N', title='Sample'),
-        y=alt.Y('Motif:N', title='Motif'),
+        x=alt.X('Sample:N', title='Sample', sort=x_sort),
+        y=alt.Y('Motif:N', title='Motif', sort=y_sort),
         color=alt.Color('Count:Q', scale=alt.Scale(scheme='reds'), title='Count'),
         tooltip=['Sample', 'Motif', 'Count']
     ).properties(
@@ -831,7 +833,7 @@ def plot_heatmap(combined_data):
     # Display heatmap in Streamlit
     st.altair_chart(heatmap, use_container_width=True)
 
-def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
+def stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by="Value"):
     motif_colors = get_color_palette(len(record['motifs']))
     motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
     # plot the min and max copy number in a nice way 
@@ -850,16 +852,21 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
     default_hight = 600 
     chart_height = max(default_hight, len(sequences) * 7)
     
-    df['sample'] = df['sample'].apply(lambda x: x.replace("_pathogenic", ""))
+    df['Sample'] = df['Sample'].apply(lambda x: x.replace("_pathogenic", ""))
     # sort the samples by name 
-    df['sample'] = pd.Categorical(df['sample'], categories=sorted(df['sample'].unique()), ordered=True)
+    df['Sample'] = pd.Categorical(df['Sample'], categories=sorted(df['Sample'].unique()), ordered=True)
     # sort the data frame by the name of the sample 
-    df = df.sort_values(by=['sample', 'Start', 'End'])
+    df = df.sort_values(by=['Sample', 'Start', 'End'])
     df['Order'] = range(len(df))
     # Filter out "Interruption" motifs before counting
-    filtered_df = df[df['Motif'] != 'Interruption']
-    min_copy_number = filtered_df.groupby('sample')['Motif'].count().min()
-    max_copy_number = filtered_df.groupby('sample')['Motif'].count().max()
+    df = df[df['Motif'] != 'Interruption']
+
+    
+    for sample in df['Sample'].unique():
+        df.loc[df['Sample'] == sample, 'Total Copy Number'] = df[df['Sample'] == sample].shape[0]
+    min_copy_number = df['Total Copy Number'].min()
+    max_copy_number = df['Total Copy Number'].max()
+    
     st.markdown(f"""
         <div style="display: flex; justify-content: space-between; font-size: 20px; color: #FF5733;">
             <div>
@@ -872,16 +879,23 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
+    
+
+    if sort_by == "Value":
+        y_sort = alt.EncodingSortField(field='Length', op='sum', order='descending')
+    else:
+        y_sort = alt.SortField(field='Sample', order='ascending')
+
     chart = alt.Chart(df).mark_bar().encode(
                 y=alt.Y(
-                    'sample', 
-                    sort=None, 
+                    'Sample', 
+                    sort=y_sort, 
                     axis=alt.Axis(labelOverlap=False, ticks=False)  # Ensure all labels are shown, and avoid overlapping
                 ),
                 x=alt.X('Length', title='Length', stack='zero'),  # Stack motifs without sorting them
                 color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
                 order=alt.Order('Order', sort='ascending'),  # Explicitly order the bars by the 'Order' column
-                tooltip=['sample', 'Motif', 'Start', 'End', 'Sequence']
+                tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence']
             ).properties(
                 width=800,
                 height=chart_height,  # Use the dynamically calculated chart height
@@ -889,7 +903,7 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list):
             ).configure_axis(
                 labelFontSize=10,  # Adjust label font size if necessary to fit more labels
                 titleFontSize=12
-            )
+            ).interactive()
     if chart_height > default_hight:
                 # remove y axis labels
         chart = chart.configure_axisY(labelFontSize=0)
@@ -1358,17 +1372,25 @@ if st.session_state.analysis_mode == "indivisual sample":
         elif display_option == "Bars":
             display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
 elif st.session_state.analysis_mode == "Cohort":
-    st.sidebar.text_input("Enter the path to the cohort results", value=None, key="cohort_path")
-    st.session_state.path_to_cohort = st.session_state.get('cohort_path', None)
+    cohort_path = st.sidebar.text_input("Enter the path to the cohort results", value=None, key="cohort_path")
+    # if the path doesn't end with a slash add it
+    if cohort_path is not None and not cohort_path.endswith('/'):
+        cohort_path += '/'
+    st.session_state.path_to_cohort = cohort_path
     if st.session_state.path_to_cohort is None:
         st.stop()
-    # try:
-    st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('.vcf.gz')]
-    st.session_state.cohort_files = [load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
-    st.session_state.cohorts_records_map = get_records_info(st.session_state.path_to_cohort+ st.session_state.cohort_file_paths[0])
+    if st.sidebar.button("Load Cohort"):
+        st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('.vcf.gz')]
+        st.session_state.cohort_files = [load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
+        st.session_state.cohorts_records_map = get_records_info(st.session_state.path_to_cohort+ st.session_state.cohort_file_paths[0])
     col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
-    # Place the "Previous region" and "Next region" buttons in these columns
+        # Place the "Previous region" and "Next region" buttons in these columns
     if 'cohorts_records_map' in st.session_state:
+        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
+        
+
+
+        
         if 'regions_idx' not in st.session_state:
             st.session_state.regions_idx = 0
         with col1:
@@ -1380,8 +1402,28 @@ elif st.session_state.analysis_mode == "Cohort":
             if st.button("Next region"):
                 region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
+                
+        if region:
+    
+            try:
+                chr_input, start_end_input = region.split(':')
+                start_input, end_input = map(int, start_end_input.split('-'))
 
-        region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
+                region = f"{chr_input}:{start_input}-{end_input}"
+                st.session_state.regions_idx = list(st.session_state.cohorts_records_map.values()).index(region)
+            except:
+                try:
+                    chr_input, start_input, end_input = re.split(r'\s+', region)
+                    start_input, end_input = int(start_input), int(end_input)
+                    region = f"{chr_input}:{start_input}-{end_input}"
+                except:
+                    st.sidebar.info("Invalid region format, showing the first record")
+                    region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
+            
+
+        else:
+
+            region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
         mode_placeholder = st.empty()
 
         # JavaScript code to detect dark or light mode and return the value
@@ -1419,6 +1461,7 @@ elif st.session_state.analysis_mode == "Cohort":
         st.session_state.cohort_results = get_results_cohort(region, st.session_state.cohort_files, st.session_state.cohort_file_paths)
         if 'cohort_results' in st.session_state:   
             region = st.session_state.regions_idx
+            
             plot_Cohort_results(st.session_state.cohort_results)
         else:
             st.stop()
