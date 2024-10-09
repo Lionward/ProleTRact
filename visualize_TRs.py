@@ -538,7 +538,7 @@ def plot_Cohort_results(cohort_records):
     span_list = []
     motif_ids_list = []
     # make space between the last print 
-    sort_by = st.radio("Sort by:", ("Value", "Sample Name"), horizontal=True)
+    sort_by = st.radio("Sort by:", ("Value", "Sample Name"), horizontal=True, key="sort_by_cohort")
     for key in cohort_records.keys():
         sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
         span_list.append(cohort_records[key]['spans'][1])
@@ -1230,7 +1230,7 @@ if previous_analysis_mode != st.session_state.analysis_mode:
 st.session_state.previous_analysis_mode = st.session_state.analysis_mode
 
 if st.session_state.analysis_mode == "indivisual sample":
-    st.sidebar.text_input("", value=None, key="vcf_file_path")
+    st.sidebar.text_input("Enter the path of your VCF file", key="vcf_file_path",value= None, help="Enter the path of your VCF file, the file should be zipped and indexed with tabix")
     if st.session_state.get('vcf_file_path', None) is None:
         st.stop()
     if st.session_state.get('vcf_file_path', None) != old_vcf_file_path:
@@ -1272,6 +1272,7 @@ if st.session_state.analysis_mode == "indivisual sample":
         # activate the variable when pressing inter button
         region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
         #_level = st.sidebar.slider('Zoom Level', min_value=1, max_value=100, value=100)
+        st.session_state.previous_region = region
         display_option = st.sidebar.radio("Select Display Type", 
                                     ("Sequence with Highlighted Motifs", "Bars"))
 
@@ -1287,8 +1288,8 @@ if st.session_state.analysis_mode == "indivisual sample":
             if st.button("Next region"):
                 region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
-            
-        if region:
+   
+        if region and region != st.session_state.get('previous_region', None):
 
             try:
                 chr_input, start_end_input = region.split(':')
@@ -1387,7 +1388,7 @@ elif st.session_state.analysis_mode == "Cohort":
         # Place the "Previous region" and "Next region" buttons in these columns
     if 'cohorts_records_map' in st.session_state:
         region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
-        
+        st.session_state.previous_region = region
 
 
         
@@ -1403,7 +1404,7 @@ elif st.session_state.analysis_mode == "Cohort":
                 region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
                 
-        if region:
+        if region and region != st.session_state.get('previous_region', None):
     
             try:
                 chr_input, start_end_input = region.split(':')
