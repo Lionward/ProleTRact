@@ -1,5 +1,7 @@
 <h1>TandemTwist-O-Scope</h1>
-
+<p align="center">
+<img width="503" alt="grafik" src="https://github.com/user-attachments/assets/6aaace39-159b-4008-9f1f-fa1d37a1b4e8">
+</p>
 <p>This repository contains a <strong>Tandem Repeat Visualization Tool</strong> designed using Streamlit. The tool processes Variant Call Format (VCF) files, visualizing tandem repeats in an intuitive, interactive format. Users can explore motifs, compare alleles, and gain insights into the structure of tandem repeats, enhancing their ability to interpret genomic variation.</p>
 
 <h2>Features</h2>
