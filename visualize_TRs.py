@@ -931,7 +931,7 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
     if region in st.session_state.pathogenic_TRs:
         pathogenic_thresold = st.session_state.pathogenic_TRs[region]['pathogenicity_threshold']
         pathogenic_thresold = min(pathogenic_thresold) if pathogenic_thresold != [] else 0
-
+        gene_name = st.session_state.pathogenic_TRs[region]['gene']
     st.markdown(f"""
         <div style="display: flex; justify-content: space-between; font-size: 20px; color: #FF5733;">
             <div>
@@ -947,7 +947,8 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
         y_sort = alt.EncodingSortField(field='Length', op='sum', order='descending')
     else:
         y_sort = alt.SortField(field='Sample', order='ascending')
-
+    df ["pathogenic"] = df["Total Copy Number"].apply(lambda x: "Pathogenic" if x >= pathogenic_thresold else "Not Pathogenic")
+    
     chart = alt.Chart(df).mark_bar().encode(
         y=alt.Y(
             'Sample', 
@@ -957,7 +958,7 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
         x=alt.X('Length', title='Length', stack='zero'),
         color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
         order=alt.Order('Order', sort='ascending'),
-        tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence']
+        tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence','pathogenic']
     ).properties(
         width=800,
         height=chart_height,
@@ -969,22 +970,48 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
 
     if pathogenic_thresold > 0:
 
-        rule = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold]})).mark_rule(color='red').encode(x='x')
-
-        combined_chart = alt.layer(chart, rule).resolve_scale(y='independent')
-        # make the line thicker
+        # Abstand hinzufügen
+        st.markdown(f"""<div style="height: 20px;"></div>""", unsafe_allow_html=True)
         
-        # Apply configuration after creating the layered chart
+        # Genname anzeigen
+        st.markdown(f"""
+            <div style="display: flex; justify-content: center; font-size: 20px; color: #4CAF50;">
+            <strong>Gene Name:</strong> {gene_name}
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Pathogenicity threshold multiplizieren
+        pathogenic_thresold = pathogenic_thresold * len(motif_names[0])
+        
+        # Regel hinzufügen und beschriften
+        rule = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold], 'label': ['Pathogenic Threshold']})).mark_rule(color='red').encode(
+            x='x',
+            tooltip=['label', 'x'],
+        )
+        
+        # make the line thicker
+        rule = rule.encode(size=alt.value(5))
+        
+        # Diagramme kombinieren
+        combined_chart = alt.layer(chart, rule).resolve_scale(y='independent')
+        
+
+        # Konfiguration anwenden
         combined_chart = combined_chart.configure_axis(
             labelFontSize=10,
             titleFontSize=12,
-
         )
+
+        combined_chart = combined_chart.properties(
+            padding={'left': 10, 'right': 50, 'top': 30, 'bottom': 10}
+        )
+
+        # for all the samples that cross the pathogenic threshold color their name on the y-axis red
+     
 
         st.altair_chart(combined_chart, use_container_width=True)
     else:
         st.altair_chart(chart, use_container_width=True)
-
     return motif_colors, df
 
 
@@ -1478,7 +1505,6 @@ elif st.session_state.analysis_mode == "Cohort":
             if st.button("Next region"):
                 region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
-        st.write(region, st.session_state.get('previous_region', None))
         if region and region != st.session_state.get('previous_region', None):
     
             try:
