@@ -40,6 +40,7 @@
   <li>matplotlib</li>
   <li>pandas</li>
   <li>altair</li>
+  <li>plotly</li>
 </ul>
 
 <h2></h2>
