@@ -4,17 +4,12 @@ import re
 import matplotlib.pyplot as plt
 import pandas as pd
 import altair as alt
-st.set_page_config(layout="wide")
 import os
 import pysam
-from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
 import plotly.graph_objects as go
 import plotly.express as px
-from scipy.spatial.distance import pdist, squareform
-from scipy.cluster.hierarchy import linkage, dendrogram
-import matplotlib.pyplot as plt
-import streamlit.components.v1 as components
+
+st.set_page_config(layout="wide")
 # JavaScript code to check the color scheme
 # ms = st.session_state
 # if "themes" not in ms: 
