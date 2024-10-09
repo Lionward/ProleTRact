@@ -10,6 +10,67 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 st.set_page_config(layout="wide")
+
+
+st.session_state.pathogenic_TRs = {
+    "chr1:146228800-146228821": {"gene": "NOTCH2NLA", "pathogenicity_threshold": []},
+    "chr1:149390802-149390841": {"gene": "NOTCH2NLC", "pathogenicity_threshold": []},
+    "chr10:79826383-79826404": {"gene": "NUTM2B-AS1", "pathogenicity_threshold": []},
+    "chr10:93702522-93702547": {"gene": "FRA10AC1", "pathogenicity_threshold": []},
+    "chr11:66744821-66744850": {"gene": "C11ORF80", "pathogenicity_threshold": []},
+    "chr11:119206289-119206322": {"gene": "CBL", "pathogenicity_threshold": []},
+    "chr12:6936716-6936773": {"gene": "ATN1", "pathogenicity_threshold": [49,93]},
+    "chr12:50505001-50505022": {"gene": "DIP2B", "pathogenicity_threshold": []},
+    "chr12:111598949-111599018": {"gene": "ATXN2", "pathogenicity_threshold": []},
+    "chr13:70139353-70139428": {"gene": "ATXN8", "pathogenicity_threshold": []},
+    "chr13:99985448-99985494": {"gene": "ZIC2", "pathogenicity_threshold": []},
+    "chr14:23321472-23321490": {"gene": "PABPN1", "pathogenicity_threshold": []},
+    "chr14:92071009-92071042": {"gene": "ATXN3", "pathogenicity_threshold": []},
+    "chr15:22786677-22786701": {"gene": "NIPA1", "pathogenicity_threshold": []},
+    "chr16:17470907-17470923": {"gene": "XYLT1", "pathogenicity_threshold": []},
+    "chr16:24613439-24613530": {"gene": "TNRC6A", "pathogenicity_threshold": []},
+    "chr16:66490398-66490467": {"gene": "BEAN1", "pathogenicity_threshold": []},
+    "chr16:87604287-87604329": {"gene": "JPH3", "pathogenicity_threshold": [40,59]},
+    "chr18:55586155-55586227": {"gene": "TCF4", "pathogenicity_threshold": []},
+    "chr19:13207858-13207897": {"gene": "CACNA1A", "pathogenicity_threshold": []},
+    "chr19:14496041-14496074": {"gene": "GIPC1", "pathogenicity_threshold": []},
+    "chr19:18786034-18786050": {"gene": "COMP", "pathogenicity_threshold": []},
+    "chr19:45770204-45770264": {"gene": "DMPK", "pathogenicity_threshold": [50,10000]},
+    "chr2:96197066-96197122": {"gene": "STARD7", "pathogenicity_threshold": [150,460]},
+    "chr2:100104799-100104824": {"gene": "AFF3", "pathogenicity_threshold": []},
+    "chr2:176093058-176093104": {"gene": "HOXD13", "pathogenicity_threshold": []},
+    "chr2:190880872-190880920": {"gene": "GLS", "pathogenicity_threshold": []},
+    "chr20:2652733-2652775": {"gene": "NOP56", "pathogenicity_threshold": []},
+    "chr21:43776443-43776479": {"gene": "CSTB", "pathogenicity_threshold": []},
+    "chr22:45795354-45795424": {"gene": "ATXN10", "pathogenicity_threshold": []},
+    "chr3:63912684-63912726": {"gene": "ATXN7", "pathogenicity_threshold": []},
+    "chr3:129172576-129172732": {"gene": "CNBP", "pathogenicity_threshold": [50,11000]},
+    "chr3:138946020-138946063": {"gene": "FOXL2", "pathogenicity_threshold": []},
+    "chr3:183712187-183712223": {"gene": "YEATS2", "pathogenicity_threshold": []},
+    "chr4:3074876-3074966": {"gene": "HTT", "pathogenicity_threshold": [36,250]},
+    "chr4:39348424-39348479": {"gene": "RFC1", "pathogenicity_threshold": [400,2000]},
+    "chr4:41745972-41746032": {"gene": "PHOX2B", "pathogenicity_threshold": []},
+    "chr4:159342526-159342617": {"gene": "RAPGEF2", "pathogenicity_threshold": []},
+    "chr5:10356346-10356412": {"gene": "MARCHF6", "pathogenicity_threshold": [700,1035]},
+    "chr5:146878727-146878757": {"gene": "PPP2R2B", "pathogenicity_threshold": []},
+    "chr6:16327633-16327723": {"gene": "ATXN1", "pathogenicity_threshold": []},
+    "chr6:45422750-45422802": {"gene": "RUNX2", "pathogenicity_threshold": []},
+    "chr6:170561906-170562017": {"gene": "TBP", "pathogenicity_threshold": []},
+    "chr7:27199825-27199862": {"gene": "HOXA13", "pathogenicity_threshold": []},
+    "chr7:55887601-55887640": {"gene": "ZNF713", "pathogenicity_threshold": []},
+    "chr8:104588972-104589000": {"gene": "LRP12", "pathogenicity_threshold": []},
+    "chr8:118366815-118366919": {"gene": "SAMD12", "pathogenicity_threshold": [105,3680]},
+    "chr9:27573528-27573546": {"gene": "C9ORF72", "pathogenicity_threshold": [24,4000]},
+    "chr9:69037261-69037304": {"gene": "FXN", "pathogenicity_threshold": [66,1300]},
+    "chrX:25013649-25013698": {"gene": "ARX", "pathogenicity_threshold": [17,27]},
+    "chrX:67545316-67545385": {"gene": "AR", "pathogenicity_threshold": []},
+    "chrX:140504316-140504362": {"gene": "SOX3", "pathogenicity_threshold": []},
+    "chrX:147912050-147912110": {"gene": "FMR1", "pathogenicity_threshold": [55,200,3000]},
+    "chrX:148500631-148500691": {"gene": "AFF2", "pathogenicity_threshold": [200]},
+    "chrX:149631763-149631782": {"gene": "TMEM185A", "pathogenicity_threshold": []},
+}
+
+
 # JavaScript code to check the color scheme
 # ms = st.session_state
 # if "themes" not in ms: 
@@ -840,40 +901,37 @@ def plot_heatmap(combined_data, sort_by="Value"):
     # Display heatmap in Streamlit
     st.altair_chart(heatmap, use_container_width=True)
 
-def stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by="Value"):
+def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value"):
     motif_colors = get_color_palette(len(record['motifs']))
     motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
-    # plot the min and max copy number in a nice way 
+    
+    region  = record['chr'] + ":" + str(record['pos']-1) + "-" + str(record['stop']-1)
 
-  
-           
     df = create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
 
-
-    df['Length'] = df['End'] - df['Start'] 
-            
-            # sort the data frame by start and end per sequence
-
-  
-            # Create the Altair chart with explicit order encoding
+    df['Length'] = df['End'] - df['Start']
+    
     default_hight = 600 
     chart_height = max(default_hight, len(sequences) * 7)
-    
+
     df['Sample'] = df['Sample'].apply(lambda x: x.replace("_pathogenic", ""))
-    # sort the samples by name 
     df['Sample'] = pd.Categorical(df['Sample'], categories=sorted(df['Sample'].unique()), ordered=True)
-    # sort the data frame by the name of the sample 
     df = df.sort_values(by=['Sample', 'Start', 'End'])
     df['Order'] = range(len(df))
-    # Filter out "Interruption" motifs before counting
+
     df = df[df['Motif'] != 'Interruption']
 
-    
     for sample in df['Sample'].unique():
         df.loc[df['Sample'] == sample, 'Total Copy Number'] = df[df['Sample'] == sample].shape[0]
+    
     min_copy_number = df['Total Copy Number'].min()
     max_copy_number = df['Total Copy Number'].max()
-    
+
+    pathogenic_thresold = 0
+    if region in st.session_state.pathogenic_TRs:
+        pathogenic_thresold = st.session_state.pathogenic_TRs[region]['pathogenicity_threshold']
+        pathogenic_thresold = min(pathogenic_thresold) if pathogenic_thresold != [] else 0
+
     st.markdown(f"""
         <div style="display: flex; justify-content: space-between; font-size: 20px; color: #FF5733;">
             <div>
@@ -884,9 +942,6 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by
             </div>
         </div>
     """, unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    
 
     if sort_by == "Value":
         y_sort = alt.EncodingSortField(field='Length', op='sum', order='descending')
@@ -894,30 +949,44 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by
         y_sort = alt.SortField(field='Sample', order='ascending')
 
     chart = alt.Chart(df).mark_bar().encode(
-                y=alt.Y(
-                    'Sample', 
-                    sort=y_sort, 
-                    axis=alt.Axis(labelOverlap=False, ticks=False)  # Ensure all labels are shown, and avoid overlapping
-                ),
-                x=alt.X('Length', title='Length', stack='zero'),  # Stack motifs without sorting them
-                color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
-                order=alt.Order('Order', sort='ascending'),  # Explicitly order the bars by the 'Order' column
-                tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence']
-            ).properties(
-                width=800,
-                height=chart_height,  # Use the dynamically calculated chart height
-                title="Motif Occurrences"
-            ).configure_axis(
-                labelFontSize=10,  # Adjust label font size if necessary to fit more labels
-                titleFontSize=12
-            ).interactive()
+        y=alt.Y(
+            'Sample', 
+            sort=y_sort, 
+            axis=alt.Axis(labelOverlap=False, ticks=False)  
+        ),
+        x=alt.X('Length', title='Length', stack='zero'),
+        color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
+        order=alt.Order('Order', sort='ascending'),
+        tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence']
+    ).properties(
+        width=800,
+        height=chart_height,
+        title="Motif Occurrences"
+    ).interactive()
+
     if chart_height > default_hight:
-                # remove y axis labels
         chart = chart.configure_axisY(labelFontSize=0)
-    
-            # Display the chart in Streamlit
-    st.altair_chart(chart, use_container_width=True)
-    return motif_colors,df
+
+    if pathogenic_thresold > 0:
+
+        rule = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold]})).mark_rule(color='red').encode(x='x')
+
+        combined_chart = alt.layer(chart, rule).resolve_scale(y='independent')
+        # make the line thicker
+        
+        # Apply configuration after creating the layered chart
+        combined_chart = combined_chart.configure_axis(
+            labelFontSize=10,
+            titleFontSize=12,
+
+        )
+
+        st.altair_chart(combined_chart, use_container_width=True)
+    else:
+        st.altair_chart(chart, use_container_width=True)
+
+    return motif_colors, df
+
 
 # Function to visualize tandem repeat with highlighted motifs on the sequence
 def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
