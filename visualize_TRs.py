@@ -648,33 +648,43 @@ def plot_Cohort_results(cohort_records):
     
 def bar_plot_motif_count(df, sort_by="Value"):
     df = df[df['Motif'] != "Interruption"]
+    
     # Calculate total copy number for each sample across all motifs
     total_copy_number = df.groupby('Sample').size().reset_index(name='Total Copy Number')
     total_copy_number = total_copy_number.sort_values(by='Total Copy Number', ascending=False)
 
-
-    # make it sort by value or by name 
-
-    # Create bar chart using Altair
-
+    # Sort by either value or name
     if sort_by == "Value":
         x_sort = alt.EncodingSortField(field='Total Copy Number', op='sum', order='descending')
     else:
         x_sort = alt.SortField(field='Sample', order='ascending')
-    st.write(sort_by)
+
+
+
+    unique_samples = list(total_copy_number['Sample'].apply(lambda x: x.rsplit('_', 1)[0]).unique())
+    color_palette =   px.colors.qualitative.Vivid + px.colors.qualitative.Safe + px.colors.qualitative.Dark24 + px.colors.qualitative.Prism 
+    
+
+    color_mapping = {sample: color_palette[i] for i, sample in enumerate(unique_samples)}
+    color_mapping = {sample: color_mapping[sample.rsplit('_', 1)[0]] for sample in total_copy_number['Sample']}
+    # make the colors of both alleles the same
+
+    # Create the bar chart
     bar_chart = alt.Chart(total_copy_number).mark_bar().encode(
         x=alt.X('Sample', sort=x_sort),
         y='Total Copy Number',
         tooltip=['Sample', 'Total Copy Number'],
-        color=alt.Color('Sample', scale=alt.Scale(scheme='category20'))
+        # Use Sample for consistent coloring across alleles
+        color=alt.Color('Sample', scale=alt.Scale(domain=list(color_mapping.keys()), range=list(color_mapping.values())))
     ).properties(
         width=600,
         height=400,
         title="Total Copy Number per Sample"
     )
-    # remove the legend
+    
+    # Remove the legend
     bar_chart = bar_chart.configure_legend(orient='none', disable=True)
-   
+
     # Display bar chart in Streamlit
     st.altair_chart(bar_chart, use_container_width=True)
 
@@ -771,7 +781,8 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
         else:
             trace.showlegend = False
     # add the colore gray to the legend and call it HGSVC
-    figure.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(color='gray', size=20), name=st.session_state.analysis_mode))
+    name = "HGSVC" if st.session_state.analysis_mode == "indivisual sample" else st.session_state.analysis_mode 
+    figure.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(color='gray', size=20), name=name))
     # Layout mit Titel und Achsenbeschriftungen aktualisieren
     figure.update_layout(
         title="Motif Occurrences",
@@ -824,7 +835,8 @@ def plot_heatmap(combined_data, sort_by="Value"):
         height=400,
         title='Motif Occurrences Heatmap'
     )
-
+    # make the legend above the plot 
+    heatmap = heatmap.configure_legend(orient='top')
     # Display heatmap in Streamlit
     st.altair_chart(heatmap, use_container_width=True)
 
@@ -1247,7 +1259,6 @@ if st.session_state.analysis_mode == "indivisual sample":
             if 'records' not in st.session_state:
                 st.session_state.records,st.session_state.records_map = parse_vcf( st.session_state.get('vcf_file_path', None))
                 st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
-                #samples_keys = list(st.session_state.get('hgsvc_pop_records', {}).keys())
                 if st.session_state.vcf_status == "Pathogenic":
                     st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('pathogenic.vcf.gz')]
                 elif st.session_state.vcf_status == "Healthy":
