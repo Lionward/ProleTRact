@@ -22,7 +22,7 @@ st.session_state.pathogenic_TRs = {
     "chr12:6936716-6936773": {"gene": "ATN1", "pathogenicity_threshold": [49,93]},
     "chr12:50505001-50505022": {"gene": "DIP2B", "pathogenicity_threshold": []},
     "chr12:111598949-111599018": {"gene": "ATXN2", "pathogenicity_threshold": [33,200]},
-    "chr13:70139353-70139428": {"gene": "ATXN8", "pathogenicity_threshold": [19,33]},
+    "chr13:70139353-70139428": {"gene": "ATXN8", "pathogenicity_threshold": [74,1300]},
     "chr13:99985448-99985494": {"gene": "ZIC2", "pathogenicity_threshold": []},
     "chr14:23321472-23321490": {"gene": "PABPN1", "pathogenicity_threshold": [7,18]},
     "chr14:92071009-92071042": {"gene": "ATXN3", "pathogenicity_threshold": [53,87]},
@@ -919,9 +919,9 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
     df = df.sort_values(by=['Sample', 'Start', 'End'])
     df['Order'] = range(len(df))
 
-    df = df[df['Motif'] != 'Interruption']
+    df_filtered = df[df['Motif'] != 'Interruption']
 
-    for sample in df['Sample'].unique():
+    for sample in df_filtered['Sample'].unique():
         df.loc[df['Sample'] == sample, 'Total Copy Number'] = df[df['Sample'] == sample].shape[0]
     
     min_copy_number = df['Total Copy Number'].min()
@@ -967,7 +967,8 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
 
     if chart_height > default_hight:
         chart = chart.configure_axisY(labelFontSize=0)
-
+    # check if the pathogenicity threshold is greater than 0 and if all the samples are not pathogenic
+    pathogenic_thresold_length = pathogenic_thresold * len(motif_names[0])
     if pathogenic_thresold > 0:
 
         # Abstand hinzufügen
@@ -981,35 +982,37 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
         """, unsafe_allow_html=True)
         
         # Pathogenicity threshold multiplizieren
-        pathogenic_thresold = pathogenic_thresold * len(motif_names[0])
         
-        # Regel hinzufügen und beschriften
-        rule = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold], 'label': ['Pathogenic Threshold']})).mark_rule(color='red').encode(
-            x='x',
-            tooltip=['label', 'x'],
-        )
-        
-        # make the line thicker
-        rule = rule.encode(size=alt.value(5))
-        
-        # Diagramme kombinieren
-        combined_chart = alt.layer(chart, rule).resolve_scale(y='independent')
+        if  df.groupby('Sample')['Length'].sum().max() > pathogenic_thresold_length:
+            # Regel hinzufügen und beschriften
+            rule = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'label': ['Pathogenic Threshold']})).mark_rule(color='red').encode(
+                x='x',
+                tooltip=['label', 'x'],
+            )
+            
+            # make the line thicker
+            rule = rule.encode(size=alt.value(5))
+            
+            # Diagramme kombinieren
+            combined_chart = alt.layer(chart, rule).resolve_scale(y='independent')
+            
+
+            # Konfiguration anwenden
+            combined_chart = combined_chart.configure_axis(
+                labelFontSize=10,
+                titleFontSize=12,
+            )
+
+            combined_chart = combined_chart.properties(
+                padding={'left': 10, 'right': 50, 'top': 30, 'bottom': 10}
+            )
+
+            # for all the samples that cross the pathogenic threshold color their name on the y-axis red
         
 
-        # Konfiguration anwenden
-        combined_chart = combined_chart.configure_axis(
-            labelFontSize=10,
-            titleFontSize=12,
-        )
-
-        combined_chart = combined_chart.properties(
-            padding={'left': 10, 'right': 50, 'top': 30, 'bottom': 10}
-        )
-
-        # for all the samples that cross the pathogenic threshold color their name on the y-axis red
-     
-
-        st.altair_chart(combined_chart, use_container_width=True)
+            st.altair_chart(combined_chart, use_container_width=True)
+        else:
+            st.altair_chart(chart, use_container_width=True)
     else:
         st.altair_chart(chart, use_container_width=True)
     return motif_colors, df
