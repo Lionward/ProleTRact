@@ -13,62 +13,64 @@ st.set_page_config(layout="wide")
 
 
 st.session_state.pathogenic_TRs = {
-    "chr1:146228800-146228821": {"gene": "NOTCH2NLA", "pathogenicity_threshold": []},
-    "chr1:149390802-149390841": {"gene": "NOTCH2NLC", "pathogenicity_threshold": [66,517]},
-    "chr10:79826383-79826404": {"gene": "NUTM2B-AS1", "pathogenicity_threshold": [16,160]},
-    "chr10:93702522-93702547": {"gene": "FRA10AC1", "pathogenicity_threshold": []},
-    "chr11:66744821-66744850": {"gene": "C11ORF80", "pathogenicity_threshold": []},
-    "chr11:119206289-119206322": {"gene": "CBL", "pathogenicity_threshold": []},
-    "chr12:6936716-6936773": {"gene": "ATN1", "pathogenicity_threshold": [49,93]},
-    "chr12:50505001-50505022": {"gene": "DIP2B", "pathogenicity_threshold": []},
-    "chr12:111598949-111599018": {"gene": "ATXN2", "pathogenicity_threshold": [33,200]},
-    "chr13:70139353-70139428": {"gene": "ATXN8", "pathogenicity_threshold": [74,1300]},
-    "chr13:99985448-99985494": {"gene": "ZIC2", "pathogenicity_threshold": []},
-    "chr14:23321472-23321490": {"gene": "PABPN1", "pathogenicity_threshold": [7,18]},
-    "chr14:92071009-92071042": {"gene": "ATXN3", "pathogenicity_threshold": [53,87]},
-    "chr15:22786677-22786701": {"gene": "NIPA1", "pathogenicity_threshold": []},
-    "chr16:17470907-17470923": {"gene": "XYLT1", "pathogenicity_threshold": []},
-    "chr16:24613439-24613530": {"gene": "TNRC6A", "pathogenicity_threshold": []},
-    "chr16:66490398-66490467": {"gene": "BEAN1", "pathogenicity_threshold": [500,760]},
-    "chr16:87604287-87604329": {"gene": "JPH3", "pathogenicity_threshold": [40,59]},
-    "chr18:55586155-55586227": {"gene": "TCF4", "pathogenicity_threshold": []},
-    "chr19:13207858-13207897": {"gene": "CACNA1A", "pathogenicity_threshold": [19,33]},
-    "chr19:14496041-14496074": {"gene": "GIPC1", "pathogenicity_threshold": [70,164]},
-    "chr19:18786034-18786050": {"gene": "COMP", "pathogenicity_threshold": []},
-    "chr19:45770204-45770264": {"gene": "DMPK", "pathogenicity_threshold": [50,10000]},
-    "chr2:96197066-96197122": {"gene": "STARD7", "pathogenicity_threshold": [150,460]},
-    "chr2:100104799-100104824": {"gene": "AFF3", "pathogenicity_threshold": []},
-    "chr2:176093058-176093104": {"gene": "HOXD13", "pathogenicity_threshold": []},
-    "chr2:190880872-190880920": {"gene": "GLS", "pathogenicity_threshold": []},
-    "chr20:2652733-2652775": {"gene": "NOP56", "pathogenicity_threshold": [650,2500]},
-    "chr21:43776443-43776479": {"gene": "CSTB", "pathogenicity_threshold": [30,125]},
-    "chr22:45795354-45795424": {"gene": "ATXN10", "pathogenicity_threshold": [280,4500]},
-    "chr3:63912684-63912726": {"gene": "ATXN7", "pathogenicity_threshold": [34,460]},
-    "chr3:129172576-129172732": {"gene": "CNBP", "pathogenicity_threshold": [50,11000]},
-    "chr3:138946020-138946063": {"gene": "FOXL2", "pathogenicity_threshold": []},
-    "chr3:183712187-183712223": {"gene": "YEATS2", "pathogenicity_threshold": []},
-    "chr4:3074876-3074966": {"gene": "HTT", "pathogenicity_threshold": [36,250]},
-    "chr4:39348424-39348479": {"gene": "RFC1", "pathogenicity_threshold": [400,2000]},
-    "chr4:41745972-41746032": {"gene": "PHOX2B", "pathogenicity_threshold": []},
-    "chr4:159342526-159342617": {"gene": "RAPGEF2", "pathogenicity_threshold": []},
-    "chr5:10356346-10356412": {"gene": "MARCHF6", "pathogenicity_threshold": [700,1035]},
-    "chr5:146878727-146878757": {"gene": "PPP2R2B", "pathogenicity_threshold": [51,78]},
-    "chr6:16327633-16327723": {"gene": "ATXN1", "pathogenicity_threshold": [39,91]},
-    "chr6:45422750-45422802": {"gene": "RUNX2", "pathogenicity_threshold": []},
-    "chr6:170561906-170562017": {"gene": "TBP", "pathogenicity_threshold": [43,66]},
-    "chr7:27199825-27199862": {"gene": "HOXA13", "pathogenicity_threshold": []},
-    "chr7:55887601-55887640": {"gene": "ZNF713", "pathogenicity_threshold": []},
-    "chr8:104588972-104589000": {"gene": "LRP12", "pathogenicity_threshold": [90,130]},
-    "chr8:118366815-118366919": {"gene": "SAMD12", "pathogenicity_threshold": [105,3680]},
-    "chr9:27573528-27573546": {"gene": "C9ORF72", "pathogenicity_threshold": [24,4000]},
-    "chr9:69037261-69037304": {"gene": "FXN", "pathogenicity_threshold": [66,1300]},
-    "chrX:25013649-25013698": {"gene": "ARX", "pathogenicity_threshold": [17,27]},
-    "chrX:67545316-67545385": {"gene": "AR", "pathogenicity_threshold": [38,68]},
-    "chrX:140504316-140504362": {"gene": "SOX3", "pathogenicity_threshold": []},
-    "chrX:147912050-147912110": {"gene": "FMR1", "pathogenicity_threshold": [55,200,3000]},
+    "chr1:146228800-146228821": {"gene": "NOTCH2NLA", "pathogenicity_threshold": [61]},
+    "chr1:149390802-149390841": {"gene": "NOTCH2NL", "pathogenicity_threshold": [66, 517]},
+    "chr10:79826383-79826404": {"gene": "NUTM2B-AS1", "pathogenicity_threshold": [16, 160]},
+    "chr10:93702522-93702547": {"gene": "FRA10AC1", "pathogenicity_threshold": [0]},
+    "chr11:66744821-66744850": {"gene": "C11ORF80", "pathogenicity_threshold": [0]},
+    "chr11:119206289-119206322": {"gene": "CBL", "pathogenicity_threshold": [101]},
+    "chr12:6936716-6936773": {"gene": "ATN1", "pathogenicity_threshold": [49, 93]},
+    "chr12:50505001-50505022": {"gene": "DIP2B", "pathogenicity_threshold": [151]},
+    "chr12:111598949-111599018": {"gene": "ATXN2", "pathogenicity_threshold": [33, 200]},
+    "chr13:70139353-70139428": {"gene": "ATXN8", "pathogenicity_threshold": [74, 1300]},
+    "chr13:99985448-99985494": {"gene": "ZIC2", "pathogenicity_threshold": [25]},
+    "chr14:23321472-23321490": {"gene": "PABPN1", "pathogenicity_threshold": [18]},
+    "chr14:92071009-92071042": {"gene": "ATXN3", "pathogenicity_threshold": [53, 87]},
+    "chr15:22786677-22786701": {"gene": "NIPA1", "pathogenicity_threshold": [9]},
+    "chr16:17470907-17470923": {"gene": "XYLT1", "pathogenicity_threshold": [120]},
+    "chr16:24613439-24613530": {"gene": "TNRC6A", "pathogenicity_threshold": [28]},
+    "chr16:66490398-66490467": {"gene": "BEAN1", "pathogenicity_threshold": [500, 760]},
+    "chr16:87604287-87604329": {"gene": "JPH3", "pathogenicity_threshold": [40, 59]},
+    "chr18:55586155-55586227": {"gene": "TCF4", "pathogenicity_threshold": [51]},
+    "chr19:13207858-13207897": {"gene": "CACNA1A", "pathogenicity_threshold": [19, 33]},
+    "chr19:14496041-14496074": {"gene": "GIPC1", "pathogenicity_threshold": [70, 164]},
+    "chr19:18786034-18786050": {"gene": "COMP", "pathogenicity_threshold": [6]},
+    "chr19:45770204-45770264": {"gene": "DMPK", "pathogenicity_threshold": [50, 10000]},
+    "chr2:96197066-96197122": {"gene": "STARD7", "pathogenicity_threshold": [150, 460]},
+    "chr2:100104799-100104824": {"gene": "AFF3", "pathogenicity_threshold": [0]},
+    "chr2:176093058-176093104": {"gene": "HOXD13", "pathogenicity_threshold": [22]},
+    "chr2:190880872-190880920": {"gene": "GLS", "pathogenicity_threshold": [680]},
+    "chr20:2652733-2652775": {"gene": "NOP56", "pathogenicity_threshold": [650, 2500]},
+    "chr21:43776443-43776479": {"gene": "CSTB", "pathogenicity_threshold": [30, 125]},
+    "chr22:45795354-45795424": {"gene": "ATXN10", "pathogenicity_threshold": [280, 4500]},
+    "chr3:63912684-63912726": {"gene": "ATXN7", "pathogenicity_threshold": [34, 460]},
+    "chr3:129172576-129172732": {"gene": "CNBP", "pathogenicity_threshold": [50, 11000]},
+    "chr3:138946020-138946063": {"gene": "FOXL2", "pathogenicity_threshold": [22]},
+    "chr3:183712187-183712223": {"gene": "YEATS2", "pathogenicity_threshold": [201]},
+    "chr4:3074876-3074966": {"gene": "HTT", "pathogenicity_threshold": [36, 250]},
+    "chr4:39348424-39348479": {"gene": "RFC1", "pathogenicity_threshold": [400, 2000]},
+    "chr4:41745972-41746032": {"gene": "PHOX2B", "pathogenicity_threshold": [24]},
+    "chr4:159342526-159342617": {"gene": "RAPGEF2", "pathogenicity_threshold": [28]},
+    "chr5:10356346-10356412": {"gene": "MARCHF6", "pathogenicity_threshold": [700, 1035]},
+    "chr5:146878727-146878757": {"gene": "PPP2R2B", "pathogenicity_threshold": [51, 78]},
+    "chr6:16327633-16327723": {"gene": "ATXN1", "pathogenicity_threshold": [39, 91]},
+    "chr6:45422750-45422802": {"gene": "RUNX2", "pathogenicity_threshold": [27]},
+    "chr6:170561906-170562017": {"gene": "TBP", "pathogenicity_threshold": [43, 66]},
+    "chr7:27199825-27199862": {"gene": "HOXA13", "pathogenicity_threshold": [24]},
+    "chr7:55887601-55887640": {"gene": "ZNF713", "pathogenicity_threshold": [None]},
+    "chr8:104588972-104589000": {"gene": "LRP12", "pathogenicity_threshold": [90, 130]},
+    "chr8:118366815-118366919": {"gene": "SAMD12", "pathogenicity_threshold": [105, 3680]},
+    "chr9:27573528-27573546": {"gene": "C9ORF72", "pathogenicity_threshold": [24, 4000]},
+    "chr9:69037261-69037304": {"gene": "FXN", "pathogenicity_threshold": [66, 1300]},
+    "chrX:25013649-25013698": {"gene": "ARX", "pathogenicity_threshold": [17, 27]},
+    "chrX:67545316-67545385": {"gene": "AR", "pathogenicity_threshold": [38, 68]},
+    "chrX:140504316-140504362": {"gene": "SOX3", "pathogenicity_threshold": [15]},
+    "chrX:147912050-147912110": {"gene": "FMR1", "pathogenicity_threshold": [55, 200, 3000]},
     "chrX:148500631-148500691": {"gene": "AFF2", "pathogenicity_threshold": [200]},
-    "chrX:149631763-149631782": {"gene": "TMEM185A", "pathogenicity_threshold": []},
+    "chrX:149631763-149631782": {"gene": "TMEM185A", "pathogenicity_threshold": [0]},
+
 }
+
 
 
 # JavaScript code to check the color scheme
@@ -131,6 +133,8 @@ def parse_vcf(vcf_file):
     return records_ids, records_map
 
 def load_vcf(vcf_file):
+    # check if the vcf file has an index file
+    
     return pysam.VariantFile(vcf_file)
 
 def parse_record_assembly(vcf,region):        
@@ -139,6 +143,7 @@ def parse_record_assembly(vcf,region):
         start = int(start) -1
         end = int(end) -1
         region = f"{chr}:{start}-{end}"
+        
         for rec in vcf.fetch(region=region):
             break
         try:
@@ -200,6 +205,7 @@ def get_results_hgsvc_pop(region, files, file_paths):
     samples_results = {}
     for i in range(len(files)):
         sample_name = file_paths[i].split(".")[0]
+
         record = parse_record_assembly(st.session_state.files[i], region)
         samples_results[sample_name] = record
     return samples_results
@@ -243,7 +249,10 @@ def parse_record(vcf_file,region):
         else:
             if ids_h1 == ids_h2:
                 alt_allele2 = alt_allele1
-            alt_allele2 = ''
+            if rec.samples[0]["DP"][1] == 0:
+                alt_allele2 = alt_allele1
+                ids_h2 = ids_h1
+            #alt_allele2 = ''
     if ids_h1 is None:
         ids_h1 = []
     if ids_h2 is None:
@@ -929,9 +938,27 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
 
     pathogenic_thresold = 0
     if region in st.session_state.pathogenic_TRs:
+        
         pathogenic_thresold = st.session_state.pathogenic_TRs[region]['pathogenicity_threshold']
         pathogenic_thresold = min(pathogenic_thresold) if pathogenic_thresold != [] else 0
         gene_name = st.session_state.pathogenic_TRs[region]['gene']
+        st.markdown(f"""<div style="height: 20px;"></div>""", unsafe_allow_html=True)
+        # Genname anzeigen
+        st.markdown(f"""
+            <div style="display: flex; justify-content: center; font-size: 20px; color: #4CAF50;">
+            <strong>Gene Name:</strong> {gene_name}
+            </div>
+        """, unsafe_allow_html=True)
+        # show the pathogenicity threshold 
+        if pathogenic_thresold == 0:
+            pathogenic_thresold_print = "Unknown"
+        else:
+            pathogenic_thresold_print = pathogenic_thresold
+        st.markdown(f"""
+            <div style="display: flex; justify-content: center; font-size: 20px; color: #FF5733;">
+                <strong>Pathogenicity Threshold: </strong>  {pathogenic_thresold_print}
+            </div>
+        """, unsafe_allow_html=True)
     st.markdown(f"""
         <div style="display: flex; justify-content: space-between; font-size: 20px; color: #FF5733;">
             <div>
@@ -947,8 +974,10 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
         y_sort = alt.EncodingSortField(field='Length', op='sum', order='descending')
     else:
         y_sort = alt.SortField(field='Sample', order='ascending')
-    df ["pathogenic"] = df["Total Copy Number"].apply(lambda x: "Pathogenic" if x >= pathogenic_thresold else "Not Pathogenic")
     
+    df["Total Copy Number"].fillna(0, inplace=True)
+
+    df["pathogenic"] = df.apply(lambda row: "Pathogenic" if  (row["Motif"] != "Interruption" and row["Total Copy Number"] >= pathogenic_thresold  ) else "Not Pathogenic", axis=1)
     chart = alt.Chart(df).mark_bar().encode(
         y=alt.Y(
             'Sample', 
@@ -969,18 +998,11 @@ def stack_plot(record, motif_names, sequences, span_list, motif_ids_list, sort_b
         chart = chart.configure_axisY(labelFontSize=0)
     # check if the pathogenicity threshold is greater than 0 and if all the samples are not pathogenic
     pathogenic_thresold_length = pathogenic_thresold * len(motif_names[0])
+    # Abstand hinzufügen
+
+        
     if pathogenic_thresold > 0:
 
-        # Abstand hinzufügen
-        st.markdown(f"""<div style="height: 20px;"></div>""", unsafe_allow_html=True)
-        
-        # Genname anzeigen
-        st.markdown(f"""
-            <div style="display: flex; justify-content: center; font-size: 20px; color: #4CAF50;">
-            <strong>Gene Name:</strong> {gene_name}
-            </div>
-        """, unsafe_allow_html=True)
-        
         # Pathogenicity threshold multiplizieren
         
         if  df.groupby('Sample')['Length'].sum().max() > pathogenic_thresold_length:
@@ -1148,6 +1170,7 @@ def get_records_info(vcf_file):
 def fetch_vcf_region(vcf_file_path, region):
     vcf = pysam.VariantFile(vcf_file_path)
     records = []
+
     for rec in vcf.fetch(region=region):  # Fetch based on user input region
         ids_h1 = rec.info['MOTIF_IDs_H1']
         ids_h2 = rec.info['MOTIF_IDs_H2']
@@ -1357,7 +1380,7 @@ if st.session_state.analysis_mode == "indivisual sample":
             # try:
             if 'records' not in st.session_state:
                 st.session_state.records,st.session_state.records_map = parse_vcf( st.session_state.get('vcf_file_path', None))
-                st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
+                st.session_state.hgsvc_path = "/confidential/tGenVar/Lion/tandemtwister-vis/HGSVC_vcf/"
                 if st.session_state.vcf_status == "Pathogenic":
                     st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('pathogenic.vcf.gz')]
                 elif st.session_state.vcf_status == "Healthy":
@@ -1535,6 +1558,7 @@ elif st.session_state.analysis_mode == "Cohort":
         # check the background color of the page
         
         # print the region name in the middle 
+
         middel.markdown(f"""
             <div id="tandem-repeat-region" class="region-container" style="font-size: 25px; margin-bottom: 10px;">
                 <strong>Tandem Repeat Region: {region}</strong>
