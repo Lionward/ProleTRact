@@ -68,7 +68,6 @@ st.session_state.pathogenic_TRs = {
     "chrX:147912050-147912110": {"gene": "FMR1", "pathogenicity_threshold": [55, 200, 3000]},
     "chrX:148500631-148500691": {"gene": "AFF2", "pathogenicity_threshold": [200]},
     "chrX:149631763-149631782": {"gene": "TMEM185A", "pathogenicity_threshold": [0]},
-
 }
 
 
@@ -233,6 +232,7 @@ def parse_record(vcf_file,region):
     # get the record with the id
     for rec in vcf.fetch(region=region):
         break
+    st.write(rec)
     ids_h1 = rec.info['MOTIF_IDs_H1']
     ids_h2 = rec.info['MOTIF_IDs_H2']
     ref_CN = rec.info['CN_ref']
@@ -257,15 +257,35 @@ def parse_record(vcf_file,region):
         ids_h1 = []
     if ids_h2 is None:
         ids_h2 = []
+
+    if alt_allele1 == alt_allele2:
+        spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1], rec.samples[0]['SP'][1]]
+        ids_h2 = ids_h1
+    else:
+        spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1], rec.samples[0]['SP'][2]]
+    if alt_allele2 == "N":
+        spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1]]
+        alt_allele2 = ""
     CN_H1 = rec.info['CN_H1']
     CN_H2 = rec.info['CN_H2']
+    
     motif_names = rec.info['MOTIFS']
     if isinstance(motif_names, tuple):
         motif_names = list(motif_names)
     elif not isinstance(motif_names, list):
         motif_names = [motif_names]
 
-   
+    if len(rec.samples[0]['SP']) >2 :
+        spans= [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1], rec.samples[0]['SP'][2]]
+    elif (len(rec.samples[0]['SP']) == 2 and alt_allele2 == alt_allele1):
+        spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1], rec.samples[0]['SP'][1]]
+    elif (len(rec.samples[0 ]['SP']) == 2 and alt_allele2 != alt_allele1):
+        spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1], ""]
+    if ids_h1 == ids_h2:
+        spans[2] = spans[1]
+        alt_allele2 = alt_allele1
+    if alt_allele2 == '':
+        spans[2] = ""
     record = {
             'chr': rec.chrom,
             'pos': rec.pos,
@@ -277,14 +297,17 @@ def parse_record(vcf_file,region):
             'ref_CN': ref_CN,
             'CN_H1': CN_H1,
             'CN_H2': CN_H2,
-            'spans': rec.samples[0]['SP'],
+            'spans': spans,
             'ref_allele': ref_allele,
             'alt_allele1': alt_allele1,
             'alt_allele2': alt_allele2
         }
+    
     return record
 
 def parse_motif_range(motif_range):
+    if motif_range is {}:
+        return []
     pattern = re.compile(r'\((\d+)-(\d+)\)')
     matches = pattern.findall(motif_range)
     ranges = [(int(start)-1, int(end)-1) for start, end in matches]
@@ -292,7 +315,7 @@ def parse_motif_range(motif_range):
 
 # Function to generate a list of n visually distinct colors using a color map
 def get_color_palette(n):
-    cmap = plt.get_cmap('tab20')  # You can try 'viridis', 'plasma', 'Set1', etc.
+    cmap = plt.get_cmap('tab20')  # more options 'viridis', 'plasma', 'Set1', etc.
     colors = [cmap(i) for i in range(n)]
     return ['#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255)) for r, g, b, _ in colors]
 
@@ -357,10 +380,16 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
         
         display_motif_legend(motif_names, motif_colors, right_column)
 
-    if record['alt_allele2'] != '':
+    if record['alt_allele2'] != '' and record['spans'][2] != None:
         CN2_col.markdown(f"""
             <div style="font-size: 20px; color: #FF5733;">
                 <strong>Allele 2 Total copy number:</strong> {str(record['spans'][2]).count('-')}
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        CN2_col.markdown(f"""
+            <div style="font-size: 20px; color: #FF5733;">
+                <strong>Allele 2 Total copy number:</strong> &lt;DEL&gt;
             </div>
         """, unsafe_allow_html=True)
 
@@ -375,7 +404,7 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
         with tab2:
             display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
             display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
-            if record['alt_allele2'] != '':
+            if record['alt_allele2'] != '' and record['spans'][2] != None:
                 display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
         with tab1:
             display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
@@ -384,7 +413,7 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
                 if show_comparison == False:
                     plot_motif_bar(motif_count_h1, motif_names, motif_colors)
             
-            if record['alt_allele2'] != '':
+            if record['alt_allele2'] != '' and record['spans'][2] != None:
                 display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
                 plot_container_h2 = st.empty()
 
@@ -404,11 +433,13 @@ def parse_motif_in_region(record):
     motif_count_h1 = count_motifs(record['motif_ids_h1'], record['spans'][1])
     found_motifs_h1 = list(motif_count_h1.keys())
     found_motifs_h1 = [motif_names[int(m)] for m in found_motifs_h1]
-    motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][2])
-    found_motifs_h2 = list(motif_count_h2.keys())
-    found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
     motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
-    motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
+    motif_count_h2 = {}
+    if record['alt_allele2'] != '' and  record['spans'][2] != None:
+        motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][2])
+        found_motifs_h2 = list(motif_count_h2.keys())
+        found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
+        motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
     return motif_names,motif_count_h1,motif_count_h2
 
 
@@ -417,7 +448,7 @@ def parse_motif_in_region(record):
 def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequence, motif_names):
     sequence_length = len(sequence)
     ranges = parse_motif_range(spans)
-    
+
     # Ensure motif_names is a list
     if not isinstance(motif_names, list):
         motif_names = [motif_names]
@@ -429,6 +460,9 @@ def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequen
 
     # Loop through each motif in the sequence
     for idx, (start, end) in enumerate(ranges):
+        # st.sidebar.write(len(sequence))
+        # st.sidebar.write(len(motif_ids))
+
         motif = motif_ids[idx]
         color = motif_colors[int(motif)]
         span_length = end - start + 1  # Calculate length of motif span
@@ -603,7 +637,7 @@ def plot_Cohort_results(cohort_records):
     span_list = []
     motif_ids_list = []
     # make space between the last print 
-    sort_by = st.radio("Sort by:", ("Value", "Sample Name"), horizontal=True, key="sort_by_cohort")
+    sort_by = st.radio("Sort by:", ("Sample Name" ,"Value" ), horizontal=True, key="sort_by_cohort")
     for key in cohort_records.keys():
         sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
         span_list.append(cohort_records[key]['spans'][1])
@@ -771,7 +805,7 @@ def plot_HGSVC_VS_allele(record, hgsvc_records, motif_names):
     sequences.append({'name': "Allel1", 'sequence':  record['alt_allele1']})
     span_list.append(record['spans'][1])
     motif_ids_list.append(record['motif_ids_h1'])
-    if record['alt_allele2'] != '':
+    if record['alt_allele2'] != '' and record['spans'][2] != None:
         sequences.append({'name': "Allel2", 'sequence': record['alt_allele2']})
         span_list.append(record['spans'][2])
         motif_ids_list.append(record['motif_ids_h2'])
@@ -1051,24 +1085,34 @@ def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_c
     motif_count_h1 = count_motifs(record['motif_ids_h1'], record['spans'][1])
     found_motifs_h1 = list(motif_count_h1.keys())
     found_motifs_h1 = [motif_names[int(m)] for m in found_motifs_h1]
-    motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][2])
-    found_motifs_h2 = list(motif_count_h2.keys())
-    found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
     motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
-    motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
+    motif_count_h2 = {}
+    motif_count_h2 = {}
+    found_motifs_h2 = []
+    if record['alt_allele2'] != '' and record['spans'][2] != None:
+        motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][2])
+        found_motifs_h2 = list(motif_count_h2.keys())
+        found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
+        motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
     total_copy_number_h1 = str(record['spans'][1]).count('-')
     CN1_col.markdown(f"""
             <div style="font-size: 20px; color: #FF5733;">
                 <strong>Allele 1 Total copy number:</strong> {total_copy_number_h1}
             </div>
         """, unsafe_allow_html=True)
-    if record['alt_allele2'] != '':
+    if record['alt_allele2'] != '' and record['spans'][2] != None:
             total_copy_number_h2 = str(record['spans'][2]).count('-')
             CN2_col.markdown(f"""
                 <div style="font-size: 20px; color: #FF5733;">
                     <strong>Allele 2 Total copy number:</strong> {total_copy_number_h2}
                 </div>
-            """, unsafe_allow_html=True)   
+            """, unsafe_allow_html=True) 
+    else: 
+        CN2_col.markdown(f"""
+            <div style="font-size: 20px; color: #FF5733;">
+                <strong>Allele 2 Total copy number:</strong> &lt;DEL&gt;
+            </div>
+        """, unsafe_allow_html=True)
     with right_column:
         display_motif_legend(motif_names, motif_colors, right_column)
     with left_column:
@@ -1078,7 +1122,7 @@ def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_c
             display_dynamic_sequence_with_highlighted_motifs("Ref", record['ref_allele'], record['motif_ids_ref'], record['spans'][0], motif_colors, motif_names)
             alt_allele1 = record['alt_allele1']
             display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
-            if record['alt_allele2'] != '':
+            if record['alt_allele2'] != '' and record['spans'][2] != None:
                 alt_allele2 = record['alt_allele2'] #if record['alt_allele2'] != "." else record['ref_allele']
                 display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
         with tab1:
@@ -1092,8 +1136,7 @@ def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_c
                 if show_comparison == False:
                     plot_motif_bar(motif_count_h1, motif_names, motif_colors)
 
-            if record['alt_allele2'] != '':
-
+            if record['alt_allele2'] != '' and record['spans'][2] != None:
                 alt_allele2 = record['alt_allele2'] #if record['alt_allele2'] != "." else record['ref_allele']
                 display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
                 
@@ -1402,7 +1445,7 @@ if st.session_state.analysis_mode == "indivisual sample":
         #_level = st.sidebar.slider('Zoom Level', min_value=1, max_value=100, value=100)
         st.session_state.previous_region = region
         display_option = st.sidebar.radio("Select Display Type", 
-                                    ("Sequence with Highlighted Motifs", "Bars"))
+                                    ( "Bars","Sequence with Highlighted Motifs"))
 
         col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
         REF, CN1_col, CN2_col = st.columns([1, 1, 1])
