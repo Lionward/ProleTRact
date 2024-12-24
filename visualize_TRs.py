@@ -224,7 +224,8 @@ def get_results_cohort(region, files, file_paths):
     return samples_results
 
 def parse_record(vcf_file,region):
-    if isinstance(vcf_file, str):
+    is_vcf_file_str = isinstance(vcf_file, str)
+    if is_vcf_file_str:
         vcf = pysam.VariantFile(vcf_file)
     else:
         vcf = vcf_file
@@ -232,7 +233,8 @@ def parse_record(vcf_file,region):
     # get the record with the id
     for rec in vcf.fetch(region=region):
         break
-    st.write(rec)
+    if st.session_state.show_vcf:
+        st.write(rec)
     ids_h1 = rec.info['MOTIF_IDs_H1']
     ids_h2 = rec.info['MOTIF_IDs_H2']
     ref_CN = rec.info['CN_ref']
@@ -253,22 +255,23 @@ def parse_record(vcf_file,region):
                 alt_allele2 = alt_allele1
                 ids_h2 = ids_h1
             #alt_allele2 = ''
-    if ids_h1 is None:
+    if not ids_h1:
         ids_h1 = []
-    if ids_h2 is None:
+    if not ids_h2:
         ids_h2 = []
+   
+    cn_h1 = rec.info['CN_H1']
+    cn_h2 = rec.info['CN_H2']
 
-    if alt_allele1 == alt_allele2:
+    if cn_h1 == cn_h2 and len(ids_h2) == 0:
         spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1], rec.samples[0]['SP'][1]]
         ids_h2 = ids_h1
     else:
         spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1], rec.samples[0]['SP'][2]]
-    if alt_allele2 == "N":
-        spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1]]
-        alt_allele2 = ""
-    CN_H1 = rec.info['CN_H1']
-    CN_H2 = rec.info['CN_H2']
-    
+    # if alt_allele2 == 'N':
+    #     spans = [ rec.samples[0]['SP'][0], rec.samples[0]['SP'][1]]
+    #     alt_allele2 = ""
+
     motif_names = rec.info['MOTIFS']
     if isinstance(motif_names, tuple):
         motif_names = list(motif_names)
@@ -286,6 +289,9 @@ def parse_record(vcf_file,region):
         alt_allele2 = alt_allele1
     if alt_allele2 == '':
         spans[2] = ""
+    if alt_allele1 == '':
+        spans[1] = ""
+
     record = {
             'chr': rec.chrom,
             'pos': rec.pos,
@@ -295,8 +301,8 @@ def parse_record(vcf_file,region):
             'motif_ids_h2': ids_h2,
             'motif_ids_ref': rec.info['MOTIF_IDs_REF'],
             'ref_CN': ref_CN,
-            'CN_H1': CN_H1,
-            'CN_H2': CN_H2,
+            'CN_H1': cn_h1,
+            'CN_H2': cn_h2,
             'spans': spans,
             'ref_allele': ref_allele,
             'alt_allele1': alt_allele1,
@@ -315,9 +321,26 @@ def parse_motif_range(motif_range):
 
 # Function to generate a list of n visually distinct colors using a color map
 def get_color_palette(n):
-    cmap = plt.get_cmap('tab20')  # more options 'viridis', 'plasma', 'Set1', etc.
-    colors = [cmap(i) for i in range(n)]
-    return ['#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255)) for r, g, b, _ in colors]
+    
+    #cmap = plt.get_cmap('tab20') # more options 'viridis', 'plasma', 'Set1', etc.
+    # add 100 more colors if n > 20
+    colors_names = ['tab20', 'tab20c', 'tab20b', 'tab20', 'tab20c', 'tab20', 'tab20c', 'gist_rainbow']
+    a = 0
+    cmap_colors = []
+    if n > 20:
+        while (len(cmap_colors) < n):
+            camp = plt.get_cmap(colors_names[a])
+            cmap_colors += [camp(i) for i in range(camp.N)]
+            a += 1
+    else:
+        camp = plt.get_cmap('tab20')
+        cmap_colors = [camp(i) for i in range(n)]
+    
+    cmap_colors = cmap_colors[:n]
+    # colors = [cmap(i) for i in range(n)]
+    # st.write(len(colors))
+
+    return ['#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255)) for r, g, b, _ in cmap_colors]
 
 def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, motif_ids, spans, motif_colors, motif_names):
     ranges = parse_motif_range(spans)
@@ -403,15 +426,17 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
         )
         with tab2:
             display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
-            display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+            if record['alt_allele1'] != '' and record['spans'][1] != None:
+                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
             if record['alt_allele2'] != '' and record['spans'][2] != None:
                 display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
         with tab1:
-            display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
-            plot_container_h1 = st.empty()
-            with plot_container_h1:
-                if show_comparison == False:
-                    plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+            if record['alt_allele1'] != '' and record['spans'][1] != None:
+                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+                plot_container_h1 = st.empty()
+                with plot_container_h1:
+                    if show_comparison == False:
+                        plot_motif_bar(motif_count_h1, motif_names, motif_colors)
             
             if record['alt_allele2'] != '' and record['spans'][2] != None:
                 display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
@@ -427,15 +452,19 @@ def display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_
 
 def parse_motif_in_region(record):
     motif_names = record['motifs']
-    motif_count_ref = count_motifs(record['motif_ids_ref'], record['spans'][0])
-    found_motifs_ref = list(motif_count_ref.keys())
-    found_motifs_ref = [motif_names[int(m)] for m in found_motifs_ref]
-    motif_count_h1 = count_motifs(record['motif_ids_h1'], record['spans'][1])
-    found_motifs_h1 = list(motif_count_h1.keys())
-    found_motifs_h1 = [motif_names[int(m)] for m in found_motifs_h1]
-    motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
+    motif_count_h1 = {}
     motif_count_h2 = {}
-    if record['alt_allele2'] != '' and  record['spans'][2] != None:
+
+    if record['alt_allele2'] != '.' and  record['spans'][1] !=None:
+        motif_count_ref = count_motifs(record['motif_ids_ref'], record['spans'][0])
+        found_motifs_ref = list(motif_count_ref.keys())
+        found_motifs_ref = [motif_names[int(m)] for m in found_motifs_ref]
+        motif_count_h1 = count_motifs(record['motif_ids_h1'], record['spans'][1])
+        found_motifs_h1 = list(motif_count_h1.keys())
+        found_motifs_h1 = [motif_names[int(m)] for m in found_motifs_h1]
+        motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
+        motif_count_h2 = {}
+    if record['alt_allele2'] != '.' and  record['spans'][2] != None:
         motif_count_h2 = count_motifs(record['motif_ids_h2'], record['spans'][2])
         found_motifs_h2 = list(motif_count_h2.keys())
         found_motifs_h2 = [motif_names[int(m)] for m in found_motifs_h2]
@@ -668,7 +697,7 @@ def plot_Cohort_results(cohort_records):
     allele_data = []
 
     # Scatter-Plots für jede Probe und jedes Motiv hinzufügen
-
+    
     for sample in unique_samples:
         sample_df = df[df['Sample'] == sample]
         unique_motifs = sample_df['Motif'].unique()
@@ -1121,14 +1150,16 @@ def visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_c
         with tab2:
             display_dynamic_sequence_with_highlighted_motifs("Ref", record['ref_allele'], record['motif_ids_ref'], record['spans'][0], motif_colors, motif_names)
             alt_allele1 = record['alt_allele1']
-            display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
-            if record['alt_allele2'] != '' and record['spans'][2] != None:
+            if record['alt_allele1'] != '.' and record['spans'][1] != None:
+                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+            if record['alt_allele2'] != '.' and record['spans'][2] != None:
                 alt_allele2 = record['alt_allele2'] #if record['alt_allele2'] != "." else record['ref_allele']
                 display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
         with tab1:
         # Render the scrollable sequence with highlighted motifs for allele 1
             alt_allele1 = record['alt_allele1']
-            display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+            if record['alt_allele1'] != '.' and record['spans'][1] != None:
+                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
 
             # Create an empty container for the plot to refresh
             plot_container_h1 = st.empty()
@@ -1433,7 +1464,7 @@ if st.session_state.analysis_mode == "indivisual sample":
                 
 
     subheader = st.empty()
-
+    st.session_state.show_vcf = False
     if 'records_map' in st.session_state:
         if 'regions_idx' not in st.session_state:
             st.session_state.regions_idx = 0
@@ -1441,32 +1472,35 @@ if st.session_state.analysis_mode == "indivisual sample":
         # Sidebar for region navigation
         st.sidebar.markdown("### Select Region to Visualize")
         # activate the variable when pressing inter button
-        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
+        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end", on_change=True)
+        st.write(st.session_state.get('previous_region', None))
         #_level = st.sidebar.slider('Zoom Level', min_value=1, max_value=100, value=100)
-        st.session_state.previous_region = region
+        
         display_option = st.sidebar.radio("Select Display Type", 
                                     ( "Bars","Sequence with Highlighted Motifs"))
 
+        # make a checkbox to show if st.session_state.show_vcf is true
+        st.session_state.show_vcf = st.sidebar.checkbox("Show vcf record", value=False)
         col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
         REF, CN1_col, CN2_col = st.columns([1, 1, 1])
         # Place the "Previous region" and "Next region" buttons in these columns
         with col1:
             if st.button("Previous region"):
                 region = None
+                st.session_state.previous_region = None
                 st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
 
         with col2:
             if st.button("Next region"):
                 region = None
+                st.session_state.previous_region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
-   
-        if region and region != st.session_state.get('previous_region', None):
 
+        if region and region != st.session_state.get('previous_region', None):
+            st.session_state.previous_region = region
             try:
                 chr_input, start_end_input = region.split(':')
                 start_input, end_input = map(int, start_end_input.split('-'))
-                # start_input
-                # end_input-=
 
                 input_region = f"{chr_input}:{start_input}-{end_input}"
                 record_key = st.session_state.records[input_region]
@@ -1486,6 +1520,9 @@ if st.session_state.analysis_mode == "indivisual sample":
                     st.sidebar.info("Invalid region format, showing the first record")
                     record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
         else:
+            # update the region and previous region
+            region = st.session_state.records_map[st.session_state.regions_idx]
+            st.session_state.previous_region = region
             record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
 
 
