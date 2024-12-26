@@ -1417,6 +1417,8 @@ st.sidebar.markdown("""
 # """, unsafe_allow_html=True)
 
 
+
+
 path_changed = False
 old_vcf_file_path = st.session_state.get('vcf_file_path', None)
 
@@ -1464,7 +1466,7 @@ if st.session_state.analysis_mode == "indivisual sample":
                 
 
     subheader = st.empty()
-    st.session_state.show_vcf = False
+
     if 'records_map' in st.session_state:
         if 'regions_idx' not in st.session_state:
             st.session_state.regions_idx = 0
@@ -1472,35 +1474,32 @@ if st.session_state.analysis_mode == "indivisual sample":
         # Sidebar for region navigation
         st.sidebar.markdown("### Select Region to Visualize")
         # activate the variable when pressing inter button
-        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end", on_change=True)
-        st.write(st.session_state.get('previous_region', None))
+        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
         #_level = st.sidebar.slider('Zoom Level', min_value=1, max_value=100, value=100)
         
         display_option = st.sidebar.radio("Select Display Type", 
                                     ( "Bars","Sequence with Highlighted Motifs"))
 
-        # make a checkbox to show if st.session_state.show_vcf is true
-        st.session_state.show_vcf = st.sidebar.checkbox("Show vcf record", value=False)
         col1, middel, col2 = st.columns([1.5,3, 1])  # Adjust the ratio [1, 1] to control spacing between buttons
         REF, CN1_col, CN2_col = st.columns([1, 1, 1])
         # Place the "Previous region" and "Next region" buttons in these columns
         with col1:
             if st.button("Previous region"):
                 region = None
-                st.session_state.previous_region = None
                 st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
 
         with col2:
             if st.button("Next region"):
                 region = None
-                st.session_state.previous_region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
-
+   
         if region and region != st.session_state.get('previous_region', None):
             st.session_state.previous_region = region
             try:
                 chr_input, start_end_input = region.split(':')
                 start_input, end_input = map(int, start_end_input.split('-'))
+                # start_input
+                # end_input-=
 
                 input_region = f"{chr_input}:{start_input}-{end_input}"
                 record_key = st.session_state.records[input_region]
@@ -1520,9 +1519,6 @@ if st.session_state.analysis_mode == "indivisual sample":
                     st.sidebar.info("Invalid region format, showing the first record")
                     record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
         else:
-            # update the region and previous region
-            region = st.session_state.records_map[st.session_state.regions_idx]
-            st.session_state.previous_region = region
             record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
 
 
@@ -1612,7 +1608,7 @@ elif st.session_state.analysis_mode == "Cohort":
                 region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
         if region and region != st.session_state.get('previous_region', None):
-    
+            st.session_state.previous_region = region
             try:
                 chr_input, start_end_input = region.split(':')
                 start_input, end_input = map(int, start_end_input.split('-'))
@@ -1674,5 +1670,3 @@ elif st.session_state.analysis_mode == "Cohort":
             plot_Cohort_results(st.session_state.cohort_results)
         else:
             st.stop()
-
-
