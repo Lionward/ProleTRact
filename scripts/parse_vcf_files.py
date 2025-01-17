@@ -56,7 +56,9 @@ def parse_vcf_tandemtwister(vcf, add_motif_counts=False):
             len_h2 = sum([len(motifs[int(m_id)]) for m_id in motif_ids_H2])
             motif_concat_h2 = ''.join([motifs[int(m_id)] for m_id in motif_ids_H2])
 
-        motif_count_h1, motif_count_h2 = np.nan, np.nan
+        if add_motif_counts:
+            motif_count_h1, motif_count_h2 = np.nan, np.nan
+        
         if add_motif_counts and motif_ids_H1 != None and motif_ids_H2 != None:
             # motif counts
             ids_h1 = list(map(int, motif_ids_H1))
@@ -69,10 +71,13 @@ def parse_vcf_tandemtwister(vcf, add_motif_counts=False):
         # get the GT value from the record string 
         GT = str(record).split('\t')[9].split(':')[0]
 
-        df.append([chrom, start, end, motifs, motif_ids_H1, motif_ids_H2, CN_H1, CN_H2, CN_ref, GT, len_h1, len_h2, motif_count_h1, motif_count_h2, motif_concat_h1, motif_concat_h2])
+        if add_motif_counts:
+            df.append([chrom, start, end, motifs, motif_ids_H1, motif_ids_H2, CN_H1, CN_H2, CN_ref, GT, len_h1, len_h2, motif_count_h1, motif_count_h2, motif_concat_h1, motif_concat_h2])
+        else:
+            df.append([chrom, start, end, motifs, motif_ids_H1, motif_ids_H2, CN_H1, CN_H2, CN_ref, GT, len_h1, len_h2, motif_concat_h1, motif_concat_h2])
 
     # convert to dataframe
-    df = pd.DataFrame(df, columns=['chrom', 'start', 'end', 'motifs', 'motif_ids_H1', 'motif_ids_H2', 'CN_H1', 'CN_H2', 'CN_ref', 'GT', 'len_h1', 'len_h2', 'motif_count_h1', 'motif_count_h2', 'motif_concat_h1', 'motif_concat_h2'])
+    df = pd.DataFrame(df, columns=['chrom', 'start', 'end', 'motifs', 'motif_ids_H1', 'motif_ids_H2', 'CN_H1', 'CN_H2', 'CN_ref', 'GT', 'len_h1', 'len_h2', 'motif_concat_h1', 'motif_concat_h2'])
     return df
 
 def parse_vcf_TRGT(vcf, add_motif_counts=False):
@@ -146,7 +151,9 @@ def parse_vcf_TRGT(vcf, add_motif_counts=False):
                 len_h2 = sum([len(motifs[int(m_id)]) for m_id in motifs_ids_hap2])
                 motif_concat_h2 = ''.join([motifs[int(m_id)] for m_id in motifs_ids_hap2])
             
-            motif_count_h1, motif_count_h2 = np.nan, np.nan
+            if add_motif_counts:
+                motif_count_h1, motif_count_h2 = np.nan, np.nan
+            
             if add_motif_counts and motifs_ids_hap1 != None and motifs_ids_hap2 != None:
                 # # motif counts
                 # ids_h1 = list(map(int, motifs_ids_hap1))
@@ -171,10 +178,13 @@ def parse_vcf_TRGT(vcf, add_motif_counts=False):
                 motif_count_h1 = count_motifs_with_zeros(ids_h1, num_motifs)
                 motif_count_h2 = count_motifs_with_zeros(ids_h2, num_motifs)
                 
-            df.append([chrom, start, end, motifs, motifs_ids_hap1, motifs_ids_hap2, CN_hap1, CN_hap2, CN_ref, GT, len_h1, len_h2, motif_count_h1, motif_count_h2, motif_concat_h1, motif_concat_h2])
+            if add_motif_counts: 
+                df.append([chrom, start, end, motifs, motifs_ids_hap1, motifs_ids_hap2, CN_hap1, CN_hap2, CN_ref, GT, len_h1, len_h2, motif_count_h1, motif_count_h2, motif_concat_h1, motif_concat_h2])
+            else:
+                df.append([chrom, start, end, motifs, motifs_ids_hap1, motifs_ids_hap2, CN_hap1, CN_hap2, CN_ref, GT, len_h1, len_h2, motif_concat_h1, motif_concat_h2])
     
     # convert to dataframe
-    df = pd.DataFrame(df, columns=['chrom', 'start', 'end', 'motifs', 'motif_ids_H1', 'motif_ids_H2', 'CN_H1', 'CN_H2', 'CN_ref', 'GT', 'len_h1', 'len_h2', 'motif_count_h1', 'motif_count_h2', 'motif_concat_h1', 'motif_concat_h2'])
+    df = pd.DataFrame(df, columns=['chrom', 'start', 'end', 'motifs', 'motif_ids_H1', 'motif_ids_H2', 'CN_H1', 'CN_H2', 'CN_ref', 'GT', 'len_h1', 'len_h2', 'motif_concat_h1', 'motif_concat_h2'])
     
     return df
 
@@ -223,7 +233,9 @@ def parse_vcf_vamos(vcf, add_motif_counts=False):
             len_h2 = sum([len(motifs[int(m_id)]) for m_id in motif_ids_H2])
             motif_concat_h2 = ''.join([motifs[int(m_id)] for m_id in motif_ids_H2])
         
-        motif_count_h1, motif_count_h2 = np.nan, np.nan
+        if add_motif_counts:
+            motif_count_h1, motif_count_h2 = np.nan, np.nan
+        
         if add_motif_counts and motif_ids_H1 != None and motif_ids_H2 != None:
             # motif counts
             ids_h1 = list(map(int, motif_ids_H1))
@@ -235,9 +247,13 @@ def parse_vcf_vamos(vcf, add_motif_counts=False):
 
         GT = '/'.join([str(i) for i in GT])
 
-        df.append([chrom, start, end, motifs, motif_ids_H1, motif_ids_H2, CN_H1, CN_H2, CN_ref, GT, len_h1, len_h2, motif_count_h1, motif_count_h2, motif_concat_h1, motif_concat_h2])
+
+        if add_motif_counts:
+            df.append([chrom, start, end, motifs, motif_ids_H1, motif_ids_H2, CN_H1, CN_H2, CN_ref, GT, len_h1, len_h2, motif_count_h1, motif_count_h2, motif_concat_h1, motif_concat_h2])
+        else:
+            df.append([chrom, start, end, motifs, motif_ids_H1, motif_ids_H2, CN_H1, CN_H2, CN_ref, GT, len_h1, len_h2, motif_concat_h1, motif_concat_h2])
 
 
     # convert to dataframe
-    df = pd.DataFrame(df, columns=['chrom', 'start', 'end', 'motifs', 'motif_ids_H1', 'motif_ids_H2', 'CN_H1', 'CN_H2', 'CN_ref', 'GT', 'len_h1', 'len_h2', 'motif_count_h1', 'motif_count_h2', 'motif_concat_h1', 'motif_concat_h2'])
+    df = pd.DataFrame(df, columns=['chrom', 'start', 'end', 'motifs', 'motif_ids_H1', 'motif_ids_H2', 'CN_H1', 'CN_H2', 'CN_ref', 'GT', 'len_h1', 'len_h2', 'motif_concat_h1', 'motif_concat_h2'])
     return df

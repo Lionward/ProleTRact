@@ -31,7 +31,11 @@ merged_df = pd.DataFrame(data)
 
 def compare_sample_to_asm(df, asm_df):
     # merge the two dataframes
-    merged_df = pd.merge(df, asm_df, on=['chrom', 'start', 'end'], how='inner')
+    filtered_df = df[
+    (df['motif_concat_h1'] != "NA") &
+    (df['motif_concat_h2'] != "NA")
+    ]
+    merged_df = pd.merge(filtered_df, asm_df, on=['chrom', 'start', 'end'], how='inner')
 
     # Preallocate columns for results
     new_cols = ['seq_sim_11', 'len_sim_11', 'seq_sim_12', 'len_sim_12',
@@ -95,7 +99,11 @@ pandarallel.initialize(progress_bar=True, nb_workers = 4)
 
 def compare_sample_to_asm_parallel(df, asm_df):
     # Merge the two dataframes
-    merged_df = pd.merge(df, asm_df, on=['chrom', 'start', 'end'], how='inner')
+    filtered_df = df[
+    (df['motif_concat_h1'] != "NA") &
+    (df['motif_concat_h2'] != "NA")
+    ]
+    merged_df = pd.merge(filtered_df, asm_df, on=['chrom', 'start', 'end'], how='inner')
 
     # Preallocate columns for results
     new_cols = ['seq_sim_11', 'len_sim_11', 'seq_sim_12', 'len_sim_12',
