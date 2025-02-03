@@ -95,60 +95,60 @@ def compare_sample_to_asm(df, asm_df):
 
 
 # Initialize pandarallel with progress bars
-pandarallel.initialize(progress_bar=True, nb_workers = 4)
+# pandarallel.initialize(progress_bar=True, nb_workers = 4)
 
-def compare_sample_to_asm_parallel(df, asm_df):
-    # Merge the two dataframes
-    filtered_df = df[
-    (df['motif_concat_h1'] != "NA") &
-    (df['motif_concat_h2'] != "NA")
-    ]
-    merged_df = pd.merge(filtered_df, asm_df, on=['chrom', 'start', 'end'], how='inner')
+# def compare_sample_to_asm_parallel(df, asm_df):
+#     # Merge the two dataframes
+#     filtered_df = df[
+#     (df['motif_concat_h1'] != "NA") &
+#     (df['motif_concat_h2'] != "NA")
+#     ]
+#     merged_df = pd.merge(filtered_df, asm_df, on=['chrom', 'start', 'end'], how='inner')
 
-    # Preallocate columns for results
-    new_cols = ['seq_sim_11', 'len_sim_11', 'seq_sim_12', 'len_sim_12',
-                'seq_sim_21', 'len_sim_21', 'seq_sim_22', 'len_sim_22',
-                'seq_sim', 'len_sim', 'assigned_haplotype']
+#     # Preallocate columns for results
+#     new_cols = ['seq_sim_11', 'len_sim_11', 'seq_sim_12', 'len_sim_12',
+#                 'seq_sim_21', 'len_sim_21', 'seq_sim_22', 'len_sim_22',
+#                 'seq_sim', 'len_sim', 'assigned_haplotype']
 
-    for col in new_cols:
-        if col == 'assigned_haplotype':
-            merged_df[col] = None  # Set dtype to object for string compatibility
-        else:
-            merged_df[col] = np.nan
+#     for col in new_cols:
+#         if col == 'assigned_haplotype':
+#             merged_df[col] = None  # Set dtype to object for string compatibility
+#         else:
+#             merged_df[col] = np.nan
     
-    def compute_similarities(row):
-        seq1_h1 = row['motif_concat_h1']
-        seq2_h1 = row['asm_h1_seq']
-        seq2_h2 = row['asm_h2_seq']
-        seq1_h2 = row['motif_concat_h2']
+#     def compute_similarities(row):
+#         seq1_h1 = row['motif_concat_h1']
+#         seq2_h1 = row['asm_h1_seq']
+#         seq2_h2 = row['asm_h2_seq']
+#         seq1_h2 = row['motif_concat_h2']
         
-        # Calculate similarities
-        results = {}
-        results['seq_sim_11'] = normalized_levenshtein(seq1_h1, seq2_h1)
-        results['len_sim_11'] = relative_length_difference(seq1_h1, seq2_h1)
+#         # Calculate similarities
+#         results = {}
+#         results['seq_sim_11'] = normalized_levenshtein(seq1_h1, seq2_h1)
+#         results['len_sim_11'] = relative_length_difference(seq1_h1, seq2_h1)
         
-        results['seq_sim_12'] = normalized_levenshtein(seq1_h1, seq2_h2)
-        results['len_sim_12'] = relative_length_difference(seq1_h1, seq2_h2)
+#         results['seq_sim_12'] = normalized_levenshtein(seq1_h1, seq2_h2)
+#         results['len_sim_12'] = relative_length_difference(seq1_h1, seq2_h2)
         
-        results['seq_sim_21'] = normalized_levenshtein(seq1_h2, seq2_h1)
-        results['len_sim_21'] = relative_length_difference(seq1_h2, seq2_h1)
+#         results['seq_sim_21'] = normalized_levenshtein(seq1_h2, seq2_h1)
+#         results['len_sim_21'] = relative_length_difference(seq1_h2, seq2_h1)
         
-        results['seq_sim_22'] = normalized_levenshtein(seq1_h2, seq2_h2)
-        results['len_sim_22'] = relative_length_difference(seq1_h2, seq2_h2)
+#         results['seq_sim_22'] = normalized_levenshtein(seq1_h2, seq2_h2)
+#         results['len_sim_22'] = relative_length_difference(seq1_h2, seq2_h2)
         
-        if results['seq_sim_11'] + results['seq_sim_22'] > results['seq_sim_12'] + results['seq_sim_21']:
-            results['seq_sim'] = (results['seq_sim_11'] + results['seq_sim_22']) / 2
-            results['len_sim'] = (results['len_sim_11'] + results['len_sim_22']) / 2
-            results['assigned_haplotype'] = "11_22"
-        else:
-            results['seq_sim'] = (results['seq_sim_12'] + results['seq_sim_21']) / 2
-            results['len_sim'] = (results['len_sim_12'] + results['len_sim_21']) / 2
-            results['assigned_haplotype'] = "12_21"
+#         if results['seq_sim_11'] + results['seq_sim_22'] > results['seq_sim_12'] + results['seq_sim_21']:
+#             results['seq_sim'] = (results['seq_sim_11'] + results['seq_sim_22']) / 2
+#             results['len_sim'] = (results['len_sim_11'] + results['len_sim_22']) / 2
+#             results['assigned_haplotype'] = "11_22"
+#         else:
+#             results['seq_sim'] = (results['seq_sim_12'] + results['seq_sim_21']) / 2
+#             results['len_sim'] = (results['len_sim_12'] + results['len_sim_21']) / 2
+#             results['assigned_haplotype'] = "12_21"
         
-        return pd.Series(results)
+#         return pd.Series(results)
 
-    # Use pandarallel to apply computations in parallel
-    result_df = merged_df.parallel_apply(compute_similarities, axis=1)
-    merged_df[new_cols] = result_df
+#     # Use pandarallel to apply computations in parallel
+#     result_df = merged_df.parallel_apply(compute_similarities, axis=1)
+#     merged_df[new_cols] = result_df
     
-    return merged_df
+#     return merged_df

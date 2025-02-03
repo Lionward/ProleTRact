@@ -14,6 +14,43 @@ def count_motifs_with_zeros(motif_ids, num_motifs):
 
     return tuple(full_counts)
 
+def parse_asm_vcf_tandemtwister(vcf):
+    df = []
+    c = 0
+    for record in vcf.fetch():
+        c += 1
+        ID = record.id
+        chrom = ID.split(':')[0]
+        start = int(ID.split(':')[1].split('-')[0])
+        
+        end = int(ID.split(':')[1].split('-')[1])
+        motifs = record.info['MOTIFS']
+        if (type(motifs) == str):
+            # make it as tuple
+            motifs = tuple(motifs.split(','))
+        
+        # motif_lens = [len(s) for s in motifs]
+
+        motif_ids = record.info['MOTIF_IDs_H']
+        
+        CN = int(record.info['CN_hap'])
+        CN_ref = int(record.info['CN_ref'])
+
+        len_, motif_concat = -1, "NA"
+
+        if CN > 0:
+            len_ = sum([len(motifs[int(m_id)]) for m_id in motif_ids])
+            motif_concat = ''.join([motifs[int(m_id)] for m_id in motif_ids])
+
+        # get the GT value from the record string 
+        GT = str(record).split('\t')[9].split(':')[0]
+
+        df.append([chrom, start, end, motifs, motif_ids, CN, CN_ref, GT, len_, motif_concat])
+
+    # convert to dataframe
+    df = pd.DataFrame(df, columns=['chrom', 'start', 'end', 'motifs', 'motif_ids', 'CN', 'CN_ref', 'GT', 'len_', 'motif_concat'])
+    return df
+
 def parse_vcf_tandemtwister(vcf, add_motif_counts=False):
     df = []
     c = 0
@@ -41,10 +78,6 @@ def parse_vcf_tandemtwister(vcf, add_motif_counts=False):
         if motif_ids_H2 == None and CN_H2 != 0 :
             motif_ids_H2 = motif_ids_H1
         
-        # print(f'motif_ids_H1 = {motif_ids_H1}, type = {type(motif_ids_H1)}, len = {len(motif_ids_H1)}')
-        # print(f'motif_ids_H2 = {motif_ids_H2}, type = {type(motif_ids_H2)}, len = {len(motif_ids_H2)}')
-        
-
         len_h1, len_h2, motif_concat_h1, motif_concat_h2 = -1, -1, "NA", "NA"
 
         if CN_H1 > 0:
@@ -52,7 +85,6 @@ def parse_vcf_tandemtwister(vcf, add_motif_counts=False):
             motif_concat_h1 = ''.join([motifs[int(m_id)] for m_id in motif_ids_H1])
 
         if CN_H2 > 0:
-                
             len_h2 = sum([len(motifs[int(m_id)]) for m_id in motif_ids_H2])
             motif_concat_h2 = ''.join([motifs[int(m_id)] for m_id in motif_ids_H2])
 
