@@ -28,7 +28,7 @@
 <h2>Usage</h2>
 <ol>
   <li>Run the Streamlit app:</li>
-    <pre><code>streamlit run visualize_TRs.py</code></pre>
+    <pre><code>streamlit run app.py</code></pre>
     <pre><code> ssh -L 8501:localhost:8501 phaedra</code></pre>
   </li>
   <li>Upload your VCF file using the file uploader in the sidebar.</li>
