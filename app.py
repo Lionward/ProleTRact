@@ -3,11 +3,9 @@ from data_handling import VCFHandler, CohortHandler
 from visualization import Visualization
 from config import PATHOGENIC_TRS
 import pysam 
-import os 
-import re 
-from rembg import remove 
-from PIL import Image 
-  
+
+import base64
+
 def load_vcf(vcf_file):
     return pysam.VariantFile(vcf_file)
 
@@ -62,32 +60,10 @@ def main():
 
         visualization.visulize_cohort()
 
-import base64
-from PIL import Image
-import numpy as np
 
-# Function to encode the image as base64
 def get_image_base64(path):
-    # print the matrix of the image
 
-    image = Image.open(path)
-    image_matrix = np.array(image)
-    # make the bright pixels #262730
-    
-    def extract_logo(image_matrix):
-        # remove the white background
-        image_matrix = remove(image_matrix, alpha_matting=True)
-        return image_matrix
-    
-        
-
-    image_matrix = extract_logo(image_matrix)
-    image = Image.fromarray(image_matrix)
-    # Save the image to a temporary file
-    tmp_img = "tmp_img.png"
-    image.save(tmp_img)
-    # Encode the image to base64
-    with open(tmp_img, "rb") as f:
+    with open(path, "rb") as f:
         encoded_string = base64.b64encode(f.read()).decode()
     return encoded_string
 
@@ -122,3 +98,4 @@ if __name__ == "__main__":
     
     
     main()
+    
