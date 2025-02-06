@@ -978,8 +978,8 @@ class Visualization:
             return motif_colors, df
         df['Length'] = df['End'] - df['Start']
         
-        default_hight = 600 
-        chart_height = max(default_hight, len(sequences) * 7)
+        default_hight = 1000 
+        chart_height = max(default_hight, len(sequences) * 10)
 
         df['Sample'] = df['Sample'].apply(lambda x: x.replace("_pathogenic", ""))
         df['Sample'] = pd.Categorical(df['Sample'], categories=sorted(df['Sample'].unique()), ordered=True)
@@ -990,8 +990,8 @@ class Visualization:
 
         for sample in df_filtered['Sample'].unique():
             df.loc[df['Sample'] == sample, 'Total Copy Number'] = df[df['Sample'] == sample].shape[0]
-        # if there are only interruptions in the sequence
-        
+
+            
         min_copy_number = df['Total Copy Number'].min()
         max_copy_number = df['Total Copy Number'].max()
 
@@ -1019,22 +1019,26 @@ class Visualization:
         
         chart = alt.Chart(df).mark_bar().encode(
             y=alt.Y(
-                'Sample', 
-                sort=y_sort, 
-                axis=alt.Axis(labelOverlap=False, ticks=False)  
+            'Sample', 
+            sort=y_sort, 
+            axis=alt.Axis(labelOverlap=False, ticks=False, labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')  
             ),
-            x=alt.X('Length', title='Length', stack='zero'),
+            x=alt.X('Length', title='Length', stack='zero', axis=alt.Axis(labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')),
             color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
             order=alt.Order('Order', sort='ascending'),
             tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence','pathogenic']
         ).properties(
             width=800,
             height=chart_height,
-            title="Motif Occurrences"
+            title=alt.TitleParams(
+            text="Motif occurrences across samples",
+            anchor='middle',
+            fontSize=20 
+            )
         ).interactive()
 
         if chart_height > default_hight:
-            chart = chart.configure_axisY(labelFontSize=0)
+            chart = chart.configure_axisY(labelFontSize=10, titleFontSize=12)
         # check if the pathogenicity threshold is greater than 0 and if all the samples are not pathogenic
         pathogenic_thresold_length = pathogenic_thresold * len(motif_names[0])
         if pathogenic_thresold > 0:
@@ -1053,19 +1057,50 @@ class Visualization:
             
             if  df.groupby('Sample')['Length'].sum().max() > pathogenic_thresold_length:
                 # Regel hinzufügen und beschriften
-                rule = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'label': ['Pathogenic Threshold']})).mark_rule(color='red').encode(
+                rule = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'label': ['Pathogenic Threshold']})).mark_rule(color='red', strokeDash=[5, 5]).encode(
                     x='x',
                     tooltip=['label', 'x'],
                 )
-                
+
                 # make the line thicker
                 rule = rule.encode(size=alt.value(5))
-                
-                # Diagramme kombinieren
-                combined_chart = alt.layer(chart, rule).resolve_scale(y='independent')
-                
 
-                # Konfiguration anwenden
+                # Add an arrow pointing at the pathogenic threshold line
+                arrow = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'y': [0], 'y2': [chart_height]})).mark_text(
+                    text='↑',
+                    align='left',
+                    baseline='bottom',
+                    dx=5,
+                    dy=45,
+                    fontSize=30,  # Keep the font size smaller
+                    color='black',
+                    angle=290  # Make the arrow vertical
+                ).encode(
+                    x='x',
+                )
+
+                # Extend the arrow line
+                arrow_line = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'y': [0], 'y2': [chart_height]})).mark_rule(color='black').encode(
+                    x='x',
+                )
+
+                # Add text next to the arrow
+                arrow_text = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'y': [chart_height / 2], 'text': ['Pathogenic Threshold']})).mark_text(
+                    align='left',
+                    baseline='middle',
+                    dx=10,
+                    dy=25,
+                    fontSize=12,
+                    color='black'
+                ).encode(
+                    x='x',
+                    text='text'
+                )
+
+                # Combine charts
+                combined_chart = alt.layer(chart, rule, arrow, arrow_line, arrow_text).resolve_scale(y='independent')
+
+                # Apply configuration
                 combined_chart = combined_chart.configure_axis(
                     labelFontSize=10,
                     titleFontSize=12,
@@ -1076,7 +1111,6 @@ class Visualization:
                 )
 
                 # for all the samples that cross the pathogenic threshold color their name on the y-axis red
-            
 
                 st.altair_chart(combined_chart, use_container_width=True)
             else:
