@@ -884,20 +884,19 @@ class Visualization:
         cmap = plt.get_cmap('tab20')  
         colors = [cmap(i) for i in range(n)]
         return ['#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255)) for r, g, b, _ in colors]
-
-    def stack_plot(self,record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value"):
+    def stack_plot(self, record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value"):
         motif_colors = self.get_color_palette(len(record['motifs']))
         motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
         
-        region  = record['chr'] + ":" + str(record['pos']-1) + "-" + str(record['stop']-1)
+        region = record['chr'] + ":" + str(record['pos'] - 1) + "-" + str(record['stop'] - 1)
 
         df = self.create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
         if df.empty:
             return motif_colors, df
         df['Length'] = df['End'] - df['Start']
         
-        default_hight = 1000 
-        chart_height = max(default_hight, len(sequences) * 10)
+        default_height = 1500 
+        chart_height = max(default_height, len(sequences) * 10)
 
         df['Sample'] = df['Sample'].apply(lambda x: x.replace("_pathogenic", ""))
         df['Sample'] = pd.Categorical(df['Sample'], categories=sorted(df['Sample'].unique()), ordered=True)
@@ -909,20 +908,27 @@ class Visualization:
         for sample in df_filtered['Sample'].unique():
             df.loc[df['Sample'] == sample, 'Total Copy Number'] = df[df['Sample'] == sample].shape[0]
 
-
         min_copy_number = df['Total Copy Number'].min()
         max_copy_number = df['Total Copy Number'].max()
 
-        pathogenic_thresold = 0
-     
+        pathogenic_threshold = 0
+        
         if region in st.session_state.pathogenic_TRs['region'].unique():
+            pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
+                (st.session_state.pathogenic_TRs['region'] == region)
+            ]['pathogenic_min'].values[0]
+            if pathogenic_threshold is None:
+                pathogenic_threshold = 0
+            gene_name = st.session_state.pathogenic_TRs.loc[
+                st.session_state.pathogenic_TRs['region'] == region
+            ]['gene'].values[0]
+            inheritance = st.session_state.pathogenic_TRs.loc[
+                st.session_state.pathogenic_TRs['region'] == region
+            ]['inheritance'].values[0]
+            disease = st.session_state.pathogenic_TRs.loc[
+                st.session_state.pathogenic_TRs['region'] == region
+            ]['disease'].values[0]
 
-            pathogenic_thresold = st.session_state.pathogenic_TRs.loc[(st.session_state.pathogenic_TRs['region'] == region)]['pathogenic_min'].values[0]
-            if (pathogenic_thresold == None):
-                pathogenic_thresold = 0
-            gene_name =  st.session_state.pathogenic_TRs.loc[st.session_state.pathogenic_TRs['region'] == region]['gene'].values[0]
-            inheritance = st.session_state.pathogenic_TRs.loc[st.session_state.pathogenic_TRs['region'] == region]['inheritance'].values[0]
-            disease = st.session_state.pathogenic_TRs.loc[st.session_state.pathogenic_TRs['region'] == region]['disease'].values[0]
         st.markdown(f"""
             <div style="display: flex; justify-content: space-between; font-size: 20px; color: #FF5733;">
                 <div>
@@ -938,127 +944,112 @@ class Visualization:
             y_sort = alt.EncodingSortField(field='Length', op='sum', order='descending')
         else:
             y_sort = alt.SortField(field='Sample', order='ascending')
-        df ["pathogenic"] = df["Total Copy Number"].apply(lambda x: "Pathogenic" if x >= pathogenic_thresold else "Not Pathogenic")
-        pathogenic_thresold_length = pathogenic_thresold * len(motif_names[0])
+        
+        df["pathogenic"] = df["Total Copy Number"].apply(lambda x: "Pathogenic" if x >= pathogenic_threshold else "Not Pathogenic")
+        pathogenic_threshold_length = pathogenic_threshold * len(motif_names[0])
         df['Sequence_length'] = df.groupby('Sample')['Length'].transform('sum')
+
         chart = alt.Chart(df).mark_bar().encode(
             y=alt.Y(
-            'Sample', 
-            sort=y_sort, 
-            axis=alt.Axis(labelOverlap=False, ticks=False, labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')  
+                'Sample', 
+                sort=y_sort, 
+                axis=alt.Axis(labelOverlap=False, ticks=False, labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')  
             ),
-            x=alt.X('Length', title='Length', stack='zero', axis=alt.Axis(labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black'), scale=alt.Scale(domain=[0, df['Sequence_length'].max() +10])),
+            x=alt.X('Length', title='Length', stack='zero', axis=alt.Axis(labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black'), 
+                    scale=alt.Scale(domain=[0, df['Sequence_length'].max() + 10])),
             color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
             order=alt.Order('Order', sort='ascending'),
-
-            tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence','pathogenic','Length','Sequence_length']
+            tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence', 'pathogenic', 'Length', 'Sequence_length']
         ).properties(
             width=800,
             height=chart_height,
             title=alt.TitleParams(
-            text="Motif occurrences across samples",
-            anchor='middle',
-            fontSize=20 
+                text="Motif occurrences across samples",
+                anchor='middle',
+                fontSize=20 
             )
         )
 
-        if chart_height > default_hight:
+        # Adjust axis font size if chart height exceeds default
+        if chart_height > default_height:
             chart = chart.configure_axisY(labelFontSize=10, titleFontSize=12)
 
+        # Add gene info if available
+        gene_info = []
+        if gene_name:
+            gene_info.append(f"Gene: {gene_name}")
+        if inheritance:
+            gene_info.append(f"Inheritance: {inheritance}")
+        if disease:
+            gene_info.append(f"Disease: {disease}")
 
-        if gene_name or inheritance or disease:
-            gene_info = []
-            if gene_name:
-                gene_info.append(f"Gene: {gene_name}")
-            if inheritance:
-                gene_info.append(f"Inheritance: {inheritance}")
-            if disease:
-                gene_info.append(f"Disease: {disease}")
+        # Add pathogenic threshold rule if applicable
+        if pathogenic_threshold > 0 and df.groupby('Sample')['Length'].sum().max() > pathogenic_threshold_length:
+            rule = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length], 'label': ['Pathogenic Threshold']})).mark_rule(
+                color='red', strokeDash=[5, 5], clip=True
+            ).encode(
+                x=alt.X('x:Q', axis=alt.Axis(title='Length', labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')),
+                tooltip=['label', 'x'],
+            ).encode(size=alt.value(5))
 
+            arrow = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length], 'y': [0], 'y2': [chart_height]})).mark_text(
+                text='↑', align='left', baseline='bottom', dx=5, dy=45, fontSize=30, color='black', angle=290, clip=True
+            ).encode(x=alt.X('x:Q'))
 
-        if pathogenic_thresold > 0:
-            if  df.groupby('Sample')['Length'].sum().max() > pathogenic_thresold_length:
-                rule = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'label': ['Pathogenic Threshold']})).mark_rule(color='red', strokeDash=[5, 5], clip=True).encode(
-                    x= alt.X('x:Q', axis=alt.Axis(title='Length', labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')),
-                    tooltip=['label', 'x'],
+            arrow_line = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length], 'y': [0], 'y2': [chart_height]})).mark_rule(
+                color='black', clip=True
+            ).encode(x=alt.X('x:Q'))
+
+            arrow_text = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length], 'y': [chart_height / 2], 'text': ['Pathogenic Threshold']})).mark_text(
+                align='left', baseline='middle', dx=10, dy=25, fontSize=12, color='black'
+            ).encode(x='x:Q', text='text')
+
+            combined_chart = alt.layer(chart, rule, arrow, arrow_line, arrow_text).resolve_scale(x='shared')
+            
+            combined_chart = combined_chart.properties(
+                title=alt.TitleParams(
+                    text="Motif occurrences across samples",
+                    subtitle=gene_info,
+                    anchor='middle',
+                    fontSize=20,
+                    subtitleFontSize=15,
+                    subtitleColor='green',
+                    subtitlePadding=20  
                 )
+            ).configure_axis(
+                labelFontSize=10,
+                titleFontSize=12,
+            ).configure_legend(
+                labelFontSize=12,
+                labelFontWeight='bold',
+                labelColor='black',
+                titleFontSize=14,
+                titleFontWeight='bold',
+                titleColor='black'
+            ).properties(
+                padding={'left': 10, 'right': 50, 'top': 30, 'bottom': 10}
+            )
 
-                rule = rule.encode(size=alt.value(5))
-
-                arrow = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'y': [0], 'y2': [chart_height]})).mark_text(
-                    text='↑',
-                    align='left',
-                    baseline='bottom',
-                    dx=5,
-                    dy=45,
-                    fontSize=30, 
-                    color='black',
-                    angle=290, 
-                    clip=True
-                ).encode(
-                    x= alt.X('x:Q', axis=alt.Axis(title='Length', labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')),
-                )
-
-                arrow_line = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'y': [0], 'y2': [chart_height]})).mark_rule(color='black', clip=True).encode(
-                    x= alt.X('x:Q', axis=alt.Axis(title='Length', labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')),
-                ).interactive()
-                
-
-                arrow_text = alt.Chart(pd.DataFrame({'x': [pathogenic_thresold_length], 'y': [chart_height / 2], 'text': ['Pathogenic Threshold']})).mark_text(
-                    align='left',
-                    baseline='middle',
-                    dx=10,
-                    dy=25,
-                    fontSize=12,
-                    color='black'
-                ).encode(
-                    x='x:Q',
-                    text='text'
-                )
-
-
-                combined_chart = alt.layer(chart, rule, arrow, arrow_line, arrow_text).resolve_scale(
-                    x='shared'
-                )
-        
-  
-                combined_chart = combined_chart.properties(
-                    title=alt.TitleParams(
-                        text="Motif occurrences across samples",
-                        subtitle=gene_info,
-                        anchor='middle',
-                        fontSize=20,
-                        subtitleFontSize=15,
-                        subtitleColor='green',
-                        subtitlePadding=20  
-                    )
-                )
-                combined_chart = combined_chart.configure_axis(
-                    labelFontSize=10,
-                    titleFontSize=12,
-                )
-
-                combined_chart = combined_chart.properties(
-                    padding={'left': 10, 'right': 50, 'top': 30, 'bottom': 10}
-                )
-
-
-                st.altair_chart(combined_chart, use_container_width=True)
-            else:
-                chart = chart.properties(
-                    title=alt.TitleParams(
-                        text="Motif occurrences across samples",
-                        subtitle=gene_info,
-                        anchor='middle',
-                        fontSize=20,
-                        subtitleFontSize=15,
-                        subtitleColor='green',
-                        subtitlePadding=20  
-                    )
-                )
-                st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(combined_chart, use_container_width=True)
         else:
-
+            chart = chart.properties(
+                title=alt.TitleParams(
+                    text="Motif occurrences across samples",
+                    subtitle=gene_info,
+                    anchor='middle',
+                    fontSize=20,
+                    subtitleFontSize=15,
+                    subtitleColor='green',
+                    subtitlePadding=20,
+                )
+            ).configure_legend(
+                labelFontSize=12,
+                labelFontWeight='bold',
+                labelColor='black',
+                titleFontSize=14,
+                titleFontWeight='bold',
+                titleColor='black'
+            )
             st.altair_chart(chart, use_container_width=True)
 
         return motif_colors, df
