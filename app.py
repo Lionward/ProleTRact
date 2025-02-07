@@ -1,26 +1,22 @@
 import streamlit as st
 from data_handling import VCFHandler, CohortHandler
 from visualization import Visualization
-from config import PATHOGENIC_TRS
-import pysam 
-
+import pandas as pd 
 import base64
 
-def load_vcf(vcf_file):
-    return pysam.VariantFile(vcf_file)
 
+def get_image_base64(path):
 
+    with open(path, "rb") as f:
+        encoded_string = base64.b64encode(f.read()).decode()
+    return encoded_string
 
-
-def get_records_info(vcf_file):
-    vcf = pysam.VariantFile(vcf_file)
-    cohorts_map = {}
-    idx = 0
-    for rec in vcf:
-        cohorts_map[idx] = rec.id
-        idx += 1
-    return cohorts_map
-
+def get_pathogenic_TRs():
+    pathogenic_trs = pd.read_csv("/confidential/tGenVar/Lion/TandemTwist/tr_regions/pathogeic_TRs.bed", sep="\t", header=None)
+    pathogenic_trs.columns = ["chrom",'start','end','motif','pathogenic_min','inheritance','disease','gene']
+    st.session_state.pathogenic_TRs = pathogenic_trs
+    # make column region
+    pathogenic_trs['region'] = pathogenic_trs['chrom'] + ":" + pathogenic_trs['start'].astype(str) + "-" + pathogenic_trs['end'].astype(str)
 
 
 def main():
@@ -31,12 +27,13 @@ def main():
         st.session_state.cohort_handler = CohortHandler()
     if 'visualization' not in st.session_state:
         st.session_state.visualization = Visualization()
+    get_pathogenic_TRs()
     
     vcf_handler = st.session_state.vcf_handler
     cohort_handler = st.session_state.cohort_handler
     visualization = st.session_state.visualization
 
-    st.session_state.pathogenic_TRs = PATHOGENIC_TRS
+    #st.session_state.pathogenic_TRs = PATHOGENIC_TRS
 
     st.sidebar.markdown("### Tandem Repeat Visualization")
     analysis_mode = st.sidebar.radio("Select the type of analysis", ("individual sample", "Cohort"))
@@ -61,11 +58,6 @@ def main():
         visualization.visulize_cohort()
 
 
-def get_image_base64(path):
-
-    with open(path, "rb") as f:
-        encoded_string = base64.b64encode(f.read()).decode()
-    return encoded_string
 
 
 if __name__ == "__main__":
