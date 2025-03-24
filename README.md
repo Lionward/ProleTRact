@@ -1,4 +1,4 @@
-<h1>TandemTwist-O-Scope</h1>
+<h1>ProleTRact</h1>
 <p align="center">
 <img width="503" alt="grafik" src="https://github.com/user-attachments/assets/6aaace39-159b-4008-9f1f-fa1d37a1b4e8">
 </p>
