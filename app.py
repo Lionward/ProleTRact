@@ -3,7 +3,7 @@ from data_handling import VCFHandler, CohortHandler
 from visualization import Visualization
 import pandas as pd 
 import base64
-
+import os
 
 def get_image_base64(path):
 
@@ -12,7 +12,8 @@ def get_image_base64(path):
     return encoded_string
 
 def get_pathogenic_TRs():
-    pathogenic_trs = pd.read_csv("/confidential/tGenVar/Lion/TandemTwist/tr_regions/pathogeic_TRs.bed", sep="\t", header=None)
+    current_path = os.getcwd()
+    pathogenic_trs = pd.read_csv(current_path+"/pathogeic_TRs.bed", sep="\t", header=None)
     pathogenic_trs.columns = ["chrom",'start','end','motif','pathogenic_min','inheritance','disease','gene']
     st.session_state.pathogenic_TRs = pathogenic_trs
     # make column region

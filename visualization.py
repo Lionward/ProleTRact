@@ -631,7 +631,8 @@ class Visualization:
         figure.update_yaxes(range=[0, df['Sample'].value_counts().max()])
 
         st.plotly_chart(figure, use_container_width=True)
-        self.bar_plot_motif_count(df, sort_by=sort_by)
+        region = f"{record['chr']}:{record['pos']-1}-{record['stop']-1}"
+        self.bar_plot_motif_count(df, region, sort_by=sort_by)
 
         motif_counts = df[df['Motif'] != 'Interruption'].groupby(['Sample', 'Motif']).size().reset_index(name='Count')
 
@@ -665,7 +666,8 @@ class Visualization:
             motif_ids_list.append(hgsvc_records[key]['motif_ids_h'])
 
         motif_colors, df = self.stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by)
-        self.bar_plot_motif_count(df, sort_by)
+        region = f"{record['chr']}:{record['pos']-1}-{record['stop']-1}"
+        self.bar_plot_motif_count(df, region, sort_by)
 
 
         figure = go.Figure()
@@ -773,10 +775,9 @@ class Visualization:
         heatmap = heatmap.configure_legend(orient='top')
         st.altair_chart(heatmap, use_container_width=True)
 
-
-    def bar_plot_motif_count(self, df, sort_by="Value"):
+    def bar_plot_motif_count(self, df, region, sort_by="Value"):
         df = df[df['Motif'] != "Interruption"]
-    
+        
         total_copy_number = df.groupby('Sample').size().reset_index(name='Total Copy Number')
         total_copy_number = total_copy_number.sort_values(by='Total Copy Number', ascending=False)
 
@@ -785,11 +786,8 @@ class Visualization:
         else:
             x_sort = alt.SortField(field='Sample', order='ascending')
 
-
-
         unique_samples = list(total_copy_number['Sample'].apply(lambda x: x.rsplit('_', 1)[0]).unique())
-        color_palette =   px.colors.qualitative.Vivid + px.colors.qualitative.Safe + px.colors.qualitative.Dark24 + px.colors.qualitative.Prism 
-        
+        color_palette = px.colors.qualitative.Vivid + px.colors.qualitative.Safe + px.colors.qualitative.Dark24 + px.colors.qualitative.Prism 
 
         color_mapping = {sample: color_palette[i] for i, sample in enumerate(unique_samples)}
         color_mapping = {sample: color_mapping[sample.rsplit('_', 1)[0]] for sample in total_copy_number['Sample']}
@@ -804,9 +802,33 @@ class Visualization:
             height=400,
             title="Total Copy Number per Sample"
         )
-        
-        bar_chart = bar_chart.configure_legend(orient='none', disable=True)
 
+        # Add the pathogenic threshold if applicable
+        if region in st.session_state.pathogenic_TRs['region'].unique():
+            pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
+                (st.session_state.pathogenic_TRs['region'] == region)
+            ]['pathogenic_min'].values[0]
+
+            # Create the threshold line
+            threshold_line = alt.Chart(pd.DataFrame({'Total Copy Number': [pathogenic_threshold]})).mark_rule(
+                color='red', strokeDash=[5, 5], size=3
+            ).encode(
+                y='Total Copy Number:Q'
+            )
+
+            threshold_pointer = alt.Chart(pd.DataFrame({'Total Copy Number': [pathogenic_threshold]})).mark_text(
+                text='Pathogenic Threshold', align='left', dx=5, dy=-10, fontSize=12, color='black'
+            ).encode(
+                y='Total Copy Number:Q'
+            )
+            
+            # Combine the bar chart, threshold line, and pointer
+            bar_chart = alt.layer(bar_chart, threshold_line, threshold_pointer)
+
+        # Apply configuration to the final chart
+        bar_chart = bar_chart.configure_axisX(labelAngle=45, labelOverlap=False).configure_legend(orient='none', disable=True)
+
+        # Render the chart
         st.altair_chart(bar_chart, use_container_width=True)
 
     
@@ -912,7 +934,9 @@ class Visualization:
         max_copy_number = df['Total Copy Number'].max()
 
         pathogenic_threshold = 0
-        
+        gene_name = None
+        inheritance = None
+        disease = None
         if region in st.session_state.pathogenic_TRs['region'].unique():
             pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
                 (st.session_state.pathogenic_TRs['region'] == region)
