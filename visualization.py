@@ -564,6 +564,18 @@ class Visualization:
         record = cohort_records[list(cohort_records.keys())[0]]
         motif_colors, df = self.stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by)
 
+        
+        region = f"{record['chr']}:{record['pos']-1}-{record['stop']-1}"
+        self.bar_plot_motif_count(df, region, sort_by=sort_by)
+
+        motif_counts = df[df['Motif'] != 'Interruption'].groupby(['Sample', 'Motif']).size().reset_index(name='Count')
+
+        heatmap_data = motif_counts.pivot(index='Sample', columns='Motif', values='Count').fillna(0)
+
+        heatmap_data_long = heatmap_data.reset_index().melt(id_vars='Sample', var_name='Motif', value_name='Count')
+
+        self.plot_heatmap(heatmap_data_long, sort_by)
+
         figure = go.Figure()
 
         if df.empty:
@@ -631,17 +643,6 @@ class Visualization:
         figure.update_yaxes(range=[0, df['Sample'].value_counts().max()])
 
         st.plotly_chart(figure, use_container_width=True)
-        region = f"{record['chr']}:{record['pos']-1}-{record['stop']-1}"
-        self.bar_plot_motif_count(df, region, sort_by=sort_by)
-
-        motif_counts = df[df['Motif'] != 'Interruption'].groupby(['Sample', 'Motif']).size().reset_index(name='Count')
-
-        heatmap_data = motif_counts.pivot(index='Sample', columns='Motif', values='Count').fillna(0)
-
-        heatmap_data_long = heatmap_data.reset_index().melt(id_vars='Sample', var_name='Motif', value_name='Count')
-
-        self.plot_heatmap(heatmap_data_long, sort_by)
-
     def plot_HGSVC_VS_allele(self, record, hgsvc_records, motif_names):
         sequences = []
         span_list = []
@@ -670,6 +671,18 @@ class Visualization:
         self.bar_plot_motif_count(df, region, sort_by)
 
 
+
+
+        pivot_hgsvc = pd.pivot_table(df[df['Sample'] == 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
+        pivot_sample = pd.pivot_table(df[df['Sample'] != 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
+
+        pivot_hgsvc_long = pivot_hgsvc.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
+        pivot_sample_long = pivot_sample.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
+
+        combined_data = pd.concat([pivot_hgsvc_long, pivot_sample_long])
+
+        self.plot_heatmap(combined_data, sort_by=sort_by)
+        
         figure = go.Figure()
 
         unique_samples = df['Sample'].unique()
@@ -741,17 +754,6 @@ class Visualization:
         figure.update_yaxes(range=[0, df['Sample'].value_counts().max()])
         
         st.plotly_chart(figure, use_container_width=True)
-
-        pivot_hgsvc = pd.pivot_table(df[df['Sample'] == 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
-        pivot_sample = pd.pivot_table(df[df['Sample'] != 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
-
-        pivot_hgsvc_long = pivot_hgsvc.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
-        pivot_sample_long = pivot_sample.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
-
-        combined_data = pd.concat([pivot_hgsvc_long, pivot_sample_long])
-
-        self.plot_heatmap(combined_data, sort_by=sort_by)
-
     def plot_heatmap(self, combined_data, sort_by="Value"):
         
 
@@ -761,22 +763,37 @@ class Visualization:
         else:
             x_sort = alt.SortField(field='Sample', order='ascending')
             y_sort = alt.SortField(field='Motif', order='ascending')
-
+        combined_data = combined_data[combined_data['Motif'] != 'Interruption']
         heatmap = alt.Chart(combined_data).mark_rect().encode(
-            x=alt.X('Sample:N', title='Sample', sort=x_sort),
-            y=alt.Y('Motif:N', title='Motif', sort=y_sort),
+            x=alt.X('Sample:N', title='Sample', sort=x_sort, axis=alt.Axis(labelFontWeight='bold', labelColor='black', titleFontWeight='bold', titleColor='black')),
+            y=alt.Y('Motif:N', title='Motif', sort=y_sort, axis=alt.Axis(labelFontWeight='bold', labelColor='black', titleFontWeight='bold', titleColor='black')),
             color=alt.Color('Count:Q', scale=alt.Scale(scheme='reds'), title='Count'),
             tooltip=['Sample', 'Motif', 'Count']
-        ).properties(
-            width=600,
-            height=400,
-            title='Motif Occurrences Heatmap'
+        ).configure_axis(
+            labelFontWeight='bold',
+            labelColor='black',
+            titleFontWeight='bold',
+            titleColor='black'
+        ).configure_legend(
+            labelFontWeight='bold',
+            labelColor='black',
+            titleFontWeight='bold',
+            titleColor='black'
         )
+        # Make the legend bold and black
+        heatmap = heatmap.configure_legend(
+            labelFontWeight='bold',
+            labelColor='black',
+            titleFontWeight='bold',
+            titleColor='black'
+        )
+
+        # Remove interruptions from the heatmap data
         heatmap = heatmap.configure_legend(orient='top')
         st.altair_chart(heatmap, use_container_width=True)
 
     def bar_plot_motif_count(self, df, region, sort_by="Value"):
-        df = df[df['Motif'] != "Interruption"]
+        df = df[df['Motif'] != "interruption"]
         
         total_copy_number = df.groupby('Sample').size().reset_index(name='Total Copy Number')
         total_copy_number = total_copy_number.sort_values(by='Total Copy Number', ascending=False)
@@ -801,6 +818,16 @@ class Visualization:
             width=600,
             height=400,
             title="Total Copy Number per Sample"
+        ).configure_axis(
+            labelFontWeight='bold',
+            labelColor='black',
+            titleFontWeight='bold',
+            titleColor='black'
+        ).configure_legend(
+            labelFontWeight='bold',
+            labelColor='black',
+            titleFontWeight='bold',
+            titleColor='black'
         )
 
         # Add the pathogenic threshold if applicable

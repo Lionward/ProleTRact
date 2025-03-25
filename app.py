@@ -26,8 +26,8 @@ def main():
         st.session_state.vcf_handler = VCFHandler()
     if 'cohort_handler' not in st.session_state:
         st.session_state.cohort_handler = CohortHandler()
-    if 'visualization' not in st.session_state:
-        st.session_state.visualization = Visualization()
+    #if 'visualization' not in st.session_state:
+    st.session_state.visualization = Visualization()
     get_pathogenic_TRs()
     
     vcf_handler = st.session_state.vcf_handler
@@ -36,7 +36,7 @@ def main():
 
     #st.session_state.pathogenic_TRs = PATHOGENIC_TRS
 
-    st.sidebar.markdown("### Tandem Repeat Visualization")
+    st.sidebar.markdown("### ProleTRact")
     analysis_mode = st.sidebar.radio("Select the type of analysis", ("individual sample", "Cohort"))
 
     if analysis_mode == "individual sample":
