@@ -46,9 +46,13 @@ class VCFHandler:
                 if st.session_state.vcf_file_path:
                     st.session_state.records, st.session_state.records_map = self.parse_vcf( st.session_state.vcf_file_path)
                     st.session_state.hgsvc_path = "/confidential/tGenVar/vntr/output_maryam/tools/run_all_tools/output/hgsvc/TandemTwist/asm/"
-                    st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('.vcf.gz')]
-                    
-                    st.session_state.files = [self.load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
+                    # check if the path exists
+                    if os.path.exists(st.session_state.hgsvc_path):
+                        st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('.vcf.gz')]
+                        st.session_state.files = [self.load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
+                    else:
+                        st.session_state.files = None
+                        st.session_state.file_paths = None
                 else:
                     st.error("VCF file path is not set.")
 

@@ -37,7 +37,12 @@ class Visualization:
         
         try:
             rec = next(vcf.fetch(region=region))
-            ids_h = rec.info.get('MOTIF_IDs_H', [])
+            ids_h = rec.samples[0]["MI"]
+            if ids_h != []:
+                ids_h = ids_h.split("_")
+            ids_ref = rec.info.get('MOTIF_IDs_REF', [])
+            if ids_ref != []:
+                ids_ref = ids_ref.split("_")
             ref_CN = rec.info.get('CN_ref', 0)
             alt_allele = rec.alts[0] if rec.alts and rec.alts[0] != '.' else ''
             CN_H = rec.info.get('CN_hap', 0)
@@ -53,7 +58,7 @@ class Visualization:
                 'stop': rec.stop,
                 'motifs': motif_names,
                 'motif_ids_h': ids_h,
-                'motif_ids_ref': rec.info.get('MOTIF_IDs_REF', []),
+                'motif_ids_ref': ids_ref,
                 'ref_CN': ref_CN,
                 'CN_H': CN_H,
                 'spans': rec.samples[0].get('SP', []),
@@ -77,7 +82,8 @@ class Visualization:
         return record
 
     def get_results_hgsvc_pop(self, region, files, file_paths):
-
+        if st.session_state.files == None:
+            return None
         samples_results = {}
         for i in range(len(files)):
             sample_name = file_paths[i].split(".")[0]
@@ -167,33 +173,33 @@ class Visualization:
         rec = vcf.fetch(region=region)
         for rec in vcf.fetch(region=region):
             break
-        ids_h1 = rec.info['MOTIF_IDs_H1']
-        ids_h2 = rec.info['MOTIF_IDs_H2']
+        ids = str(rec.samples[0]['MI']).split("/")
+        ids_h1 = ids[0]
+        ids_h1 = ids_h1.split("_") if ids else []
+        ids_h2 = ids[1].split("_") if len(ids) > 1 else []
    
         ref_CN = rec.info['CN_ref']
+        ref_span = rec.info['REF_SPAN']
         alt_allele1 = "."
         alt_allele2 = "."
         ref_allele = rec.ref
-        if rec.alts != None:
-            if len(rec.alts) > 0:
-                alt_allele1 = rec.alts[0]
-                if alt_allele1 == '.':
-                    alt_allele1 = ''
-                
-            if len(rec.alts) > 1:
-                alt_allele2 = rec.alts[1]
-                if alt_allele2 == '.':
-                    alt_allele2 = ''
-            else:
-                if ids_h1 == ids_h2:
-                    alt_allele2 = alt_allele1
-                alt_allele2 = ''
-        if ids_h1 is None:
-            ids_h1 = []
-        if ids_h2 is None:
-            ids_h2 = []
-        CN_H1 = rec.info['CN_H1']
-        CN_H2 = rec.info['CN_H2']
+        if rec.alts is not None:
+            alts = list(rec.alts)
+            
+            alt_allele1 = '' if alts and alts[0] == '.' else alts[0] if alts else '.'
+            alt_allele2 = ''
+            
+            if len(alts) > 1:
+                alt_allele2 = '' if alts[1] == '.' else alts[1]
+            elif alts and ids_h1 == ids_h2:
+                alt_allele2 = alt_allele1
+
+        CNs = list(rec.samples[0]['CN'])
+        CN_H1 = str(CNs[0])
+        if len(CNs) > 1:
+            CN_H2 = str(CNs[1])
+        else:
+            CN_H2 = None
         if CN_H1 == CN_H2 and ids_h2 == []:
             ids_h2 = ids_h1
             spans = rec.samples[0]['SP']
@@ -201,14 +207,13 @@ class Visualization:
         else :
             spans = rec.samples[0]['SP']
         spans = ["" if x == None else x for x in spans]
-
+        spans = [ref_span] + spans
         motif_names = rec.info['MOTIFS']
         if isinstance(motif_names, tuple):
             motif_names = list(motif_names)
         elif not isinstance(motif_names, list):
             motif_names = [motif_names]
 
-    
         record = {
                 'chr': rec.chrom,
                 'pos': rec.pos,
@@ -216,7 +221,7 @@ class Visualization:
                 'motifs': motif_names,
                 'motif_ids_h1': ids_h1,
                 'motif_ids_h2': ids_h2,
-                'motif_ids_ref': rec.info['MOTIF_IDs_REF'],
+                'motif_ids_ref': rec.info['MOTIF_IDs_REF'].split("_"),
                 'ref_CN': ref_CN,
                 'CN_H1': CN_H1,
                 'CN_H2': CN_H2,
@@ -227,7 +232,7 @@ class Visualization:
             }
         return record
 
-
+    
 
     def visulize_region(self):
         if 'regions_idx' not in st.session_state:
@@ -273,7 +278,6 @@ class Visualization:
         else:
             record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
         st.session_state.previous_region = region
-
         record = self.parse_record(st.session_state.vcf_file_path, record_key)
         if record is None:
             st.warning(f"No motifs found in the region: {st.session_state.records_map[st.session_state.regions_idx]}")
@@ -507,7 +511,10 @@ class Visualization:
                             self.plot_motif_bar(motif_count_h2, motif_names, motif_colors)
 
             with tab3:
-                self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
+                if hgsvc_records:
+                    self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
+                else:
+                    st.info("no population data found")
 
             
 
@@ -1107,7 +1114,6 @@ class Visualization:
 
     def count_motifs(self, motif_ids):
         motif_count = {}
-        
         for idx, motif in enumerate(motif_ids):
             if motif in motif_count:
                 motif_count[motif] += 1
@@ -1173,8 +1179,10 @@ class Visualization:
                         if show_comparison == False:
                             self.plot_motif_bar(motif_count_h2, motif_names, motif_colors)
             with tab3:
-  
-                self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
+                if hgsvc_records:
+                    self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
+                else:
+                    st.info("no population data found")
 
 
     def display_motif_legend(self, motifs, motif_colors, right_column):
