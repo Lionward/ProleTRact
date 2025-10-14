@@ -31,27 +31,60 @@ class Visualization:
     
 
     def parse_record_assembly(self, vcf, region):
-        chr, start_end = region.split(":")
-        start, end = map(int, start_end.split("-"))
-        region = f"{chr}:{start-1}-{end-1}"
-        
+        """
+        Extracts a single record from an assembly VCF in the specified region.
+        Returns a dictionary with all relevant repeat expansion data.
+
+        Args:
+            vcf: A pysam VariantFile or TabixFile object to query.
+            region (str): Region string in the format "chr:start-end".
+
+        Returns:
+            dict: All needed fields for downstream processing & visualization.
+        """
+
+        # Parse the chromosome and coordinates, adjust to 0-based for pysam
+        chrom, positions = region.split(":")
         try:
-            rec = next(vcf.fetch(region=region))
-            ids_h = rec.samples[0]["MI"]
-            if ids_h != []:
+            start, end = map(int, positions.split("-"))
+        except Exception as e:
+            # If region isn't in the correct format, raise a clear error
+            raise ValueError(f"Could not parse genomic region from '{region}' - {e}")
+        # pysam expects 0-based, half-open intervals
+        query_region = f"{chrom}:{start-1}-{end-1}"
+
+        try:
+            # Try getting the first record in this region. May raise StopIteration.
+            rec = next(vcf.fetch(region=query_region))
+
+            # Extract motif ids for the ALT allele (usually in sample field)
+            ids_h = rec.samples[0].get("MI", [])
+            if ids_h:
                 ids_h = ids_h.split("_")
+
+            # Extract motif ids for the REF allele (usually in the INFO field)
             ids_ref = rec.info.get('MOTIF_IDs_REF', [])
-            if ids_ref != []:
+            if ids_ref:
                 ids_ref = ids_ref.split("_")
+
+            # Reference and alternative allele copy numbers
             ref_CN = rec.info.get('CN_ref', 0)
-            alt_allele = rec.alts[0] if rec.alts and rec.alts[0] != '.' else ''
-            CN_H = rec.info.get('CN_hap', 0)
+            CN_H = rec.samples[0].get('CN', 0)
+
+            # Get motif names from INFO, and ensure type = list for later use
             motif_names = rec.info.get('MOTIFS', [])
             if isinstance(motif_names, tuple):
                 motif_names = list(motif_names)
             elif not isinstance(motif_names, list):
                 motif_names = [motif_names]
 
+            # Some VCF encodings use '.' to mean "no ALT"; check for that
+            alt_allele = rec.alts[0] if rec.alts and rec.alts[0] != '.' else ''
+
+            # Get the motifs' span, typically from 'SP'
+            spans = rec.samples[0].get('SP', [])
+
+            # Store all relevant information in a single record dict for easy access
             record = {
                 'chr': rec.chrom,
                 'pos': rec.pos,
@@ -61,11 +94,12 @@ class Visualization:
                 'motif_ids_ref': ids_ref,
                 'ref_CN': ref_CN,
                 'CN_H': CN_H,
-                'spans': rec.samples[0].get('SP', []),
+                'spans': spans,
                 'ref_allele': rec.ref,
                 'alt_allele': alt_allele,
             }
         except StopIteration:
+            # If nothing found, return a 'null record' to indicate missing data
             record = {
                 'chr': "",
                 'pos': -1,
@@ -165,71 +199,100 @@ class Visualization:
             else:
                 st.stop()
 
-    def parse_record(self,vcf_file,region):
-        if isinstance(vcf_file, str):
-            vcf = pysam.VariantFile(vcf_file)
+    def parse_record(self, vcf_file, region):
+        """
+        Parses a single VCF record for a specified region.
+
+        Args:
+            vcf_file (str or pysam.VariantFile): VCF file path or pysam file object.
+            region (str): Region string in format "chr:start-end".
+
+        Returns:
+            dict: Parsed information for the region.
+        """
+        # Open VCF if a file path is given
+        vcf = pysam.VariantFile(vcf_file) if isinstance(vcf_file, str) else vcf_file
+
+        # Fetch the first record in the region
+        record_iter = vcf.fetch(region=region)
+        rec = next(record_iter, None)
+        if rec is None:
+            st.warning(f"No records found for region {region}")
+            return None
+
+        # Parse motif IDs for both haplotypes (MI field)
+        mi = rec.samples[0]['MI']
+        if isinstance(mi, tuple):
+            ids_h1 = mi[0].split("_") if mi[0] else []
+            ids_h2 = mi[1].split("_") if len(mi) > 1 and mi[1] else []
         else:
-            vcf = vcf_file
-        rec = vcf.fetch(region=region)
-        for rec in vcf.fetch(region=region):
-            break
-        ids = str(rec.samples[0]['MI']).split("/")
-        ids_h1 = ids[0]
-        ids_h1 = ids_h1.split("_") if ids else []
-        ids_h2 = ids[1].split("_") if len(ids) > 1 else []
-   
-        ref_CN = rec.info['CN_ref']
-        ref_span = rec.info['REF_SPAN']
-        alt_allele1 = "."
-        alt_allele2 = "."
+            ids_h1 = mi.split("_") if mi else []
+            ids_h2 = mi.split("_") if mi else []
+
+        # Allele information
         ref_allele = rec.ref
-        if rec.alts is not None:
+        alt_allele1, alt_allele2 = ".", ""
+        if rec.alts:
             alts = list(rec.alts)
-            
-            alt_allele1 = '' if alts and alts[0] == '.' else alts[0] if alts else '.'
-            alt_allele2 = ''
-            
-            if len(alts) > 1:
-                alt_allele2 = '' if alts[1] == '.' else alts[1]
+            # Assign first allele
+            if alts and alts[0] != ".":
+                alt_allele1 = alts[0]
+            else:
+                alt_allele1 = ""
+            # Assign second allele
+            if len(alts) > 1 and alts[1] != ".":
+                alt_allele2 = alts[1]
             elif alts and ids_h1 == ids_h2:
                 alt_allele2 = alt_allele1
 
+        # Copy number for both alleles
         CNs = list(rec.samples[0]['CN'])
-        CN_H1 = str(CNs[0])
-        if len(CNs) > 1:
-            CN_H2 = str(CNs[1])
+        CN_H1 = str(CNs[0]) if CNs else None
+        CN_H2 = str(CNs[1]) if len(CNs) > 1 else None
+
+        # Parse span information (SP field), fallback to empty if not present
+        if 'SP' in rec.samples[0]:
+            SP_field = rec.samples[0]['SP']
         else:
-            CN_H2 = None
-        if CN_H1 == CN_H2 and ids_h2 == []:
-            ids_h2 = ids_h1
-            spans = rec.samples[0]['SP']
-            spans= spans + (rec.samples[0]['SP'][1],)
-        else :
-            spans = rec.samples[0]['SP']
-        spans = ["" if x == None else x for x in spans]
+            SP_field = "" # in this case tandemtwister genotyped no reads from the sample (both CNs are 0, DELETED)
+
+        if isinstance(SP_field, tuple):
+            spans_h1 = SP_field[0]
+            spans_h2 = SP_field[1] if len(SP_field) > 1 else SP_field[0]
+            spans = (spans_h1, spans_h2)
+        else:
+            spans = (SP_field, SP_field)
+        # Replace None with empty string, prepend reference span
+        ref_span = rec.info.get('REF_SPAN', "")
+        spans = ["" if x is None else x for x in spans]
         spans = [ref_span] + spans
+
+        # Parse motif names
         motif_names = rec.info['MOTIFS']
         if isinstance(motif_names, tuple):
             motif_names = list(motif_names)
         elif not isinstance(motif_names, list):
             motif_names = [motif_names]
 
+        # Final record dictionary
         record = {
-                'chr': rec.chrom,
-                'pos': rec.pos,
-                'stop': rec.stop,
-                'motifs': motif_names,
-                'motif_ids_h1': ids_h1,
-                'motif_ids_h2': ids_h2,
-                'motif_ids_ref': rec.info['MOTIF_IDs_REF'].split("_"),
-                'ref_CN': ref_CN,
-                'CN_H1': CN_H1,
-                'CN_H2': CN_H2,
-                'spans': spans,
-                'ref_allele': ref_allele,
-                'alt_allele1': alt_allele1,
-                'alt_allele2': alt_allele2
-            }
+            'chr': rec.chrom,
+            'pos': rec.pos,
+            'stop': rec.stop,
+            'motifs': motif_names,
+            'motif_ids_h1': ids_h1,
+            'motif_ids_h2': ids_h2,
+            'motif_ids_ref': rec.info['MOTIF_IDs_REF'].split("_"),
+            'ref_CN': rec.info.get('CN_ref', None),
+            'CN_H1': CN_H1,
+            'CN_H2': CN_H2,
+            'spans': spans,
+            'ref_allele': ref_allele,
+            'alt_allele1': alt_allele1,
+            'alt_allele2': alt_allele2
+        }
+
+        # For debugging/inspection purposes
         return record
 
     

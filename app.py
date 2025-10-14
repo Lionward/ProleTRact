@@ -13,7 +13,7 @@ def get_image_base64(path):
 
 def get_pathogenic_TRs():
     current_path = os.getcwd()
-    pathogenic_trs = pd.read_csv(current_path+"/pathogeic_TRs.bed", sep="\t", header=None)
+    pathogenic_trs = pd.read_csv(current_path+"/pathogenic_TRs.bed", sep="\t", header=None)
     pathogenic_trs.columns = ["chrom",'start','end','motif','pathogenic_min','inheritance','disease','gene']
     st.session_state.pathogenic_TRs = pathogenic_trs
     # make column region
