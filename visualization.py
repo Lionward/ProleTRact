@@ -7,7 +7,11 @@ import matplotlib.pyplot as plt
 import re 
 import pysam
 import numpy as np
-
+import importlib
+display_dynamic_sequence_with_highlighted_motifs = importlib.reload(__import__("vis_helper")).display_dynamic_sequence_with_highlighted_motifs
+display_motifs_as_bars = importlib.reload(__import__("vis_helper")).display_motifs_as_bars
+motif_legend_html = importlib.reload(__import__("vis_helper")).motif_legend_html
+plot_motif_bar = importlib.reload(__import__("vis_helper")).plot_motif_bar
 
 
 class Visualization:
@@ -30,19 +34,22 @@ class Visualization:
         return samples_results
     
 
+        
     def parse_record_assembly(self, vcf, region):
         """
         Extracts a single record from an assembly VCF in the specified region.
         Returns a dictionary with all relevant repeat expansion data.
 
         Args:
-            vcf: A pysam VariantFile or TabixFile object to query.
+            vcf: A pysam VariantFile or TabixFile object to query or a string (in this case read the vcf file from the path).
             region (str): Region string in the format "chr:start-end".
 
         Returns:
             dict: All needed fields for downstream processing & visualization.
         """
 
+        if isinstance(vcf, str):
+            vcf = pysam.VariantFile(vcf)
         # Parse the chromosome and coordinates, adjust to 0-based for pysam
         chrom, positions = region.split(":")
         try:
@@ -51,53 +58,10 @@ class Visualization:
             # If region isn't in the correct format, raise a clear error
             raise ValueError(f"Could not parse genomic region from '{region}' - {e}")
         # pysam expects 0-based, half-open intervals
-        query_region = f"{chrom}:{start-1}-{end-1}"
-
+        query_region = f"{chrom}:{start}-{end}"
         try:
             # Try getting the first record in this region. May raise StopIteration.
             rec = next(vcf.fetch(region=query_region))
-
-            # Extract motif ids for the ALT allele (usually in sample field)
-            ids_h = rec.samples[0].get("MI", [])
-            if ids_h:
-                ids_h = ids_h.split("_")
-
-            # Extract motif ids for the REF allele (usually in the INFO field)
-            ids_ref = rec.info.get('MOTIF_IDs_REF', [])
-            if ids_ref:
-                ids_ref = ids_ref.split("_")
-
-            # Reference and alternative allele copy numbers
-            ref_CN = rec.info.get('CN_ref', 0)
-            CN_H = rec.samples[0].get('CN', 0)
-
-            # Get motif names from INFO, and ensure type = list for later use
-            motif_names = rec.info.get('MOTIFS', [])
-            if isinstance(motif_names, tuple):
-                motif_names = list(motif_names)
-            elif not isinstance(motif_names, list):
-                motif_names = [motif_names]
-
-            # Some VCF encodings use '.' to mean "no ALT"; check for that
-            alt_allele = rec.alts[0] if rec.alts and rec.alts[0] != '.' else ''
-
-            # Get the motifs' span, typically from 'SP'
-            spans = rec.samples[0].get('SP', [])
-
-            # Store all relevant information in a single record dict for easy access
-            record = {
-                'chr': rec.chrom,
-                'pos': rec.pos,
-                'stop': rec.stop,
-                'motifs': motif_names,
-                'motif_ids_h': ids_h,
-                'motif_ids_ref': ids_ref,
-                'ref_CN': ref_CN,
-                'CN_H': CN_H,
-                'spans': spans,
-                'ref_allele': rec.ref,
-                'alt_allele': alt_allele,
-            }
         except StopIteration:
             # If nothing found, return a 'null record' to indicate missing data
             record = {
@@ -113,6 +77,49 @@ class Visualization:
                 'ref_allele': '',
                 'alt_allele': '',
             }
+            return record
+        # Extract motif ids for the ALT allele (usually in sample field)
+        ids_h = rec.samples[0].get("MI", [])
+        if ids_h:
+            ids_h = ids_h.split("_")
+
+        # Extract motif ids for the REF allele (usually in the INFO field)
+        ids_ref = rec.info.get('MOTIF_IDs_REF', [])
+        if ids_ref:
+            ids_ref = ids_ref.split("_")
+
+        # Reference and alternative allele copy numbers
+        ref_CN = rec.info.get('CN_ref', 0)
+        CN_H = rec.samples[0].get('CN', 0)
+
+        # Get motif names from INFO, and ensure type = list for later use
+        motif_names = rec.info.get('MOTIFS', [])
+        if isinstance(motif_names, tuple):
+            motif_names = list(motif_names)
+        elif not isinstance(motif_names, list):
+            motif_names = [motif_names]
+
+        # Some VCF encodings use '.' to mean "no ALT"; check for that
+        alt_allele = rec.alts[0] if rec.alts and rec.alts[0] != '.' else ''
+
+        # Get the motifs' span, typically from 'SP'
+        spans = rec.samples[0].get('SP', [])
+        # get the second span
+        # Store all relevant information in a single record dict for easy access
+        record = {
+            'chr': rec.chrom,
+            'pos': rec.pos,
+            'stop': rec.stop,
+            'motifs': motif_names,
+            'motif_ids_h': ids_h,
+            'motif_ids_ref': ids_ref,
+            'ref_CN': ref_CN,
+            'CN_H': CN_H,
+            'spans': spans,
+            'ref_allele': rec.ref,
+            'alt_allele': alt_allele,
+        }
+
         return record
 
     def get_results_hgsvc_pop(self, region, files, file_paths):
@@ -124,10 +131,44 @@ class Visualization:
             record = self.parse_record_assembly(st.session_state.files[i], region)
             samples_results[sample_name] = record
         return samples_results
-    
+    def render_region_display(self, markdown_placeholder, region):
+        html = f"""
+            <style>
+                .region-badge {{
+                    display: inline-block;
+                    background: #ECEAFB;
+                    padding: 6px 12px;
+                    border-radius: 50px;
+                    font-size: 8px;
+                    font-weight: 700;
+                    margin-bottom: 20px;
+                    backdrop-filter: blur(10px);
+                    border: 1px solid #C9BEEF;
+                    letter-spacing: 1px;
+                }}
+            </style>
+            
+            <div style="display: flex; justify-content: center; align-items: center; min-height: 80px;">
+                <div style="
+                    display: flex; 
+                    align-items: center; 
+                    background: #ECEAFB; 
+                    padding: 9px 16px; 
+                    border-radius: 20px; 
+                    box-shadow: 0 4px 16px 2px rgba(118, 75, 162, 0.12); 
+                    font-size: 1.5rem; 
+                    font-weight: 700;
+                    border: 1px solid #C9BEEF;
+                    ">
+                    <span style="width: 20px; height: 20px; background: #764ba2; border-radius: 50%; margin-right: 20px; box-shadow: 0 0 8px 2px #A184D6;"></span>
+                    Region: {region}
+                </div>
+            </div>
+        """
+        markdown_placeholder.html(html)
 
     def visulize_cohort(self):
-        col1, middel, col2 = st.columns([1.5,3, 1])  
+        col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")
         if 'cohorts_records_map' in st.session_state:
             region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
 
@@ -160,15 +201,12 @@ class Visualization:
                     
                 st.session_state.previous_region = region
             else:
+                #st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
                 region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
             mode_placeholder = st.empty()
+            
 
-            middel.markdown(f"""
-                    <div id="tandem-repeat-region" class="region-container" style="font-size: 25px; margin-bottom: 10px;">
-                        <strong>Tandem Repeat Region: {region}</strong>
-                    </div>
-                """, unsafe_allow_html=True)
-
+            self.render_region_display(middel, region)
             st.markdown("""
                     <style>
                     :root {
@@ -198,6 +236,179 @@ class Visualization:
                     self.plot_Cohort_results(st.session_state.cohort_results)
             else:
                 st.stop()
+
+    def parse_record_TRGT(self, vcf_file, region):
+        """
+        Parse a TRGT-formatted VCF record for a given region string (e.g., chr:start-end).
+        Handles parsing GT, motif occurrences, alleles, and works out spans for each haplotype.
+        Returns a dictionary with all the key info for visualization or downstream analysis.
+
+        Args:
+            vcf_file (str): Path to the VCF file.
+            region (str): Region string, e.g. "chr1:12345-12399"
+
+        Returns:
+            dict: Parsed record info if present in region, otherwise None.
+        """
+
+
+
+        vcf = pysam.VariantFile(vcf_file)
+        record_iter = vcf.fetch(region=region)
+        record = next(record_iter, None)
+
+        if record is None:
+            st.warning(f"No records found for region {region}")
+            return None
+        st.write(record)
+        # Pull out identifiers and motif info
+        ID = record.info['TRID']
+        chrom = ID.split('_')[0]
+        start = int(ID.split('_')[1])
+        end = int(ID.split('_')[2])
+        motifs = record.info['MOTIFS']
+        sample = record.samples[0]
+        GT_tuple = sample['GT']
+        GT = '/'.join([str(i) for i in GT_tuple])  
+
+        # fields we'll be filling
+        occurrences_h1 = ""
+        occurrences_h2 = ""
+        motif_ids_hap1 = []
+        motif_ids_hap2 = []
+        CN_ref = np.nan
+        CN_hap1 = np.nan
+        CN_hap2 = np.nan
+        ref_seq = record.ref
+        seq_hap1 = "."
+        seq_hap2 = "."
+
+        # Motif "spans" (MS field) -- tells us where the repeats are
+        spans = sample.get('MS')
+        if spans and spans != ('.',):
+            MC_value = sample.get('MC')
+            # Support for both tuple and single string for spans
+            if isinstance(spans, tuple) and len(spans) > 0:
+                spans_string_h1 = spans[0] if spans[0] else ""
+                spans_string_h2 = spans[1] if len(spans) > 1 else spans[0]
+                MC_value_h1 = MC_value[0] if MC_value[0] else ""
+                MC_value_h2 = MC_value[1] if len(MC_value) > 1 else MC_value[0]
+                MC_value_h1 = list(map(int, MC_value_h1.split('_')))
+                MC_value_h2 = list(map(int, MC_value_h2.split('_')))
+            else:
+                spans_string_h1 = spans
+                spans_string_h2 = spans
+                MC_value_h1 = MC_value if MC_value else ""
+                MC_value_h2 = MC_value if MC_value else ""
+
+            motif_indices_h1 = []
+            motif_indices_h2 = []
+            intervals_h1 = []
+            intervals_h2 = []
+            # Split and parse the motif indices and intervals for both haplotypes.
+            def parse_spans(spans_string, motif_indices, intervals):
+                if spans_string:
+                    spans_list = spans_string.split('_')
+                    a = 0
+                    for span in spans_list:
+                        match = re.match(r'(\d+)\((\d+)-(\d+)\)', span)
+                        if match:
+                            motif_indices.append(str(match.group(1)))
+                            # Store tuple of ints for easier downstream adjustment
+                            if a==0:
+                                intervals.append((int(match.group(2))+1, int(match.group(3))+1))
+                            else:
+                                intervals.append((int(match.group(2))+2, int(match.group(3))+1))
+                            a += 1
+            parse_spans(spans_string_h1, motif_indices_h1, intervals_h1)
+            parse_spans(spans_string_h2, motif_indices_h2, intervals_h2)
+            # make the intervals in this format again (start-end    )
+            intervals_h1 = [f"({start}-{end})" for start, end in intervals_h1]
+            intervals_h2 = [f"({start}-{end})" for start, end in intervals_h2]
+ 
+            spans_h1 = ''.join(intervals_h1)
+            spans_h2 = ''.join(intervals_h2)
+   
+            # Get occurrence numbers from spans strings
+            # This function must be implemented elsewhere in the class
+            # occurrences_h1 = self.convert_trgt_spans_to_occurrences(spans_string_h1, motifs)
+            # occurrences_h2 = self.convert_trgt_spans_to_occurrences(spans_string_h2, motifs)
+
+            # # For each haplotype, the occurrences string is like "3_2" (for motif counts)
+            # motif_ids_hap1 = list(map(int, occurrences_h1.split('_'))) if occurrences_h1 else []
+            # motif_ids_hap2 = list(map(int, occurrences_h2.split('_'))) if occurrences_h2 else []
+            # get the MC format
+            CN_hap1 = sum(MC_value_h1)
+            CN_hap2 = sum(MC_value_h2)
+
+            # # Convert motif counts to string format for output
+            # motif_ids_hap1_str = [str(i) for i in MC_value_h1]
+            # motif_ids_hap2_str = [str(i) for i in MC_value_h2]
+
+      
+
+            # Figure out alternate allele sequences
+            alt_allele1 = "."
+            alt_allele2 = "."
+
+            if record.alts:
+                # Usually one or two alternates; handle accordingly
+                if len(record.alts) > 0:
+                    alt_allele2 = record.alts[0]
+                    if len(record.alts) > 1:
+                        alt_allele2 = record.alts[1]
+                    else:
+                        # Only one alt; what haplotype does it belong to? 
+                        if GT == '0/1':
+                            alt_allele1 = ref_seq
+                        else:
+                            # Both haplotypes are alt, GT==1/1
+                            alt_allele1 = alt_allele2
+                else:
+                    # No valid alt, just reference
+                    alt_allele1 = ref_seq
+                    alt_allele2 = ref_seq
+            else:
+                if GT == '0/0':
+                    alt_allele1 = ref_seq
+                    alt_allele2 = ref_seq
+                
+            # Set output sequences for haplotypes if available
+            if alt_allele1 != ".":
+                seq_hap1 = alt_allele1
+            if alt_allele2 != ".":
+                seq_hap2 = alt_allele2
+
+
+            motif_ids_hap1_str = motif_indices_h1
+            motif_ids_hap2_str = motif_indices_h2
+            # # Split the overall spans for visualization (especially for stacked motif visualization)
+            # spans_h1_intervals = split_spans_by_occurrences(spans_string_h1, motif_ids_hap1, motifs)
+            # spans_h2_intervals = split_spans_by_occurrences(spans_string_h2, motif_ids_hap2, motifs)
+            # spans_list = [spans_h1_intervals, spans_h2_intervals]
+            spans_list = [spans_h1, spans_h2]
+        else:
+            motif_ids_hap1_str = []
+            motif_ids_hap2_str = []
+            spans_list = []
+
+        output_record = {
+            'chr': chrom,
+            'pos': start,
+            'stop': end,
+            'motifs': list(motifs),
+            'motif_ids_h1': motif_ids_hap1_str,
+            'motif_ids_h2': motif_ids_hap2_str,
+            'motif_ids_ref': [],
+            'ref_CN': CN_ref,
+            'CN_H1': CN_hap1,
+            'CN_H2': CN_hap2,
+            'spans': spans_list,
+            'ref_allele': ref_seq,
+            'alt_allele1': seq_hap1,
+            'alt_allele2': seq_hap2
+        }
+        return output_record
 
     def parse_record(self, vcf_file, region):
         """
@@ -291,12 +502,367 @@ class Visualization:
             'alt_allele1': alt_allele1,
             'alt_allele2': alt_allele2
         }
-
         # For debugging/inspection purposes
         return record
 
-    
+    def compare_different_technologies(self):
+        if 'regions_idx' not in st.session_state:
+            st.session_state.regions_idx = 0
+        st.sidebar.markdown("### Select Region to Visualize")
+        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
+        col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")  
+        REF, CN1_col, CN2_col = st.columns([1, 1, 1])
+        with col1:
+            if st.button("Previous region"):
+                region = None
+                st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
+        with col2:
+            if st.button("Next region"):
+                region = None
+                st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.assembly_vcf_records_map_h1) - 1)
+        if region and region != st.session_state.get('previous_region', None):
+            try:
+                chr_input, start_end_input = region.split(':')
+                start_input, end_input = map(int, start_end_input.split('-'))
+                input_region = f"{chr_input}:{start_input}-{end_input}"
+                if input_region not in st.session_state.assembly_vcf_records_h1:
+                    st.warning(f"No records found for the region: {input_region}")
+                record_key = st.session_state.assembly_vcf_records_h1[input_region]
+                st.session_state.regions_idx = list(st.session_state.assembly_vcf_records_map_h1.values()).index(input_region)
 
+            except:
+                try:
+                    chr_input, start_input, end_input = re.split(r'\s+', region)
+                    start_input, end_input = int(start_input), int(end_input)
+                    input_region = f"{chr_input}:{start_input}-{end_input}"
+                    record_key = st.session_state.assembly_vcf_records_h1[input_region]
+                    st.session_state.regions_idx = list(st.session_state.assembly_vcf_records_map_h1.values()).index(input_region)
+                except:
+                    st.warning(f"Invalid region format: {region}")
+                    st.stop()
+        else:
+            try:
+                record_key = st.session_state.assembly_vcf_records_h1[st.session_state.assembly_vcf_records_map_h1[st.session_state.regions_idx]]
+            except:
+                try:
+                    record_key = st.session_state.assembly_vcf_records_h1[st.session_state.assembly_vcf_records_map_h1[st.session_state.regions_idx]]   
+                except:
+                    st.warning(f"No records found for the region in the assembly vcfs")
+                    st.stop()
+                    
+        st.session_state.previous_region = region
+        tandemtwister_record = self.parse_record(st.session_state.vcf_file_tandemtwister, record_key)
+        assembly_record_h1 = self.parse_record_assembly(st.session_state.assembly_vcf_h1, record_key)
+        assembly_record_h2 = self.parse_record_assembly(st.session_state.assembly_vcf_h2, record_key)
+        trgt_record = self.parse_record_TRGT(st.session_state.vcf_file_trgt, record_key)
+
+
+
+        # /confidential/home01/Calraei/tandemrepeats/trgt/results/HG002_trgt.vcf.gz
+        # /confidential/home01/Calraei/tandemrepeats/tandemtwister/results/HG002_CCS.vcf.gz
+        # /confidential/home01/Calraei/tandemrepeats/tandemtwister/assembly_results/NA24385_h1.vcf.gz
+        if trgt_record is None or tandemtwister_record is None or assembly_record_h1 is None or assembly_record_h2 is None:
+            st.warning(f"No records found for the region: {record_key}")
+            st.stop()
+        region_display = st.empty()
+        self.render_region_display(region_display, record_key)
+        
+        st.markdown("""
+                <style>
+                :root {
+                    --region-color-light: black;
+                    --region-color-dark: white;
+                }
+                /* Default style for light mode */
+                .region-container {
+                    color: var(--region-color-light);
+                }
+                /* Apply different color for dark mode */
+                @media (prefers-color-scheme: dark) {
+                    .region-container {
+                        color: var(--region-color);
+                    }
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+        self.compare_TR_results(trgt_record, tandemtwister_record, assembly_record_h1, assembly_record_h2)
+    def merge_spans_based_on_motif_ids(self, spans, motif_ids):
+        """
+        Given a list of spans (as strings) and motif IDs, merges consecutive spans
+        with the same motif ID and returns a list of merged span strings and the corresponding merged ids.
+        
+        Args:
+            spans (list): List of strings like '(0-8)', '(8-12)', ...
+            motif_ids (list): List of motif IDs, e.g., [0,0,0,2,1]
+        Returns:
+            Tuple:
+              - List of merged spans as strings, e.g. ['(0-16)', '(16-19)', '(19-23)']
+              - List of the merged motif IDs, e.g. [0, 2, 1]
+        """
+        import re
+
+        def parse_span(span_str):
+            # Expect input like '(0-8)' or similar
+            s = str(span_str).strip()
+            if not (s.startswith('(') and s.endswith(')')):
+                return None, None
+            s = s[1:-1]  # Remove parentheses
+            parts = s.split('-')
+            if len(parts) != 2:
+                return None, None
+            try:
+                return int(parts[0]), int(parts[1])
+            except ValueError:
+                return None, None
+
+
+        # the span is a str  (1-3)(4-6)(7-9)(10-12)(13-15)(16-18)(19-21)(22-26)(27-31)(32-35)(36-39)(40-43)(44-47)(48-50)(51-54)
+        # split the spans into a list of spans
+        # add _ after each span
+        tmp_span_str = ""
+        for i in range(len(spans)):
+            if spans[i] == ")":
+                tmp_span_str += spans[i] + "_"
+            else:
+                tmp_span_str += spans[i]
+        spans = tmp_span_str.split("_")
+        spans = [s for s in spans if s != ""]
+
+        if not spans or not motif_ids or len(spans) != len(motif_ids):
+            return ".", ["."]
+        merged_spans = []
+        merged_ids = []
+        curr_start, curr_end = None, None
+        curr_id = None
+
+        prev_end = None
+        prev_seq_int = None
+
+        for idx, (span, mid) in enumerate(zip(spans, motif_ids)):
+            s, e = parse_span(span)
+            if s is None or e is None:
+                continue
+            # At first, or after a merge, set tracking variables
+            if curr_id is None:
+                curr_id = mid
+                curr_start = s
+                curr_end = e
+                prev_end = e
+                prev_seq_int = None if idx == 0 else None
+            else:
+                # Check if motifs match and intervals are contiguous (no interruption/gap)
+                # That is, if this span starts exactly after the last one ended
+                if mid == curr_id and s == prev_end + 1:
+                    # Extend current span
+                    curr_end = e
+                    prev_end = e
+                else:
+                    # End current, start new
+                    merged_spans.append(f"({curr_start}-{curr_end})")
+                    merged_ids.append(curr_id)
+                    curr_id = mid
+                    curr_start = s
+                    curr_end = e
+                    prev_end = e
+        # Don't forget the last run
+        if curr_start is not None and curr_end is not None:
+            merged_spans.append(f"({curr_start}-{curr_end})")
+            merged_ids.append(curr_id)
+        merged_spans = "".join(merged_spans)
+        return merged_spans, merged_ids
+    def visulize_assembly_h1_h2(self, assembly_record_h1, assembly_record_h2):
+     
+        # Visualize the dynamic motifs for assembly haplotype 1 and 2
+        assembly_h1_motifs_ids = assembly_record_h1['motif_ids_h'] if assembly_record_h1['motif_ids_h'] != ['.'] else []
+        assembly_h2_motifs_ids = assembly_record_h2['motif_ids_h'] if assembly_record_h2['motif_ids_h'] != ['.'] else []
+
+    
+        assembly_h1_spans = assembly_record_h1['spans'] if len(assembly_record_h1['spans']) > 0 else "."
+        assembly_h2_spans = assembly_record_h2['spans'] if len(assembly_record_h2['spans']) > 0 else "."
+ 
+        #  sequence_name, sequence, motif_ids, spans, motif_colors, motif_names):
+        assembly_h1_motifs_names = assembly_record_h1['motifs'] if len(assembly_record_h1['motifs']) > 0 else "."
+        assembly_h2_motifs_names = assembly_record_h2['motifs'] if len(assembly_record_h2['motifs']) > 0 else "."
+
+        assembly_h1_alt_allele = assembly_record_h1['alt_allele'] if len(assembly_record_h1['alt_allele']) > 0 else "."
+        assembly_h2_alt_allele = assembly_record_h2['alt_allele'] if len(assembly_record_h2['alt_allele']) > 0 else "."
+
+        assembly_h1_spans, assembly_h1_motifs_ids = self.merge_spans_based_on_motif_ids(assembly_h1_spans, assembly_h1_motifs_ids)
+        assembly_h2_spans, assembly_h2_motifs_ids = self.merge_spans_based_on_motif_ids(assembly_h2_spans, assembly_h2_motifs_ids)
+ 
+        assembly_h1_motifs_colors = self.get_color_palette(len(assembly_h1_motifs_names))
+        assembly_h1_motifs_colors = {idx: color for idx, color in enumerate(assembly_h1_motifs_colors)}
+        assembly_h2_motifs_colors = self.get_color_palette(len(assembly_h2_motifs_names))
+        assembly_h2_motifs_colors = {idx: color for idx, color in enumerate(assembly_h2_motifs_colors)}
+        if assembly_h1_motifs_names == ['.'] and assembly_h2_motifs_names == ['.']:
+            st.warning(f"No motifs found in the region: {assembly_record_h1['chr']}:{assembly_record_h1['pos']}-{assembly_record_h1['stop']}")
+            st.stop()
+        else:
+            if assembly_h1_motifs_names == ['.']:
+                assembly_h1_motifs_names = assembly_h2_motifs_names
+                assembly_h1_motifs_colors = assembly_h2_motifs_colors
+
+            else:
+                assembly_h2_motifs_names = assembly_h1_motifs_names
+                assembly_h2_motifs_colors = assembly_h1_motifs_colors
+
+        
+        display_dynamic_sequence_with_highlighted_motifs(
+            "Assembly H1",
+            assembly_h1_alt_allele,        
+            assembly_h1_motifs_ids,      
+            assembly_h1_spans,                        
+            assembly_h1_motifs_colors,   
+            assembly_h1_motifs_names    
+        )
+        display_dynamic_sequence_with_highlighted_motifs(
+            "Assembly H2",
+            assembly_h2_alt_allele,        
+            assembly_h2_motifs_ids,     
+            assembly_h2_spans,       
+            assembly_h2_motifs_colors,   
+            assembly_h2_motifs_names   
+        )
+
+
+        
+    def visulize_tandemtwister_h1_h2(self, tandemtwister_record, tandemtwister_motifs_colors):
+
+        tandemtwister_motifs_names = tandemtwister_record['motifs']
+        tandemtwister_motifs_ids_h1 = tandemtwister_record['motif_ids_h1'] if tandemtwister_record['motif_ids_h1'] != ['.'] else []
+        tandemtwister_motifs_ids_h2 = tandemtwister_record['motif_ids_h2'] if tandemtwister_record['motif_ids_h2'] != ['.'] else []
+        tandemtwister_spans_h1 = tandemtwister_record['spans'][1]  if len(tandemtwister_record['spans']) > 1 else "."
+        tandemtwister_spans_h2 = tandemtwister_record['spans'][2] if len(tandemtwister_record['spans']) > 2 else "."
+        tandemtwister_alt_allele_h1 = tandemtwister_record['alt_allele1']
+        tandemtwister_alt_allele_h2 = tandemtwister_record['alt_allele2']
+        
+        tandemtwister_spans_h1, tandemtwister_motifs_ids_h1 = self.merge_spans_based_on_motif_ids(tandemtwister_spans_h1, tandemtwister_motifs_ids_h1)
+        tandemtwister_spans_h2, tandemtwister_motifs_ids_h2 = self.merge_spans_based_on_motif_ids(tandemtwister_spans_h2, tandemtwister_motifs_ids_h2)
+
+        display_dynamic_sequence_with_highlighted_motifs(
+                "TandemTwister H1",
+                tandemtwister_alt_allele_h1,        
+                tandemtwister_motifs_ids_h1,     
+                tandemtwister_spans_h1,       
+                tandemtwister_motifs_colors,   
+                tandemtwister_motifs_names   
+            )
+        display_dynamic_sequence_with_highlighted_motifs(
+            "TandemTwister H2",
+            tandemtwister_alt_allele_h2,        
+            tandemtwister_motifs_ids_h2,     
+            tandemtwister_spans_h2,       
+            tandemtwister_motifs_colors,   
+            tandemtwister_motifs_names   
+        )
+    def visulize_trgt_results(self, trgt_record, trgt_motifs_colors):
+        trgt_motifs_names = trgt_record['motifs']
+        trgt_motifs_ids_h1 = trgt_record['motif_ids_h1'] 
+        trgt_motifs_ids_h2 = trgt_record['motif_ids_h2']
+        trgt_spans_h1 = trgt_record['spans'][0] if len(trgt_record['spans']) > 0 else "."
+        trgt_spans_h2 = trgt_record['spans'][1] if len(trgt_record['spans']) > 1 else "."
+        trgt_alt_allele_h1 = trgt_record['alt_allele1'] if len(trgt_record['alt_allele1']) > 0 else "."
+        trgt_alt_allele_h2 = trgt_record['alt_allele2'] if len(trgt_record['alt_allele2']) > 0 else "."
+  
+        display_dynamic_sequence_with_highlighted_motifs(
+            "TRGT H1",
+            trgt_alt_allele_h1,
+            trgt_motifs_ids_h1,
+            trgt_spans_h1,
+            trgt_motifs_colors,
+            trgt_motifs_names
+        )
+        display_dynamic_sequence_with_highlighted_motifs(
+            "TRGT H2",
+            trgt_alt_allele_h2,        
+            trgt_motifs_ids_h2,     
+            trgt_spans_h2,       
+            trgt_motifs_colors,   
+            trgt_motifs_names   
+        )
+    def compare_TR_results(self, trgt_record, tandemtwister_record, assembly_record_h1, assembly_record_h2):
+        # print the motif ids and the spans of the TRGT, TandemTwister, and Assembly records
+        assembly_motifs_names = assembly_record_h1['motifs']
+        trgt_motifs_names = trgt_record['motifs']
+        tandemtwister_motifs_names = tandemtwister_record['motifs']
+        # make a color map and assign it to the motifs but only for the assembly motifs
+        assembly_motifs_colors = self.get_color_palette(len(assembly_motifs_names))
+        assembly_motifs_colors = {assembly_motif: color for assembly_motif, color in zip(assembly_motifs_names, assembly_motifs_colors)}
+        # based on the assembly motifs colors, assign the colors to the trgt and tandemtwister motifs
+        trgt_motifs_colors = {idx: assembly_motifs_colors[trgt_motif] for idx, trgt_motif in enumerate(trgt_motifs_names)}
+        tandemtwister_motifs_colors = {idx: assembly_motifs_colors[tandemtwister_motif] for idx, tandemtwister_motif in enumerate(tandemtwister_motifs_names)}
+        assembly_motifs_colors = {idx: assembly_motifs_colors[assembly_motif] for idx, assembly_motif in enumerate(assembly_motifs_names)}
+  
+        assembly_motif_ids  = assembly_record_h1['motif_ids_h'] if assembly_record_h1['motif_ids_h'] != ['.'] else []
+        motif_legend_html(assembly_motif_ids, assembly_motifs_colors, assembly_motifs_names)
+ 
+        # visulize the assembly h1 and h2 with coloring the spans with the motif ids
+        # with col1:
+        self.visulize_assembly_h1_h2(assembly_record_h1, assembly_record_h2)
+        self.visulize_tandemtwister_h1_h2(tandemtwister_record, tandemtwister_motifs_colors)
+        self.visulize_trgt_results(trgt_record, trgt_motifs_colors)
+ 
+    def get_color_palette(self, num_colors):
+        """
+        Generate a color palette optimized for motif visualization with good distinctiveness
+        """
+        # Primary palette matching your app's gradient theme
+        primary_palette = [
+            '#667eea',  # Primary blue
+            '#764ba2',  # Primary purple
+            '#4fd1c7',  # Teal
+            '#68d391',  # Green
+            '#f6ad55',  # Orange
+            '#fc8181',  # Coral
+            '#f093fb',  # Pink
+            '#f6e05e',  # Yellow
+        ]
+        
+        # Secondary palette - darker shades
+        secondary_palette = [
+            '#5a67d8', '#6b46c1', '#38a169', '#dd6b20',
+            '#e53e3e', '#d53f8c', '#d69e2e', '#319795'
+        ]
+        
+        # Tertiary palette - lighter shades
+        tertiary_palette = [
+            '#a3bffa', '#b794f4', '#9ae6b4', '#fbd38d',
+            '#fed7d7', '#fbb6ce', '#faf089', '#81e6d9'
+        ]
+        
+        # Combine all palettes
+        combined_palette = primary_palette + secondary_palette + tertiary_palette
+        
+        # If we need more colors, generate them algorithmically
+        if num_colors > len(combined_palette):
+            import colorsys
+            import math
+            
+            generated_colors = []
+            # Use golden ratio for optimal color distribution
+            golden_ratio_conjugate = (math.sqrt(5) - 1) / 2
+            
+            for i in range(num_colors - len(combined_palette)):
+                # Generate colors with good separation in HSV space
+                hue = (i * golden_ratio_conjugate) % 1.0
+                # Vary saturation and value for better distinction
+                saturation = 0.6 + 0.2 * (i % 3) / 3
+                value = 0.7 + 0.2 * ((i + 1) % 2)
+                
+                rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+                hex_color = '#{:02x}{:02x}{:02x}'.format(
+                    int(rgb[0] * 255), 
+                    int(rgb[1] * 255), 
+                    int(rgb[2] * 255)
+                )
+                generated_colors.append(hex_color)
+            
+            return combined_palette + generated_colors[:num_colors]
+        
+        return combined_palette[:num_colors]
+        
+      
     def visulize_region(self):
         if 'regions_idx' not in st.session_state:
             st.session_state.regions_idx = 0
@@ -306,7 +872,7 @@ class Visualization:
         display_option = st.sidebar.radio("Select Display Type", 
                                             ("Sequence with Highlighted Motifs", "Bars"))
 
-        col1, middel, col2 = st.columns([1.5,3, 1])  
+        col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")  
         REF, CN1_col, CN2_col = st.columns([1, 1, 1])
         with col1:
             if st.button("Previous region"):
@@ -349,12 +915,9 @@ class Visualization:
         if len(record["motif_ids_h1"]) == 0 and len(record["motif_ids_h2"]) == 0:
             st.warning(f"No motifs found in the region: {st.session_state.records_map[st.session_state.regions_idx]}")
             st.stop()
-                    
-        middel.markdown(f"""
-                        <div id="tandem-repeat-region" class="region-container" style="font-size: 25px; margin-bottom: 10px;">
-                            <strong>Tandem Repeat Region: {st.session_state.records_map[st.session_state.regions_idx]}</strong>
-                        </div>
-                    """, unsafe_allow_html=True)
+
+        self.render_region_display(middel, st.session_state.records_map[st.session_state.regions_idx])
+
 
         st.markdown("""
                         <style>
@@ -374,13 +937,13 @@ class Visualization:
                         }
                         </style>
                     """, unsafe_allow_html=True)
-        REF.markdown(f"""
-                    <div style="font-size: 20px; color: #4CAF50; margin-bottom: 10px;">
-                        <strong>Reference Copy Number:</strong> {record['ref_CN']}
-                    </div>
-                """, unsafe_allow_html=True)
+        # REF.markdown(f"""
+        #             <div style="font-size: 20px; color: #4CAF50; margin-bottom: 10px;">
+        #                 <strong>Reference Copy Number:</strong> {record['ref_CN']}
+        #             </div>
+        #         """, unsafe_allow_html=True)
 
-        left_column, right_column = st.columns([4, 1])
+        container = st.container()
         motif_colors = self.get_color_palette(len(record['motifs']))
         motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
             
@@ -389,19 +952,64 @@ class Visualization:
 
 
         if display_option == "Sequence with Highlighted Motifs":
-            self.visulize_TR_with_dynamic_sequence(record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
+            self.visulize_TR_with_dynamic_sequence(record,hgsvc_records, container,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False))
 
         elif display_option == "Bars":
-            self.display_motifs_with_bars(record, left_column, right_column,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False),hgsvc_records)
+            self.display_motifs_with_bars(record, container ,motif_colors,CN1_col,CN2_col, st.session_state.get('show_comparison', False),hgsvc_records)
 
 
     def parse_motif_range(self,motif_range):
         pattern = re.compile(r'\((\d+)-(\d+)\)')
         matches = pattern.findall(motif_range)
         ranges = [(int(start)-1, int(end)-1) for start, end in matches]
-        return ranges   
+        return ranges
+    
+    def convert_trgt_spans_to_occurrences(self, spans_string, motifs):
+        """
+        Convert TRGT spans string to motif occurrences based on motif sizes and spans.
+        
+        Args:
+            spans_string (str): TRGT spans format like '0(3-9)_2(15-21)_3(22-29)_4(29-35)'
+            motifs (tuple/list): List of motif sequences to determine motif lengths
+            
+        Returns:
+            str: Motif occurrences like '0_2_3_4' or '0_0_2_3_4' if first motif spans longer
+        """
+        if not spans_string or spans_string == "":
+            return ""
+            
+        # Parse the spans string to extract motif index and position ranges
+        # Format: '0(3-9)_2(15-21)_3(22-29)_4(29-35)'
+        pattern = re.compile(r'(\d+)\((\d+)-(\d+)\)')
+        matches = pattern.findall(spans_string)
+        
+        occurrences = []
+        for motif_idx_str, start_str, end_str in matches:
+            motif_idx = int(motif_idx_str)
+            start_pos = int(start_str)
+            end_pos = int(end_str)
+           
+            # Get motif length from the motifs tuple/list
+            if motif_idx < len(motifs):
+                motif_length = len(motifs[motif_idx])
+            else:
+                # Fallback if motif index is out of range
+                motif_length = end_pos - start_pos + 1
+        
+            # Calculate how many motif occurrences fit in this span
+            span_length = end_pos - start_pos + 1
+            num_occurrences = span_length // motif_length
+            # Add the motif index the appropriate number of times
+            for _ in range(num_occurrences):
+                occurrences.append(str(motif_idx))
+        
+        return '_'.join(occurrences)   
     
     def parse_motif_in_region(self,record):
+
+        if record['motif_ids_h1'] == ['.'] and record['motif_ids_h2'] == ['.']:
+            return None, None, None
+
         motif_names = record['motifs']
         motif_count_ref = self.count_motifs(record['motif_ids_ref'])
         found_motifs_ref = list(motif_count_ref.keys())
@@ -417,161 +1025,92 @@ class Visualization:
         return motif_names,motif_count_h1,motif_count_h2
 
 
-    def display_dynamic_sequence_with_highlighted_motifs(self, sequence_name, sequence, motif_ids, spans, motif_colors, motif_names):
-        ranges = self.parse_motif_range(spans)
-        highlighted_sequence = ""
-        previous_end = 0
-    
-        for idx, (start, end) in enumerate(ranges):
-            motif = motif_ids[idx]
-            color = motif_colors[int(motif)]
-            motif_name = motif_names[int(motif)]
-            if start > previous_end:
-                interruption_sequence = sequence[previous_end:start]
-                highlighted_sequence += (
-                    f"<span style='background-color:#FF0000; padding:2px; border-radius:4px;' title='Interruption'>"
-                    f"{interruption_sequence}</span>"
-                )
-            
-            motif_sequence = sequence[start:end+1]
-            highlighted_sequence += (
-                f"<span style='background-color:{color}; padding:2px; border-radius:4px;' title='Motif: {motif_name}'>"
-                f"{motif_sequence}</span>"
-            )
 
-            previous_end = end + 1
 
-        if previous_end < len(sequence):
-            interruption_sequence = sequence[previous_end:]
-            highlighted_sequence += (
-                f"<span style='background-color:#FF0000; padding:2px; border-radius:4px;'title='Interruption'>"
-                f"{interruption_sequence}</span>"
-            )
-        if sequence_name == "Ref":
-            sequence_name += "seq"
-        st.markdown(f"""
-            <div style="display: flex; align-items: right;">
-                <div style="font-family:monospace; font-size:16px; padding:10px; border:1px solid black; border-radius:8px; margin-right: 10px; text-align: right;">
-                    <strong>{sequence_name}</strong>
-                </div>
-                <div style="font-family:monospace; font-size:16px; width:100%; max-height:120px; overflow-x:auto; white-space:nowrap; padding:10px; border:1px solid black; border-radius:8px;">
-                    {highlighted_sequence}
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    def display_motifs_as_bars(self,sequence_name, motif_colors, motif_ids, spans, sequence, motif_names):
-        sequence_length = len(sequence)
-        ranges = self.parse_motif_range(spans)
         
-        if not isinstance(motif_names, list):
-            motif_names = [motif_names]
-        
-        bar_container = "<div style='width:100%; position: relative; height: 30px; border:2px solid black; border-radius: 8px;'>"
-        previous_end = 0
-        gap = 0.05  # Small gap between motifs for better visibility
-
-        for idx, (start, end) in enumerate(ranges):
-            motif = motif_ids[idx]
-            color = motif_colors[int(motif)]
-            span_length = end - start + 1  
-
-            if start >= 0 and end <= sequence_length:
-                if start > previous_end:
-                    interruption_width = (start - previous_end) / sequence_length * 100
-                    interruption_start = previous_end / sequence_length * 100
-                    bar_container += (
-                        f"<div style='position:absolute; background-color:#FF0000; left:{interruption_start}%; "
-                        f"width:{interruption_width}%; height:28px; top:-1px; border-radius:6px; border:1px solid black; "
-                        f"transition: all 0.3s ease; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); cursor: pointer;' "
-                        f"title='Interruption: {sequence[previous_end:start]}'>"
-                        f"</div>"
-                    )
-
-                relative_width = (span_length / sequence_length) * 100 - gap
-                relative_start = (start / sequence_length) * 100
-
-                bar_container += (
-                    f"<div class='hoverable-div' style='position:absolute; background-color:{color}; left:{relative_start}%; "
-                    f"width:{relative_width}%; height:28px; top:-1px; border-radius:6px; border:1px solid black; "
-                    f"transition: all 0.3s ease; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); cursor: pointer;' "
-                    f"title='Motif: {motif_names[int(motif)]}'>"
-                    f"</div>"
-                )
-
-                previous_end = end + 1
-
-        # Add interruption bar after the last motif
-        if previous_end < sequence_length:
-            interruption_width = (sequence_length - previous_end) / sequence_length * 100
-            interruption_start = previous_end / sequence_length * 100
-            bar_container += (
-                f"<div style='position:absolute; background-color:#FF0000; left:{interruption_start}%; "
-                f"width:{interruption_width}%; height:28px; top:-1px; border-radius:6px; border:1px solid black; "
-                f"transition: all 0.3s ease; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); cursor: pointer;' "
-                f"title='Interruption: {sequence[previous_end:]}'>"
-                f"</div>"
-            )
-
-        bar_container += "</div>"
-        if sequence_name == "Ref":
-            sequence_name += "seq"
-
-        st.markdown(f"""
-            <div style="display: flex; align-items: center;">
-                <div style="font-family:monospace; font-size:16px; padding:10px; border:1px solid black; border-radius:8px; margin-right: 10px;">
-                    <strong>{sequence_name}</strong>
-                </div>
-                {bar_container}
-            </div>
-        """, unsafe_allow_html=True)
-
-
-    def display_motifs_with_bars(self, record, left_column, right_column, motif_colors, CN1_col, CN2_col, show_comparison, hgsvc_records):
+    def display_motifs_with_bars(self, record, containter, motif_colors, CN1_col, CN2_col, show_comparison, hgsvc_records):
         motif_names, motif_count_h1, motif_count_h2 = self.parse_motif_in_region(record)
-        CN1_col.markdown(f""" 
-            <div style="font-size: 20px; color: #FF5733;">
-                <strong>Allele 1 Total copy number:</strong> {str(record['spans'][1]).count('-')}
-            </div>
+        if motif_count_h1 == None and motif_count_h2 == None:
+            st.info("No motifs found in the region")
+            return
+        st.markdown("""
+            <style>
+                .stTabs [data-baseweb="tab-list"] {
+                    gap: 4px;
+                    background: #f8fafc;
+                    padding: 2px 2px;
+                    border-radius: 12px;
+                    margin-bottom: 12px;
+                    min-height: 15px;
+                }
+                .stTabs [data-baseweb="tab"] {
+                    height: 18px;
+                    min-height: 18px;
+                    min-width: 28px;
+                    white-space: pre-wrap;
+                    background: white;
+                    border-radius: 8px;
+                    border: 1px solid #e2e8f0;
+                    color: #64748b;
+                    font-weight: 600;
+                    font-size: 10px;
+                    padding: 0 7px;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    line-height: 1.1;
+                }
+                .stTabs [data-baseweb="tab"]:hover {
+                    background: #f1f5f9;
+                    border-color: #cbd5e1;
+                    color: #475569;
+                    transform: translateY(-1.6px);
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+                }
+                .stTabs [aria-selected="true"] {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                    color: white !important;
+                    border-color: #667eea !important;
+                    box-shadow: 0 4px 14px rgba(102, 126, 234, 0.2) !important;
+                    transform: translateY(-1.6px);
+                }
+                .stTabs [data-baseweb="tab-highlight"] {
+                    background-color: transparent !important;
+                }
+            </style>
         """, unsafe_allow_html=True)
 
-        with right_column:
-            
-            self.display_motif_legend(motif_names, motif_colors, right_column)
+        
 
-        if record['alt_allele2'] != '':
-            CN2_col.markdown(f"""
-                <div style="font-size: 20px; color: #FF5733;">
-                    <strong>Allele 2 Total copy number:</strong> {str(record['spans'][2]).count('-')}
-                </div>
-            """, unsafe_allow_html=True)
-
-
-        with left_column:
-            tab1, tab2 , tab3 = st.tabs(["Alleles", "Alleles vs Ref", "Alleles vs Pop"])
+        with containter:
+            tab1, tab2, tab3 = st.tabs([
+                "🧬 **Alleles**", 
+                "🔄 **Alleles vs Ref**", 
+                "🌍 **Alleles vs Pop**"
+            ])
             st.markdown(
                 "<style>.tab-content {font-size: 20px;}</style>",
                 unsafe_allow_html=True,
             )
             with tab2:
-                self.display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
-                self.display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+                motif_legend_html(record['motif_ids_ref'], motif_colors, motif_names)
+                display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
+                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
                 if record['alt_allele2'] != '':
-                    self.display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
+                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
             with tab1:
-                self.display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+                motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
+                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
                     if show_comparison == False:
-                        self.plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+                        plot_motif_bar(motif_count_h1, motif_names, motif_colors)
                 
                 if record['alt_allele2'] != '':
-                    self.display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names,)
+                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names,)
                     plot_container_h2 = st.empty()
 
                     with plot_container_h2:
                         if show_comparison == False:
-                            self.plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                            plot_motif_bar(motif_count_h2, motif_names, motif_colors)
 
             with tab3:
                 if hgsvc_records:
@@ -581,35 +1120,85 @@ class Visualization:
 
             
 
-    def plot_motif_bar(self, motif_count, motif_names, motif_colors=None):
-        motif_labels = []
-        motif_counts = []
-        for label, value in sorted(motif_count.items()):
-            motif_name = motif_names[int(label)]
-            if motif_name:
-                motif_labels.append(motif_name)
-                motif_counts.append(value)
-            
-        data = {
-            'Motif': motif_labels,
-            'Count': motif_counts
-        }
-        df = pd.DataFrame(data)
+    # def plot_motif_bar(self, motif_count, motif_names, motif_colors=None, sequence_name=""):
+    #     motif_labels = []
+    #     motif_counts = []
+    #     motif_ids = []
         
-        color_list = [motif_colors[int(label)] for label in sorted(motif_count.keys()) if motif_colors is not None and int(label) < len(motif_colors)]    
-        bar_chart = alt.Chart(df).mark_bar().encode(
-            x=alt.X('Motif', sort=None),
-            y='Count',
-            tooltip=['Motif', 'Count'],
-            color=alt.Color('Motif', scale=alt.Scale(domain=motif_labels, range=color_list))  # Ensure the scale matches correctly
-        ).properties(
-            width=200,
-            height=200,
-            title="Motif Occurrences"
-        )
+    #     for label, value in sorted(motif_count.items()):
+    #         motif_name = motif_names[int(label)]
+    #         if motif_name:
+    #             motif_labels.append(motif_name)
+    #             motif_counts.append(value)
+    #             motif_ids.append(int(label))
+        
+    #     data = {
+    #         'Motif': motif_labels,
+    #         'Count': motif_counts,
+    #         'Motif_ID': motif_ids
+    #     }
+    #     df = pd.DataFrame(data)
+        
+    #     color_list = [motif_colors[motif_id] for motif_id in motif_ids] if motif_colors else None
+        
+    #     # Create interactive bar chart with selection
+    #     selection = alt.selection_point(
+    #         name='select',
+    #         fields=['Motif'],
+    #         bind='legend'
+    #     )
+        
+    #     bar_chart = alt.Chart(df).mark_bar(
+    #         cornerRadius=8,
+    #         stroke='white',
+    #         strokeWidth=2
+    #     ).encode(
+    #         x=alt.X('Count:Q', 
+    #             title='Occurrences',
+    #             axis=alt.Axis(
+    #                 labelColor='#4B5563',
+    #                 titleColor='#374151',
+    #                 labelFontWeight='bold',
+    #                 titleFontWeight='bold'
+    #             )),
+    #         y=alt.Y('Motif:N', 
+    #             sort='-x',
+    #             title='',
+    #             axis=alt.Axis(
+    #                 labelColor='#4B5563',
+    #                 labelFontWeight='bold'
+    #             )),
+    #         color=alt.Color('Motif:N',
+    #                     scale=alt.Scale(domain=motif_labels, range=color_list),
+    #                     legend=alt.Legend(
+    #                         title='Motifs',
+    #                         orient='top',
+    #                         titleFontWeight='bold',
+    #                         labelFontWeight='bold'
+    #                     )),
+    #         tooltip=['Motif', 'Count'],
+    #         opacity=alt.condition(selection, alt.value(1), alt.value(0.3))
+    #     ).properties(
+    #         width=400,
+    #         height=300,
+    #         title=alt.TitleParams(
+    #             text=f'🧬 Motif Occurrences - {sequence_name}',^
+    #             fontSize=16,
+    #             fontWeight='bold',
+    #             color='#1F2937'
+    #         )
+    #     ).add_params(
+    #         selection
+    #     ).configure_view(
+    #         strokeWidth=0,
+    #         fill='rgba(255,255,255,0.9)'
+    #     )
+        
+    #     # plot 
+    #     # bar_chart = bar_chart.configure_axisX(labelAngle=0)
+    #     # st.altair_chart(bar_chart, use_container_width=True)
+    #     return bar_chart, df
 
-        bar_chart = bar_chart.configure_axisX(labelAngle=0)
-        st.altair_chart(bar_chart, use_container_width=True)
 
     def plot_Cohort_results(self,cohort_records):
         sequences = []
@@ -632,19 +1221,14 @@ class Visualization:
 
         motif_names = cohort_records[list(cohort_records.keys())[0]]['motifs']
         record = cohort_records[list(cohort_records.keys())[0]]
+
         motif_colors, df = self.stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by)
 
-        
         region = f"{record['chr']}:{record['pos']-1}-{record['stop']-1}"
         self.bar_plot_motif_count(df, region, sort_by=sort_by)
 
-        motif_counts = df[df['Motif'] != 'Interruption'].groupby(['Sample', 'Motif']).size().reset_index(name='Count')
 
-        heatmap_data = motif_counts.pivot(index='Sample', columns='Motif', values='Count').fillna(0)
 
-        heatmap_data_long = heatmap_data.reset_index().melt(id_vars='Sample', var_name='Motif', value_name='Count')
-
-        self.plot_heatmap(heatmap_data_long, sort_by)
 
         figure = go.Figure()
 
@@ -713,11 +1297,159 @@ class Visualization:
         figure.update_yaxes(range=[0, df['Sample'].value_counts().max()])
 
         st.plotly_chart(figure, use_container_width=True)
+
+
     def plot_HGSVC_VS_allele(self, record, hgsvc_records, motif_names):
         sequences = []
         span_list = []
         motif_ids_list = []
-        sort_by = st.radio("Sort by:", ("Value", "Sample Name"), horizontal=True, key="sort_by_HGSVC")
+        
+        # Enhanced radio button styling
+        # st.markdown("""
+        #     <style>
+        #         .stRadio > div {
+        #             background: rgba(255, 255, 255, 0.9);
+        #             padding: 15px;
+        #             border-radius: 16px;
+        #             border: 1px solid rgba(102, 126, 234, 0.2);
+        #             margin-bottom: 20px;
+        #         }
+        #         .stRadio label {
+        #             font-weight: 600 !important;
+        #             color: #4a5568 !important;
+        #         }
+        #     </style>
+        # """, unsafe_allow_html=True)
+        
+        # Enhanced radio group display using Streamlit columns for a visually appealing "Sort by"
+        st.html("""
+            <style>
+                /* Outer radio styling */
+                .custom-radio-group {
+                    display: flex;
+                    gap: 22px;
+                    align-items: center;
+                    background: rgba(255, 255, 255, 0.97);
+                    border-radius: 16px;
+                    padding: 18px 32px 18px 20px;
+                    border: 1.5px solid #c7d2fe;
+                    box-shadow: 0 2px 16px rgba(102, 126, 234, 0.07);
+                    margin: 22px 0 18px 0;
+                    backdrop-filter: blur(14px);
+                }
+                .custom-radio-label {
+                    display: flex !important;
+                    align-items: center;
+                    gap: 7px;
+                    margin-right: 0 !important;
+                }
+                .custom-radio-btn {
+                    appearance: none;
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 50%;
+                    border: 2.4px solid #bfc8fa;
+                    transition: border .2s, box-shadow .2s;
+                    outline: none;
+                    margin-right: 12px;
+                    box-sizing: border-box;
+                    background: white;
+                    box-shadow: 0 0 0px 4px #e1eaff00;
+                    position: relative;
+                }
+                .custom-radio-btn:checked {
+                    border-color: #667eea;
+                    background: linear-gradient(135deg, #667eea 60%, #764ba2 100%);
+                    box-shadow: 0 0 0px 4px #bfc8fa44;
+                }
+                .custom-radio-btn:checked::before {
+                    content: '';
+                    position: absolute;
+                    left: 6.5px; top: 6.5px;
+                    width: 7px; height: 7px;
+                    border-radius: 50%;
+                    background: #fff;
+                }
+                .custom-radio-label.active,
+                .custom-radio-label:hover {
+                    background: linear-gradient(135deg, #f3f5fa 90%, #eef0fe 100%);
+                    border-radius: 9px;
+                    box-shadow: 0 2px 12px #e1eaff33;
+                    cursor: pointer;
+                }
+                .custom-radio-label .radio-emoji {
+                    font-size: 1.16em;
+                }
+                .sortby-title {
+                    font-size: 19px;
+                    font-weight: 700;
+                    color: #43486b;
+                    margin-right: 9px;
+                }
+            </style>
+        """)
+
+        sortby_options = [
+            {"label": '<span class="radio-emoji">📊</span> Value', "value": "📊 Value"},
+            {"label": '<span class="radio-emoji">👥</span> Sample Name', "value": "👥 Sample Name"}
+        ]
+
+        # Maintain radio state with Streamlit session_state
+        if "sort_by_cohort" not in st.session_state:
+            st.session_state["sort_by_cohort"] = sortby_options[0]["value"]
+
+        st.html(
+            '<div class="custom-radio-group">' +
+            '<span class="sortby-title">Sort by:</span>' +
+            ''.join(
+                f'''<label class="custom-radio-label{' active' if st.session_state["sort_by_cohort"] == option['value'] else ''}">
+                    <input type="radio" class="custom-radio-btn" name="sort_by_cohort" value="{option['value']}" 
+                        {'checked' if st.session_state["sort_by_cohort"] == option['value'] else ''} 
+                        onclick="window.dispatchEvent(new CustomEvent('sortbyChange', {{detail: '{option['value']}'}}))">
+                    {option['label']}
+                </label>''' 
+                for option in sortby_options
+            ) +
+            '</div>',
+            
+        )
+
+        # Streamlit custom events solution to handle client-side radio change
+        st.components.v1.html(f"""
+        <script>
+            window.addEventListener('sortbyChange', function(e) {{
+                // Use a cookie to communicate - Streamlit will reload when widget is redrawn
+                document.cookie = "sortby_cohort_choice=" + encodeURIComponent(e.detail) + "; path=/";
+                window.location.reload();
+            }});
+        </script>
+        """, height=0)
+
+        motif_colors = self.get_color_palette(len(motif_names))
+
+        # Server-side get cookie function
+        def get_cookie_value(key):
+            try:
+                cookies_param = st.query_params().get('__streamlit_cookies__')
+                if cookies_param:
+                    # Handle both string and list cases
+                    if isinstance(cookies_param, list):
+                        cookies = cookies_param[0] if cookies_param else ''
+                    else:
+                        cookies = str(cookies_param)
+                else:
+                    cookies = ''
+                m = _re.search(rf'{_re.escape(key)}=(.*?)(?:;|$)', cookies)
+                return m.group(1) if m else None
+            except Exception:
+                return None
+
+        # Streamlit doesn't provide cookie parsing directly, so we try with components
+        sortby_cookie = get_cookie_value('sortby_HGSVC_choice')
+        if sortby_cookie in [o["value"] for o in sortby_options]:
+            st.session_state["sort_by_HGSVC"] = sortby_cookie
+
+        sort_by = st.session_state.get("sort_by_HGSVC", sortby_options[0]["value"])
         sequences.append({'name': "Ref", 'sequence': record['ref_allele']})
         span_list.append(record['spans'][0])
         motif_ids_list.append(record['motif_ids_ref'])
@@ -738,21 +1470,29 @@ class Visualization:
 
         motif_colors, df = self.stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by)
         region = f"{record['chr']}:{record['pos']-1}-{record['stop']-1}"
-        self.bar_plot_motif_count(df, region, sort_by)
-
-
-
-
-        pivot_hgsvc = pd.pivot_table(df[df['Sample'] == 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
-        pivot_sample = pd.pivot_table(df[df['Sample'] != 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
-
-        pivot_hgsvc_long = pivot_hgsvc.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
-        pivot_sample_long = pivot_sample.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
-
-        combined_data = pd.concat([pivot_hgsvc_long, pivot_sample_long])
-
-        self.plot_heatmap(combined_data, sort_by=sort_by)
         
+        # Create two columns for side-by-side plots
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown('<div class="plot-card">', unsafe_allow_html=True)
+            self.bar_plot_motif_count(df, region, sort_by)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        #     st.markdown('<div class="plot-card">', unsafe_allow_html=True)
+        #     pivot_hgsvc = pd.pivot_table(df[df['Sample'] == 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
+        #     pivot_sample = pd.pivot_table(df[df['Sample'] != 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
+
+        #     pivot_hgsvc_long = pivot_hgsvc.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
+        #     pivot_sample_long = pivot_sample.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
+
+        #     combined_data = pd.concat([pivot_hgsvc_long, pivot_sample_long])
+        #     self.plot_heatmap(combined_data, sort_by=sort_by)
+        #     st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Scatter plot in full width below
+        st.markdown('<div class="plot-card-full">', unsafe_allow_html=True)
         figure = go.Figure()
 
         unique_samples = df['Sample'].unique()
@@ -772,15 +1512,18 @@ class Visualization:
                     y=[len(motif_df)],
                     mode='markers',
                     name=sample,
-                    marker=dict(size=20)
+                    marker=dict(
+                        size=20,
+                        line=dict(width=2, color='white')
+                    ),
+                    hovertemplate=f"<b>{sample}</b><br>Motif: %{{x}}<br>Count: %{{y}}<extra></extra>"
                 )
                 if sample in ["Ref", "Allel1", "Allel2"]:
                     if sample == "Ref":
-                        trace['marker']['symbol'] = "x"
+                        trace['marker']['symbol'] = "diamond"
                         ref_data.append(trace)
                     else:
                         trace['marker']['symbol'] = "triangle-down"
-                        
                         allele_data.append(trace)
                 else:
                     figure.add_trace(trace)
@@ -789,13 +1532,18 @@ class Visualization:
             figure.add_trace(trace)
 
         color_mapping = {
-            "Ref": "green",
-            "Allel1": "red",
-            "Allel2": "orange",
-            "HGSVC": "blue"
+            "Ref": "#10B981",
+            "Allel1": "#EF4444", 
+            "Allel2": "#F59E0B",
+            "HGSVC": "#3B82F6"
         }
 
-        figure.for_each_trace(lambda trace: trace.update(marker=dict(color=color_mapping.get(trace.name, 'gray'))))
+        figure.for_each_trace(lambda trace: trace.update(
+            marker=dict(
+                color=color_mapping.get(trace.name, '#6B7280'),
+                line=dict(width=2, color='white')
+            )
+        ))
 
         unique_legend_names = set()
         for trace in figure.data:
@@ -808,125 +1556,176 @@ class Visualization:
                 trace.showlegend = False
 
         name = "HGSVC" if st.session_state.analysis_mode == "indivisual sample" else st.session_state.analysis_mode 
-        figure.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(color='gray', size=20), name=name))
+        with col2:
+            figure.add_trace(go.Scatter(
+                x=[None], y=[None], 
+                mode='markers', 
+                marker=dict(color='#6B7280', size=20, line=dict(width=2, color='white')), 
+                name=name
+            ))
 
-        figure.update_layout(
-            title="Motif Occurrences",
-            xaxis_title="Motif",
-            yaxis_title="HGSVC vs Alleles",
-        )
+            figure.update_layout(
+                title=dict(
+                    text="Motif Occurrences Across Samples",
+                    x=0.2,
+                    font=dict(size=20, color='#1F2937')
+                ),
+                xaxis_title=dict(text="Motif", font=dict(size=14, color='#4B5563')),
+                yaxis_title=dict(text="Occurrence Count", font=dict(size=14, color='#4B5563')),
+                plot_bgcolor='rgba(255,255,255,0.9)',
+                paper_bgcolor='rgba(255,255,255,0.9)',
+                hoverlabel=dict(
+                    bgcolor="white",
+                    font_size=12,
+                    font_family="Inter"
+                ),
+                legend=dict(
+                    bgcolor='rgba(255,255,255,0.8)',
+                    bordercolor='rgba(0,0,0,0.1)',
+                    borderwidth=1
+                )
+            )
 
-        xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
-        figure.update_xaxes(tickmode='array', tickvals=list(xaxis_colors.keys()), ticktext=[
-            f'<span style="color:{xaxis_colors[motif]}">{motif}</span>' for motif in xaxis_colors.keys()
-        ], tickangle=45)
+            xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
+            figure.update_xaxes(
+                tickmode='array', 
+                tickvals=list(xaxis_colors.keys()), 
+                ticktext=[
+                    f'<span style="color:{xaxis_colors[motif]}; font-weight:600">{motif}</span>' for motif in xaxis_colors.keys()
+                ], 
+                tickangle=45,
+                gridcolor='rgba(0,0,0,0.1)'
+            )
 
-        figure.update_yaxes(range=[0, df['Sample'].value_counts().max()])
-        
-        st.plotly_chart(figure, use_container_width=True)
-    def plot_heatmap(self, combined_data, sort_by="Value"):
-        
+            figure.update_yaxes(
+                range=[0, df['Sample'].value_counts().max()],
+                gridcolor='rgba(0,0,0,0.1)'
+            )
+            
+            st.plotly_chart(figure, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        if sort_by == "Value":
-            x_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
-            y_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
-        else:
-            x_sort = alt.SortField(field='Sample', order='ascending')
-            y_sort = alt.SortField(field='Motif', order='ascending')
-        combined_data = combined_data[combined_data['Motif'] != 'Interruption']
-        heatmap = alt.Chart(combined_data).mark_rect().encode(
-            x=alt.X('Sample:N', title='Sample', sort=x_sort, axis=alt.Axis(labelFontWeight='bold', labelColor='black', titleFontWeight='bold', titleColor='black')),
-            y=alt.Y('Motif:N', title='Motif', sort=y_sort, axis=alt.Axis(labelFontWeight='bold', labelColor='black', titleFontWeight='bold', titleColor='black')),
-            color=alt.Color('Count:Q', scale=alt.Scale(scheme='reds'), title='Count'),
-            tooltip=['Sample', 'Motif', 'Count']
-        ).configure_axis(
-            labelFontWeight='bold',
-            labelColor='black',
-            titleFontWeight='bold',
-            titleColor='black'
-        ).configure_legend(
-            labelFontWeight='bold',
-            labelColor='black',
-            titleFontWeight='bold',
-            titleColor='black'
-        )
-        # Make the legend bold and black
-        heatmap = heatmap.configure_legend(
-            labelFontWeight='bold',
-            labelColor='black',
-            titleFontWeight='bold',
-            titleColor='black'
-        )
-
-        # Remove interruptions from the heatmap data
-        heatmap = heatmap.configure_legend(orient='top')
-        st.altair_chart(heatmap, use_container_width=True)
 
     def bar_plot_motif_count(self, df, region, sort_by="Value"):
         df = df[df['Motif'] != "interruption"]
         
         total_copy_number = df.groupby('Sample').size().reset_index(name='Total Copy Number')
         total_copy_number = total_copy_number.sort_values(by='Total Copy Number', ascending=False)
-
         if sort_by == "Value":
             x_sort = alt.EncodingSortField(field='Total Copy Number', op='sum', order='descending')
         else:
             x_sort = alt.SortField(field='Sample', order='ascending')
 
         unique_samples = list(total_copy_number['Sample'].apply(lambda x: x.rsplit('_', 1)[0]).unique())
-        color_palette = px.colors.qualitative.Vivid + px.colors.qualitative.Safe + px.colors.qualitative.Dark24 + px.colors.qualitative.Prism 
-
-        color_mapping = {sample: color_palette[i] for i, sample in enumerate(unique_samples)}
+        
+        # Updated color palette to match the theme
+        color_palette = [
+            '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4fd1c7', '#68d391',
+            '#f6e05e', '#f6ad55', '#fc8181', '#7e9af9', '#c084fc', '#f472b6'
+        ]
+        color_mapping = {sample: color_palette[i % len(color_palette)] for i, sample in enumerate(unique_samples)}
         color_mapping = {sample: color_mapping[sample.rsplit('_', 1)[0]] for sample in total_copy_number['Sample']}
 
-        bar_chart = alt.Chart(total_copy_number).mark_bar().encode(
-            x=alt.X('Sample', sort=x_sort),
-            y='Total Copy Number',
+        bar_chart = alt.Chart(total_copy_number).mark_bar(
+            cornerRadius=8
+        ).encode(
+            x=alt.X('Sample', sort=x_sort, axis=alt.Axis(
+                labelFontWeight='bold', 
+                labelColor='#4B5563',
+                titleFontWeight='bold', 
+                titleColor='#374151',
+                labelAngle=45
+            )),
+            y=alt.Y('Total Copy Number', axis=alt.Axis(
+                labelFontWeight='bold',
+                labelColor='#4B5563', 
+                titleFontWeight='bold',
+                titleColor='#374151'
+            )),
             tooltip=['Sample', 'Total Copy Number'],
-            color=alt.Color('Sample', scale=alt.Scale(domain=list(color_mapping.keys()), range=list(color_mapping.values())))
+            color=alt.Color('Sample', scale=alt.Scale(
+                domain=list(color_mapping.keys()), 
+                range=list(color_mapping.values())
+            ), legend=None)
         ).properties(
-            width=600,
+            width=400,
             height=400,
-            title="Total Copy Number per Sample"
-        ).configure_axis(
-            labelFontWeight='bold',
-            labelColor='black',
-            titleFontWeight='bold',
-            titleColor='black'
-        ).configure_legend(
-            labelFontWeight='bold',
-            labelColor='black',
-            titleFontWeight='bold',
-            titleColor='black'
+            title=alt.TitleParams(
+                text='Total Copy Number per Sample',
+                fontSize=28,
+                fontWeight='bold',
+                color='#1F2937'
+            )
+        ).configure_view(
+            strokeWidth=0,
+            fill='rgba(255,255,255,0.9)'
         )
 
-        # Add the pathogenic threshold if applicable
         if region in st.session_state.pathogenic_TRs['region'].unique():
             pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
                 (st.session_state.pathogenic_TRs['region'] == region)
             ]['pathogenic_min'].values[0]
 
-            # Create the threshold line
             threshold_line = alt.Chart(pd.DataFrame({'Total Copy Number': [pathogenic_threshold]})).mark_rule(
-                color='red', strokeDash=[5, 5], size=3
-            ).encode(
-                y='Total Copy Number:Q'
-            )
+                color='#EF4444', strokeDash=[5, 5], size=2
+            ).encode(y='Total Copy Number:Q')
 
             threshold_pointer = alt.Chart(pd.DataFrame({'Total Copy Number': [pathogenic_threshold]})).mark_text(
-                text='Pathogenic Threshold', align='left', dx=5, dy=-10, fontSize=12, color='black'
-            ).encode(
-                y='Total Copy Number:Q'
-            )
+                text='🚨 Pathogenic Threshold', align='left', dx=5, dy=-10, fontSize=11, color='#DC2626', fontWeight='bold'
+            ).encode(y='Total Copy Number:Q')
             
-            # Combine the bar chart, threshold line, and pointer
             bar_chart = alt.layer(bar_chart, threshold_line, threshold_pointer)
 
-        # Apply configuration to the final chart
-        bar_chart = bar_chart.configure_axisX(labelAngle=45, labelOverlap=False).configure_legend(orient='none', disable=True)
-
-        # Render the chart
         st.altair_chart(bar_chart, use_container_width=True)
+
+
+    def plot_heatmap(self, combined_data, sort_by="Value"):
+        combined_data = combined_data[combined_data['Motif'] != 'Interruption']
+        
+        if sort_by == "Value":
+            x_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
+            y_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
+        else:
+            x_sort = alt.SortField(field='Sample', order='ascending')
+            y_sort = alt.SortField(field='Motif', order='ascending')
+
+        heatmap = alt.Chart(combined_data).mark_rect(
+            cornerRadius=4
+        ).encode(
+            x=alt.X('Sample:N', title='Sample', sort=x_sort, axis=alt.Axis(
+                labelFontWeight='bold', 
+                labelColor='#4B5563', 
+                titleFontWeight='bold', 
+                titleColor='#374151',
+                labelAngle=45
+            )),
+            y=alt.Y('Motif:N', title='Motif', sort=y_sort, axis=alt.Axis(
+                labelFontWeight='bold', 
+                labelColor='#4B5563', 
+                titleFontWeight='bold', 
+                titleColor='#374151'
+            )),
+            color=alt.Color('Count:Q', scale=alt.Scale(scheme='redpurple'), title='Count'),
+            tooltip=['Sample', 'Motif', 'Count'],
+            stroke=alt.value('white'),
+            strokeWidth=alt.value(1)
+        ).properties(
+            width=400,
+            height=400,
+            title=alt.TitleParams(
+                text='',
+                fontSize=16,
+                fontWeight='bold', 
+                color='#1F2937'
+            )
+        ).configure_view(
+            strokeWidth=0,
+            fill='rgba(255,255,255,0.9)'
+        )
+
+        st.altair_chart(heatmap, use_container_width=True)
+
+
 
     
     def create_motif_dataframe(self,sequences, motif_colors, motif_ids, spans_list, motif_names):
@@ -990,35 +1789,79 @@ class Visualization:
                     'Sequence': sequence['sequence'][previous_end:],
                 })
         
-        # print the interruptions as inturrption seen : 
-        if interruptions_dict:
-        
-            interruptions_list = " | ".join([f"`{seq}`" for seq in interruptions_dict])
-            st.markdown(f"**Interruptions Observed:** {interruptions_list}")
-        else:
-            st.subheader("No Significant Interruptions Detected")
+        # # Nicer, more visually appealing display for interruptions
+        # if interruptions_dict:
+        #     st.markdown("""
+        #         <div style='
+        #             background: linear-gradient(90deg, #fee2e2, #fef6f6 90%);
+        #             border-left: 5px solid #ef4444;
+        #             padding: 15px 20px 15px 16px;
+        #             margin-top: 15px;
+        #             margin-bottom: 18px;
+        #             border-radius: 8px;
+        #             box-shadow: 0px 3px 16px #fca5a51a;
+        #             '>
+        #         <span style='font-weight: bold; color: #991b1b; font-size: 1rem; display: block; letter-spacing: 0.01em; margin-bottom: 6px;'>
+        #             🚨 Interruptions Observed:
+        #         </span>
+        #         <div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px;'>
+        #     """, unsafe_allow_html=True)
+        #     for seq in interruptions_dict:
+        #         st.markdown(
+        #             f"<span style='display: inline-block; background: #991b1b; color: #fff; padding: 5px 13px; border-radius: 17px; font-size: 14px; font-family: monospace; box-shadow: 0 1px 5px #991b1b18;'>{seq}</span>",
+        #             unsafe_allow_html=True
+        #         )
+        #     st.markdown("</div></div>", unsafe_allow_html=True)
+        # else:
+        #     st.markdown("""
+        #         <div style='
+        #             background: linear-gradient(90deg, #f3f4f6, #e0e7ef 85%);
+        #             border-left: 5px solid #94a3b8;
+        #             padding: 14px 20px 14px 16px;
+        #             margin-top: 16px;
+        #             margin-bottom: 16px;
+        #             border-radius: 7px;
+        #             box-shadow: 0px 2px 11px #64748b19;
+        #             '>
+        #         <span style='font-weight: 600; color: #52525b; font-size: 1rem; letter-spacing:0.01em'>
+        #             No Significant Interruptions Detected.
+        #         </span>
+        #         </div>
+        #     """, unsafe_allow_html=True)
         return pd.DataFrame(data)
 
-    def get_color_palette(self,n):
-        cmap = plt.get_cmap('tab20')  
-        colors = [cmap(i) for i in range(n)]
-        return ['#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255)) for r, g, b, _ in colors]
     def stack_plot(self, record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value"):
         motif_colors = self.get_color_palette(len(record['motifs']))
         motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
         
         region = record['chr'] + ":" + str(record['pos'] - 1) + "-" + str(record['stop'] - 1)
-
+        start = record['pos'] +1
+        stop = record['stop'] -3
+        chrom = record['chr']
+        updated_region = chrom + ":" + str(start) + "-" + str(stop)
         df = self.create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
         if df.empty:
             return motif_colors, df
         df['Length'] = df['End'] - df['Start']
         
-        default_height = 1500 
+        default_height = 1200 
         chart_height = max(default_height, len(sequences) * 10)
 
         df['Sample'] = df['Sample'].apply(lambda x: x.replace("_pathogenic", ""))
-        df['Sample'] = pd.Categorical(df['Sample'], categories=sorted(df['Sample'].unique()), ordered=True)
+        
+        # Calculate total length per sample for sorting
+        sample_lengths = df.groupby('Sample')['Length'].sum().sort_values(ascending=False)
+        
+        # Apply sorting based on the selected method
+        if sort_by == "Value":
+            # Sort by total length (descending)
+            sorted_samples = sample_lengths.index.tolist()
+        else:
+            # Sort alphabetically
+            sorted_samples = sorted(df['Sample'].unique())
+        
+        # Convert to categorical with the correct order
+        df['Sample'] = pd.Categorical(df['Sample'], categories=sorted_samples, ordered=True)
         df = df.sort_values(by=['Sample', 'Start', 'End'])
         df['Order'] = range(len(df))
 
@@ -1034,145 +1877,309 @@ class Visualization:
         gene_name = None
         inheritance = None
         disease = None
-        if region in st.session_state.pathogenic_TRs['region'].unique():
+        above_threshold_samples = None
+
+        if updated_region in st.session_state.pathogenic_TRs['region'].unique():
             pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
-                (st.session_state.pathogenic_TRs['region'] == region)
+                (st.session_state.pathogenic_TRs['region'] == updated_region)
             ]['pathogenic_min'].values[0]
+
             if pathogenic_threshold is None:
                 pathogenic_threshold = 0
             gene_name = st.session_state.pathogenic_TRs.loc[
-                st.session_state.pathogenic_TRs['region'] == region
+                st.session_state.pathogenic_TRs['region'] == updated_region
             ]['gene'].values[0]
             inheritance = st.session_state.pathogenic_TRs.loc[
-                st.session_state.pathogenic_TRs['region'] == region
+                st.session_state.pathogenic_TRs['region'] == updated_region
             ]['inheritance'].values[0]
             disease = st.session_state.pathogenic_TRs.loc[
-                st.session_state.pathogenic_TRs['region'] == region
+                st.session_state.pathogenic_TRs['region'] == updated_region
             ]['disease'].values[0]
 
-        st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; font-size: 20px; color: #FF5733;">
-                <div>
-                    <strong>Minimum Copy Number:</strong> {min_copy_number}
+        # Display stats
+        title = st.empty()
+
+
+        title.markdown(f"""
+            <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="font-size: 14px; color: #64748b; font-weight: 600;">Min:</div>
+                    <div style="font-size: 16px; color: #1e293b; font-weight: 700; background: #f1f5f9; padding: 4px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">{min_copy_number}</div>
                 </div>
-                <div>
-                    <strong>Maximum Copy Number:</strong> {max_copy_number}
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="font-size: 14px; color: #64748b; font-weight: 600;">Max:</div>
+                    <div style="font-size: 16px; color: #1e293b; font-weight: 700; background: #f1f5f9; padding: 4px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">{max_copy_number}</div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
-
-        if sort_by == "Value":
-            y_sort = alt.EncodingSortField(field='Length', op='sum', order='descending')
-        else:
-            y_sort = alt.SortField(field='Sample', order='ascending')
+        # Prepare heatmap data
+        heatmap_data = df[df['Motif'] != 'Interruption'].groupby(['Sample', 'Motif']).size().reset_index(name='Count')
         
+        # Ensure heatmap data uses the same sample order as the main dataframe
+        heatmap_data['Sample'] = pd.Categorical(heatmap_data['Sample'], categories=sorted_samples, ordered=True)
+        heatmap_data = heatmap_data.sort_values('Sample')
+
+        # Use the same sorting for both charts - based on the categorical order we already defined
+        y_sort = sorted_samples  # This is the pre-defined order
+
+        # Prepare stack plot data
         df["pathogenic"] = df["Total Copy Number"].apply(lambda x: "Pathogenic" if x >= pathogenic_threshold else "Not Pathogenic")
         pathogenic_threshold_length = pathogenic_threshold * len(motif_names[0])
         df['Sequence_length'] = df.groupby('Sample')['Length'].transform('sum')
 
-        chart = alt.Chart(df).mark_bar().encode(
-            y=alt.Y(
-                'Sample', 
-                sort=y_sort, 
-                axis=alt.Axis(labelOverlap=False, ticks=False, labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')  
+        # Create heatmap with consistent sorting
+        heatmap = alt.Chart(heatmap_data).mark_rect(
+            cornerRadius=4,
+            stroke='white',
+            strokeWidth=1
+        ).encode(
+            y=alt.Y('Sample:N', 
+                title='', 
+                sort=y_sort,  # Use the same sorting
+                axis=alt.Axis(
+                    labelFontWeight='bold', 
+                    labelColor='#4B5563',
+                    labelFontSize=20,
+                    titleFontWeight='bold',
+                    titleColor='#374151',
+                    labelLimit=0,
+                    ticks=False,
+                    tickSize=10,
+                    tickOffset=-5, # Move the ticks higher (toward the top of the heatmap)
+                    # distance to the left of the chart
+                    labelPadding=10,
+
+                )),
+            x=alt.X('Motif:N', 
+                title='', 
+                sort=alt.EncodingSortField(field='Count', op='sum', order='descending'),
+                axis=alt.Axis(
+                    labelFontWeight='bold',
+                    labelFontSize=20,
+                    labelColor='#4B5563',
+                    titleFontWeight='bold',
+                    titleColor='#374151',
+                    labelAngle=90,
+                    labelPadding=10,
+                    labelLimit=100
+                )),
+            color=alt.Color('Count:Q', 
+                        scale=alt.Scale(scheme='redpurple'), 
+                        title='',
+                        legend=alt.Legend(
+                            title="",
+                            orient="top",
+                            titleFontSize=14,
+                            titleColor='#1F2937',
+                            gradientLength=120,
+                            labelFontSize=12,
+                            labelColor='#4B5563',
+                            columns=4
+                        )
             ),
-            x=alt.X('Length', title='Length', stack='zero', axis=alt.Axis(labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black'), 
-                    scale=alt.Scale(domain=[0, df['Sequence_length'].max() + 10])),
-            color=alt.Color('Motif', scale=alt.Scale(domain=list(motif_names) + ['Interruption'], range=list(motif_colors.values()) + ['#FF0000'])),
+            tooltip=['Sample', 'Motif', 'Count']
+        ).properties(
+            width=200,
+            height=chart_height,
+            title=''
+        )
+
+        # Create stack plot with the same sorting
+        stack_chart = alt.Chart(df).mark_bar(
+            cornerRadius=0
+        ).encode(
+            y=alt.Y(
+                'Sample:N',  # Use nominal type
+                sort=y_sort,  # Use the same sorting
+                title='',
+                axis=alt.Axis(
+                    labelOverlap=False, 
+                    ticks=False, 
+                    labelColor='#4B5563', 
+                    labelFontSize=20, 
+                    labelFontWeight='bold',
+                    titleColor='#374151',
+                    titleFontSize=28,
+                    labels = False,
+                    labelPadding = 1000,
+                ),
+                scale=alt.Scale(paddingInner=0)
+            ),
+            x=alt.X('Length', 
+                title='Sequence Length', 
+                stack='zero', 
+                axis=alt.Axis(
+                    labelColor='#4B5563', 
+                    labelFontSize=20, 
+                    labelFontWeight='bold', 
+                    titleColor='#374151',
+                    titleFontSize=28,
+                    labelOverlap=False,
+                    labelAngle=90,  # Set labels to be 90 degrees
+                    # Custom tick values: show every second number
+                    tickMinStep=100,
+                ), 
+                scale=alt.Scale(domain=[0, df['Sequence_length'].max() + 10])),
+            color=alt.Color(
+                'Motif', 
+                scale=alt.Scale(
+                    domain=list(motif_names) + ['Interruption'], 
+                    range=list(motif_colors.values()) + ['#EF4444']
+                ),
+                legend=alt.Legend(
+                    title="",
+                    orient="top",
+                    gradientLength=120,
+                    labelFontSize=20,
+                    labelColor='#4B5563',
+                    symbolStrokeWidth=3,
+                    symbolSize=120,
+                    symbolType="square",
+                    columns=len(motif_names) + 1 if len(motif_names) + 1 <= 10 else 5,
+                    # Increase padding between legend entries for more spacing
+                    columnPadding=25
+                )
+            ),
             order=alt.Order('Order', sort='ascending'),
             tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence', 'pathogenic', 'Length', 'Sequence_length']
         ).properties(
-            width=800,
+            width=1300,
             height=chart_height,
-            title=alt.TitleParams(
-                text="Motif occurrences across samples",
-                anchor='middle',
-                fontSize=20 
-            )
+            title='',
         )
 
-        # Adjust axis font size if chart height exceeds default
-        if chart_height > default_height:
-            chart = chart.configure_axisY(labelFontSize=10, titleFontSize=12)
-
-        # Add gene info if available
-        gene_info = []
-        if gene_name:
-            gene_info.append(f"Gene: {gene_name}")
-        if inheritance:
-            gene_info.append(f"Inheritance: {inheritance}")
-        if disease:
-            gene_info.append(f"Disease: {disease}")
-
-        # Add pathogenic threshold rule if applicable
-        if pathogenic_threshold > 0 and df.groupby('Sample')['Length'].sum().max() > pathogenic_threshold_length:
-            rule = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length], 'label': ['Pathogenic Threshold']})).mark_rule(
-                color='red', strokeDash=[5, 5], clip=True
-            ).encode(
-                x=alt.X('x:Q', axis=alt.Axis(title='Length', labelColor='black', labelFontSize=12, labelFontWeight='bold', titleColor='black')),
-                tooltip=['label', 'x'],
-            ).encode(size=alt.value(5))
-
-            arrow = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length], 'y': [0], 'y2': [chart_height]})).mark_text(
-                text='↑', align='left', baseline='bottom', dx=5, dy=45, fontSize=30, color='black', angle=290, clip=True
-            ).encode(x=alt.X('x:Q'))
-
-            arrow_line = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length], 'y': [0], 'y2': [chart_height]})).mark_rule(
-                color='black', clip=True
-            ).encode(x=alt.X('x:Q'))
-
-            arrow_text = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length], 'y': [chart_height / 2], 'text': ['Pathogenic Threshold']})).mark_text(
-                align='left', baseline='middle', dx=10, dy=25, fontSize=12, color='black'
-            ).encode(x='x:Q', text='text')
-
-            combined_chart = alt.layer(chart, rule, arrow, arrow_line, arrow_text).resolve_scale(x='shared')
-            
-            combined_chart = combined_chart.properties(
-                title=alt.TitleParams(
-                    text="Motif occurrences across samples",
-                    subtitle=gene_info,
-                    anchor='middle',
-                    fontSize=20,
-                    subtitleFontSize=15,
-                    subtitleColor='green',
-                    subtitlePadding=20  
-                )
-            ).configure_axis(
-                labelFontSize=10,
-                titleFontSize=12,
-            ).configure_legend(
-                labelFontSize=12,
-                labelFontWeight='bold',
-                labelColor='black',
-                titleFontSize=14,
-                titleFontWeight='bold',
-                titleColor='black'
-            ).properties(
-                padding={'left': 10, 'right': 50, 'top': 30, 'bottom': 10}
-            )
-
-            st.altair_chart(combined_chart, use_container_width=True)
+        # Create pathogenic threshold elements
+        threshold_elements = []
+        
+        # Always calculate above_threshold_samples, but only use it if threshold > 0
+        above_threshold_samples = df.groupby('Sample')['Length'].sum().reset_index()
+        if pathogenic_threshold > 0:
+            above_threshold_samples = above_threshold_samples[above_threshold_samples['Length'] > pathogenic_threshold_length]
         else:
-            chart = chart.properties(
-                title=alt.TitleParams(
-                    text="Motif occurrences across samples",
-                    subtitle=gene_info,
-                    anchor='middle',
-                    fontSize=20,
-                    subtitleFontSize=15,
-                    subtitleColor='green',
-                    subtitlePadding=20,
-                )
-            ).configure_legend(
-                labelFontSize=12,
-                labelFontWeight='bold',
-                labelColor='black',
-                titleFontSize=14,
-                titleFontWeight='bold',
-                titleColor='black'
-            )
-            st.altair_chart(chart, use_container_width=True)
+            above_threshold_samples = above_threshold_samples.iloc[0:0]  # Empty DataFrame with same structure
+        
+        if pathogenic_threshold > 0 and df.groupby('Sample')['Length'].sum().max() > pathogenic_threshold_length:
+            # Add threshold line
+            rule = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length]})).mark_rule(
+                color='#EF4444', strokeDash=[5, 5], strokeWidth=2
+            ).encode(x='x:Q')
+            threshold_elements.append(rule)
+            
+            if not above_threshold_samples.empty:
+                # Create arrow data - position arrows slightly above each bar
+                arrow_data = above_threshold_samples.copy()
+                arrow_data['arrow_x'] = arrow_data['Length'] + (df['Sequence_length'].max() * 0.01)  # Small offset from bar end
+                arrow_data['arrow_y_offset'] = 0.4  # Position in the middle of the bar vertically
+                
 
+                arrows = alt.Chart(arrow_data).mark_text(
+                    text='➔',  # Right-arrow symbol
+                    align='left',
+                    baseline='middle',
+                    fontSize=20,
+                    color='#DC2626',
+                    fontWeight='bold',
+                    angle=235,   # Rotate the arrow to point right-up toward the bar
+                    dy=0,
+                    dx=-10        # Move the arrow a bit down
+                ).encode(
+                    x=alt.X('arrow_x:Q', title=None),
+                    y=alt.Y('Sample:N', sort=y_sort),
+                    tooltip=[alt.Tooltip('Sample:N'), alt.Tooltip('Length:Q', title='Total Length')]
+                )
+                
+                threshold_elements.append(arrows)
+                
+                # Add warning text for pathogenic samples
+                warning_text = alt.Chart(arrow_data).mark_text(
+                    #text=' PATHOGENIC 🚨',
+                    text=' PATHOGENIC',
+                    align='left',
+                    baseline='middle',
+                    fontSize=12,
+                    color='#DC2626',
+                    fontWeight='bold',
+                    dy=10,
+                    dx=10,
+                ).encode(
+                    x=alt.X('arrow_x:Q', title=None),
+                    y=alt.Y('Sample:N', sort=y_sort),
+                    tooltip=[alt.Tooltip('Sample:N'), alt.Tooltip('Length:Q', title='Total Length')]
+                )
+                
+                threshold_elements.append(warning_text)
+
+        # Combine all elements
+        if threshold_elements:
+            # Add threshold elements to the stack chart
+            all_stack_elements = [stack_chart] + threshold_elements
+            final_stack_chart = alt.layer(*all_stack_elements)
+        else:
+            final_stack_chart = stack_chart
+
+        # Create title with gene information if available
+        chart_title = "Motif Distribution across Samples"
+        subtitle_text = ""
+        if gene_name or inheritance or disease or updated_region:
+            gene_info_parts = []
+            # In SVG exports, Unicode emoji/icons (like 🧬, 🏥, 🧭, etc.) may not render properly
+            # Replace emoji with plain text or ASCII alternatives for SVG-export friendliness
+            if gene_name:
+                gene_info_parts.append(f"Gene: {gene_name}")
+            if inheritance:
+                gene_info_parts.append(f"Inheritance: {inheritance}")
+            if disease:
+                disease_display = disease #if len(disease) <= 50 else disease[:47] + "..."
+                gene_info_parts.append(f"Disease: {disease_display}")
+            if updated_region:
+                gene_info_parts.append(f"Region: {updated_region}")
+            subtitle_text = " • ".join(gene_info_parts)
+        # Combine charts
+        combined_chart = alt.hconcat(
+            heatmap, 
+            final_stack_chart,
+            spacing=-5  # Set gap between plots to 0
+        ).resolve_scale(
+            y='shared'  # This ensures both charts use the same Y-axis scale and ordering
+        ).properties(
+            title=alt.TitleParams(
+                text=chart_title,
+                fontSize=32,
+                fontWeight='bold',
+                anchor='middle',
+                color='#1F2937',
+                subtitle=subtitle_text,
+                subtitleFontSize=20,
+                subtitleColor='#4c1d95',
+                subtitleFontWeight='bold',
+                subtitlePadding=25,
+            )
+        ).configure_view(
+            strokeWidth=0
+        ).configure_scale(
+            bandPaddingInner=0.0
+        ).configure_axis(
+            labelLimit=1000,          # Allow Altair to use a large label limit for y-axis
+            tickCount=len(df['Sample'].unique()),  # force ticks for all samples
+            labelOverlap=False,
+            tickMinStep= max(200, int(df['Sequence_length'].max() * 0.1)),  # 30% of max length, minimum 50
+        ).configure_axisY(
+            labelFontSize=12,
+            labelLimit=1000,          # Allow enough space for all labels
+            tickCount=len(df['Sample'].unique()),  # one tick per sample
+            labelOverlap=False
+        )
+        # Adjust for large number of samples
+        if chart_height > default_height:
+            combined_chart = combined_chart.configure_axisY(labelFontSize=8)
+        
+        # Display the combined chart
+        st.altair_chart(combined_chart, use_container_width=True)
+        
+        # Show pathogenic info if applicable
+        if pathogenic_threshold > 0 and above_threshold_samples is not None and not above_threshold_samples.empty:
+            st.warning(f"🚨 **Pathogenic Alert**: {len(above_threshold_samples)} sample(s) exceed the pathogenic threshold of {pathogenic_threshold} copies")
+        
         return motif_colors, df
 
     def count_motifs(self, motif_ids):
@@ -1182,9 +2189,13 @@ class Visualization:
                 motif_count[motif] += 1
             else:
                 motif_count[motif] = 1
-        
         return motif_count
-    def visulize_TR_with_dynamic_sequence(self,record,hgsvc_records, left_column, right_column,motif_colors,CN1_col,CN2_col, show_comparison):
+
+    def visulize_TR_with_dynamic_sequence(self,record,hgsvc_records, container ,motif_colors,CN1_col,CN2_col, show_comparison):
+        
+        if record['motif_ids_h1'] == ['.'] and record['motif_ids_h2'] == ['.']:
+            st.info("No motifs found in the region")
+            return
         motif_names = record['motifs']
         reference_copy_number = record['ref_CN']
         motif_count_ref = self.count_motifs(record['motif_ids_ref'])
@@ -1200,54 +2211,109 @@ class Visualization:
         motif_count_h1 = {int(k): v for k, v in motif_count_h1.items()}
         motif_count_h2 = {int(k): v for k, v in motif_count_h2.items()}
         total_copy_number_h1 = str(record['spans'][1]).count('-')
-        CN1_col.markdown(f"""
-                <div style="font-size: 20px; color: #FF5733;">
-                    <strong>Allele 1 Total copy number:</strong> {total_copy_number_h1}
-                </div>
+
+
+    
+ 
+        with container:
+            st.markdown("""
+                <style>
+                    .stTabs [data-baseweb="tab-list"] {
+                        gap: 6px;
+                        background: #f8fafc;
+                        padding: 4px 4px;
+                        border-radius: 16px;
+                        margin-bottom: 18px;
+                        min-height: 22px;
+                    }
+                    .stTabs [data-baseweb="tab"] {
+                        height: 28px;
+                        min-height: 28px;
+                        min-width: 38px;
+                        white-space: pre-wrap;
+                        background: white;
+                        border-radius: 10px;
+                        border: 2px solid #e2e8f0;
+                        color: #64748b;
+                        font-weight: 700;
+                        font-size: 1.13rem;
+                        padding: 0 13px;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        line-height: 1.33;
+                    }
+                    .stTabs [data-baseweb="tab"]:hover {
+                        background: #f1f5f9;
+                        border-color: #cbd5e1;
+                        color: #475569;
+                        transform: translateY(-1.8px) scale(1.04);
+                        box-shadow: 0 2px 12px rgba(0,0,0,0.13);
+                    }
+                    .stTabs [aria-selected="true"] {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                        color: white !important;
+                        border-color: #667eea !important;
+                        box-shadow: 0 5px 19px rgba(102, 126, 234, 0.23) !important;
+                        transform: translateY(-2px) scale(1.045);
+                        font-size: 1.23rem !important;
+                    }
+                    .stTabs [data-baseweb="tab-highlight"] {
+                        background-color: transparent !important;
+                    }
+                </style>
             """, unsafe_allow_html=True)
-        if record['alt_allele2'] != '':
-                total_copy_number_h2 = str(record['spans'][2]).count('-')
-                CN2_col.markdown(f"""
-                    <div style="font-size: 20px; color: #FF5733;">
-                        <strong>Allele 2 Total copy number:</strong> {total_copy_number_h2}
-                    </div>
-                """, unsafe_allow_html=True)   
-        with right_column:
-            self.display_motif_legend(motif_names, motif_colors, right_column)
-        with left_column:
-            tab1, tab2,tab3 = st.tabs(["Alleles", "Alleles vs Ref", "Alleles vs Pop"])
+
+
+
+
+        
+            tab1, tab2, tab3 = st.tabs([
+                "🧬 **Alleles**", 
+                "🔄 **Alleles vs Ref**", 
+                "🌍 **Alleles vs Pop**"
+            ])
             with tab2:
-                self.display_dynamic_sequence_with_highlighted_motifs("Ref", record['ref_allele'], record['motif_ids_ref'], record['spans'][0], motif_colors, motif_names)
+                st.html('<div class="tab-content">')
+                # Your tab1 content here
+                motif_legend_html(record['motif_ids_ref'], motif_colors, motif_names)
+                display_dynamic_sequence_with_highlighted_motifs("Ref", record['ref_allele'], record['motif_ids_ref'], record['spans'][0], motif_colors, motif_names)
                 alt_allele1 = record['alt_allele1']
-                self.display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
                 if record['alt_allele2'] != '':
                     alt_allele2 = record['alt_allele2'] 
-                    self.display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+                st.html('</div>')
             with tab1:
+                motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
+                st.html('<div class="tab-content">')
                 alt_allele1 = record['alt_allele1']
-                self.display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
 
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
                     if show_comparison == False:
-                        self.plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+                        plot_motif_bar(motif_count_h1, motif_names, motif_colors)
 
                 if record['alt_allele2'] != '':
 
                     alt_allele2 = record['alt_allele2'] 
-                    self.display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
                     
                     plot_container_h2 = st.empty()
                     with plot_container_h2:
                         if show_comparison == False:
-                            self.plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                            plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                st.html('</div>')
             with tab3:
+                #motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
+                                # Create a more compact legend for motifs
+
                 if hgsvc_records:
                     self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
                 else:
                     st.info("no population data found")
 
-
+                st.html('</div>')
+                
     def display_motif_legend(self, motifs, motif_colors, right_column):
         st.markdown("### Motif Legend")
         st.markdown('<div style="max-height:400px; overflow-y:scroll;">', unsafe_allow_html=True)  
@@ -1268,3 +2334,63 @@ class Visualization:
             f' Interruption</div>', unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
+
+
+
+
+
+
+
+# --- Helper Functions Below ---
+
+# def get_simple_spans(spans_string):
+#     """
+#     Take a string like '0(0-27)_1(0-28)' and pull out just the span coordinates as strings,
+#     e.g. ['(0-27)', '(0-28)']. Ignores motif ids.
+#     """
+#     if not spans_string:
+#         return []
+#     simple_spans = []
+#     for motif_span in spans_string.split('_'):
+#         match = re.match(r'(?:\d+)?\((\d+-\d+)\)', motif_span)
+#         if match:
+#             span = match.group(1)
+#             simple_spans.append(f'({span})')
+#     return simple_spans
+
+# def split_spans_by_occurrences(spans_string, motif_ids, motifs):
+#     """
+#     Split all TRGT-style (multi-span) regions into subspans per-motif occurrence for visualization.
+#     Handles multiple spans and motif counts, e.g.:
+#     spans_string: "15(0-51)_0(51-102)_9(102-155)_..."
+#     motif_ids: [1, 1, 1, ...] (total n)
+#     Returns a flattened list of per-motif subspans, e.g. ['(0-51)', '(51-102)', ...]
+#     """
+#     import re
+
+#     if not spans_string or not motif_ids or not isinstance(motif_ids, list):
+#         return []
+
+#     # Parse all spans in the TRGT string
+#     # Format: "motif_idx(start-end)_motif_idx(start-end)_..."
+#     span_matches = re.findall(r'(?:\d+)?\((\d+)-(\d+)\)', spans_string)
+#     if not span_matches or len(motif_ids) == 0:
+#         return []
+
+#     subspans = []
+#     for idx, span in enumerate(span_matches):
+
+#         span_start = int(span[0])
+#         span_end = int(span[1])
+#         raw_len = span_end - span_start 
+#          # Always run at least once, but can be 0
+#         # Handle unit length: motif spanning single bases
+#         unit_len = len(motifs[motif_ids[idx]])
+#         actual_count = max(1, raw_len // unit_len)
+#         curr_start = span_start
+#         for repeat in range(actual_count):
+#             curr_end = curr_start + unit_len
+#             subspans.append(f'({curr_start}-{curr_end})')
+#             curr_start = curr_end
+#     subspans = ''.join(subspans)
+#     return subspans
