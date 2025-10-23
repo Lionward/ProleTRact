@@ -593,7 +593,8 @@ class Visualization:
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
                     if show_comparison == False:
-                        plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+                        with st.expander("Show motif bar plot for Allel1", expanded=False):
+                            plot_motif_bar(motif_count_h1, motif_names, motif_colors)
                 
                 if record['alt_allele2'] != '':
                     display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names,)
@@ -601,7 +602,8 @@ class Visualization:
 
                     with plot_container_h2:
                         if show_comparison == False:
-                            plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                            with st.expander("Show motif bar plot for Allel2", expanded=False):
+                                plot_motif_bar(motif_count_h2, motif_names, motif_colors)
 
             with tab3:
                 if hgsvc_records:
@@ -611,84 +613,6 @@ class Visualization:
 
             
 
-    # def plot_motif_bar(self, motif_count, motif_names, motif_colors=None, sequence_name=""):
-    #     motif_labels = []
-    #     motif_counts = []
-    #     motif_ids = []
-        
-    #     for label, value in sorted(motif_count.items()):
-    #         motif_name = motif_names[int(label)]
-    #         if motif_name:
-    #             motif_labels.append(motif_name)
-    #             motif_counts.append(value)
-    #             motif_ids.append(int(label))
-        
-    #     data = {
-    #         'Motif': motif_labels,
-    #         'Count': motif_counts,
-    #         'Motif_ID': motif_ids
-    #     }
-    #     df = pd.DataFrame(data)
-        
-    #     color_list = [motif_colors[motif_id] for motif_id in motif_ids] if motif_colors else None
-        
-    #     # Create interactive bar chart with selection
-    #     selection = alt.selection_point(
-    #         name='select',
-    #         fields=['Motif'],
-    #         bind='legend'
-    #     )
-        
-    #     bar_chart = alt.Chart(df).mark_bar(
-    #         cornerRadius=8,
-    #         stroke='white',
-    #         strokeWidth=2
-    #     ).encode(
-    #         x=alt.X('Count:Q', 
-    #             title='Occurrences',
-    #             axis=alt.Axis(
-    #                 labelColor='#4B5563',
-    #                 titleColor='#374151',
-    #                 labelFontWeight='bold',
-    #                 titleFontWeight='bold'
-    #             )),
-    #         y=alt.Y('Motif:N', 
-    #             sort='-x',
-    #             title='',
-    #             axis=alt.Axis(
-    #                 labelColor='#4B5563',
-    #                 labelFontWeight='bold'
-    #             )),
-    #         color=alt.Color('Motif:N',
-    #                     scale=alt.Scale(domain=motif_labels, range=color_list),
-    #                     legend=alt.Legend(
-    #                         title='Motifs',
-    #                         orient='top',
-    #                         titleFontWeight='bold',
-    #                         labelFontWeight='bold'
-    #                     )),
-    #         tooltip=['Motif', 'Count'],
-    #         opacity=alt.condition(selection, alt.value(1), alt.value(0.3))
-    #     ).properties(
-    #         width=400,
-    #         height=300,
-    #         title=alt.TitleParams(
-    #             text=f'🧬 Motif Occurrences - {sequence_name}',^
-    #             fontSize=16,
-    #             fontWeight='bold',
-    #             color='#1F2937'
-    #         )
-    #     ).add_params(
-    #         selection
-    #     ).configure_view(
-    #         strokeWidth=0,
-    #         fill='rgba(255,255,255,0.9)'
-    #     )
-        
-    #     # plot 
-    #     # bar_chart = bar_chart.configure_axisX(labelAngle=0)
-    #     # st.altair_chart(bar_chart, use_container_width=True)
-    #     return bar_chart, df
 
 
     def plot_Cohort_results(self,cohort_records):
@@ -964,23 +888,11 @@ class Visualization:
         
         # Create two columns for side-by-side plots
 
-        col1, col2 = st.columns(2)
 
-        with col1:
-            st.markdown('<div class="plot-card">', unsafe_allow_html=True)
-            self.bar_plot_motif_count(df, region, sort_by)
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="plot-card">', unsafe_allow_html=True)
+        self.bar_plot_motif_count(df, region, sort_by)
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        #     st.markdown('<div class="plot-card">', unsafe_allow_html=True)
-        #     pivot_hgsvc = pd.pivot_table(df[df['Sample'] == 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
-        #     pivot_sample = pd.pivot_table(df[df['Sample'] != 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
-
-        #     pivot_hgsvc_long = pivot_hgsvc.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
-        #     pivot_sample_long = pivot_sample.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
-
-        #     combined_data = pd.concat([pivot_hgsvc_long, pivot_sample_long])
-        #     self.plot_heatmap(combined_data, sort_by=sort_by)
-        #     st.markdown('</div>', unsafe_allow_html=True)
         
         # Scatter plot in full width below
         st.markdown('<div class="plot-card-full">', unsafe_allow_html=True)
@@ -1047,54 +959,53 @@ class Visualization:
                 trace.showlegend = False
 
         name = "HGSVC" if st.session_state.analysis_mode == "indivisual sample" else st.session_state.analysis_mode 
-        with col2:
-            figure.add_trace(go.Scatter(
-                x=[None], y=[None], 
-                mode='markers', 
-                marker=dict(color='#6B7280', size=20, line=dict(width=2, color='white')), 
-                name=name
-            ))
+        figure.add_trace(go.Scatter(
+            x=[None], y=[None], 
+            mode='markers', 
+            marker=dict(color='#6B7280', size=20, line=dict(width=2, color='white')), 
+            name=name
+        ))
 
-            figure.update_layout(
-                title=dict(
-                    text="Motif Occurrences Across Samples",
-                    x=0.2,
-                    font=dict(size=20, color='#1F2937')
-                ),
-                xaxis_title=dict(text="Motif", font=dict(size=14, color='#4B5563')),
-                yaxis_title=dict(text="Occurrence Count", font=dict(size=14, color='#4B5563')),
-                plot_bgcolor='rgba(255,255,255,0.9)',
-                paper_bgcolor='rgba(255,255,255,0.9)',
-                hoverlabel=dict(
-                    bgcolor="white",
-                    font_size=12,
-                    font_family="Inter"
-                ),
-                legend=dict(
-                    bgcolor='rgba(255,255,255,0.8)',
-                    bordercolor='rgba(0,0,0,0.1)',
-                    borderwidth=1
-                )
+        figure.update_layout(
+            title=dict(
+                text="Motif Occurrences Across Samples",
+                x=0.2,
+                font=dict(size=20, color='#1F2937')
+            ),
+            xaxis_title=dict(text="Motif", font=dict(size=14, color='#4B5563')),
+            yaxis_title=dict(text="Occurrence Count", font=dict(size=14, color='#4B5563')),
+            plot_bgcolor='rgba(255,255,255,0.9)',
+            paper_bgcolor='rgba(255,255,255,0.9)',
+            hoverlabel=dict(
+                bgcolor="white",
+                font_size=12,
+                font_family="Inter"
+            ),
+            legend=dict(
+                bgcolor='rgba(255,255,255,0.8)',
+                bordercolor='rgba(0,0,0,0.1)',
+                borderwidth=1
             )
+        )
 
-            xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
-            figure.update_xaxes(
-                tickmode='array', 
-                tickvals=list(xaxis_colors.keys()), 
-                ticktext=[
-                    f'<span style="color:{xaxis_colors[motif]}; font-weight:600">{motif}</span>' for motif in xaxis_colors.keys()
-                ], 
-                tickangle=45,
-                gridcolor='rgba(0,0,0,0.1)'
-            )
+        xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
+        figure.update_xaxes(
+            tickmode='array', 
+            tickvals=list(xaxis_colors.keys()), 
+            ticktext=[
+                f'<span style="color:{xaxis_colors[motif]}; font-weight:600">{motif}</span>' for motif in xaxis_colors.keys()
+            ], 
+            tickangle=45,
+            gridcolor='rgba(0,0,0,0.1)'
+        )
 
-            figure.update_yaxes(
-                range=[0, df['Sample'].value_counts().max()],
-                gridcolor='rgba(0,0,0,0.1)'
-            )
-            
-            st.plotly_chart(figure, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+        figure.update_yaxes(
+            range=[0, df['Sample'].value_counts().max()],
+            gridcolor='rgba(0,0,0,0.1)'
+        )
+        
+        st.plotly_chart(figure, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
     def bar_plot_motif_count(self, df, region, sort_by="Value"):
@@ -1280,45 +1191,7 @@ class Visualization:
                     'Sequence': sequence['sequence'][previous_end:],
                 })
         
-        # # Nicer, more visually appealing display for interruptions
-        # if interruptions_dict:
-        #     st.markdown("""
-        #         <div style='
-        #             background: linear-gradient(90deg, #fee2e2, #fef6f6 90%);
-        #             border-left: 5px solid #ef4444;
-        #             padding: 15px 20px 15px 16px;
-        #             margin-top: 15px;
-        #             margin-bottom: 18px;
-        #             border-radius: 8px;
-        #             box-shadow: 0px 3px 16px #fca5a51a;
-        #             '>
-        #         <span style='font-weight: bold; color: #991b1b; font-size: 1rem; display: block; letter-spacing: 0.01em; margin-bottom: 6px;'>
-        #             🚨 Interruptions Observed:
-        #         </span>
-        #         <div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px;'>
-        #     """, unsafe_allow_html=True)
-        #     for seq in interruptions_dict:
-        #         st.markdown(
-        #             f"<span style='display: inline-block; background: #991b1b; color: #fff; padding: 5px 13px; border-radius: 17px; font-size: 14px; font-family: monospace; box-shadow: 0 1px 5px #991b1b18;'>{seq}</span>",
-        #             unsafe_allow_html=True
-        #         )
-        #     st.markdown("</div></div>", unsafe_allow_html=True)
-        # else:
-        #     st.markdown("""
-        #         <div style='
-        #             background: linear-gradient(90deg, #f3f4f6, #e0e7ef 85%);
-        #             border-left: 5px solid #94a3b8;
-        #             padding: 14px 20px 14px 16px;
-        #             margin-top: 16px;
-        #             margin-bottom: 16px;
-        #             border-radius: 7px;
-        #             box-shadow: 0px 2px 11px #64748b19;
-        #             '>
-        #         <span style='font-weight: 600; color: #52525b; font-size: 1rem; letter-spacing:0.01em'>
-        #             No Significant Interruptions Detected.
-        #         </span>
-        #         </div>
-        #     """, unsafe_allow_html=True)
+
         return pd.DataFrame(data)
 
     def stack_plot(self, record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value"):
@@ -1782,7 +1655,8 @@ class Visualization:
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
                     if show_comparison == False:
-                        plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+                        with st.expander("Show motif bar plot for Allel1", expanded=False):
+                            plot_motif_bar(motif_count_h1, motif_names, motif_colors)
 
                 if record['alt_allele2'] != '':
 
@@ -1792,11 +1666,11 @@ class Visualization:
                     plot_container_h2 = st.empty()
                     with plot_container_h2:
                         if show_comparison == False:
-                            plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                            with st.expander("Show motif bar plot for Allel2", expanded=False):
+                                plot_motif_bar(motif_count_h2, motif_names, motif_colors)
                 st.html('</div>')
             with tab3:
-                #motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
-                                # Create a more compact legend for motifs
+
 
                 if hgsvc_records:
                     self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
