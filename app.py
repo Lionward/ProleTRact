@@ -36,7 +36,7 @@ def main():
         
     analysis_mode = st.sidebar.radio(
         "Select the type of analysis", 
-        ("individual sample", "Cohort", "comparison"), 
+        ("individual sample", "Cohort"), 
         key="analysis_mode_radio",
         label_visibility='visible',
         help="Choose the analysis workflow.",
@@ -364,6 +364,6 @@ if __name__ == "__main__":
         """,
         unsafe_allow_html=True,
     )
-    
+
     main()
     
