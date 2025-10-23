@@ -33,32 +33,43 @@ class VCFHandler:
             st.session_state.vcf_file_path = None
         vcf_path = st.sidebar.text_input("Enter the path of your VCF file", key="vcf_file_path_input", help="Enter the path of your VCF file, the file should be zipped and indexed with tabix")
         _, _, middle, _ = st.sidebar.columns([1, 0.3, 2, 1])
+        with st.spinner("Wait for it..."):
+            button_clicked = middle.button(
+                "Upload VCF File",
+                key="upload_vcf_btn",
+                help=None,
+                type="secondary",
+                use_container_width=False,
+                kwargs={
+                    "style": "font-size: 12px !important; padding: 4px 16px !important;"
+                }
+            )
+            if button_clicked:
+                if vcf_path:
+                    st.session_state.vcf_file_path = vcf_path
+                    st.session_state.pop('records', None)
+                    st.session_state.pop('records_map', None)
 
-        if middle.button("Upload VCF File"):
-            if vcf_path:
-                st.session_state.vcf_file_path = vcf_path
-                st.session_state.pop('records', None)
-                st.session_state.pop('records_map', None)
-
-            else:
-                st.info("Please enter the path to the VCF file")
-            if 'records' not in st.session_state:
-                if st.session_state.vcf_file_path:
-                    st.session_state.records, st.session_state.records_map = self.parse_vcf( st.session_state.vcf_file_path)
-                    st.session_state.hgsvc_path = "/confidential/Structural_Variation/output_maryam/pipeline/input_folder/asm_samples/assembly_results/"
-                    # check if the path exists
-                    if os.path.exists(st.session_state.hgsvc_path):
-                        st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('h1.vcf.gz') or f.endswith('h2.vcf.gz')]
-                        st.session_state.files = [self.load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
-                    else:
-                        st.session_state.files = None
-                        st.session_state.file_paths = None
                 else:
-                    st.error("VCF file path is not set.")
+                    st.info("Please enter the path to the VCF file")
+                if 'records' not in st.session_state:
+                    if st.session_state.vcf_file_path:
+                        st.session_state.records, st.session_state.records_map = self.parse_vcf( st.session_state.vcf_file_path)
+                        st.session_state.hgsvc_path = "/confidential/Structural_Variation/output_maryam/pipeline/input_folder/asm_samples/assembly_results/"
+                        # check if the path exists
+                        if os.path.exists(st.session_state.hgsvc_path):
+                            st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('h1.vcf.gz') or f.endswith('h2.vcf.gz')]
+                            st.session_state.files = [self.load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
+                        else:
+                            st.session_state.files = None
+                            st.session_state.file_paths = None
+                    else:
+                        st.error("VCF file path is not set.")
+            
+        
 
 class CohortHandler(VCFHandler):
     def __init__(self):
-            # self.cohort_path = st.session_state.get('cohort_path', None)
         pass
     def handle_cohort(self):
          
@@ -88,3 +99,4 @@ class CohortHandler(VCFHandler):
             cohorts_map[idx] = rec.id
             idx += 1
         return cohorts_map
+
