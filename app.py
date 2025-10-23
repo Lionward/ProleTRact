@@ -16,7 +16,6 @@ def get_pathogenic_TRs():
     pathogenic_trs = pd.read_csv(current_path+"/pathogenic_TRs.bed", sep="\t", header=None)
     pathogenic_trs.columns = ["chrom",'start','end','motif','pathogenic_min','inheritance','disease','gene']
     st.session_state.pathogenic_TRs = pathogenic_trs
-    # make column region
     pathogenic_trs['region'] = pathogenic_trs['chrom'] + ":" + pathogenic_trs['start'].astype(str) + "-" + pathogenic_trs['end'].astype(str)
 
 
@@ -26,7 +25,6 @@ def main():
         st.session_state.vcf_handler = VCFHandler()
     if 'cohort_handler' not in st.session_state:
         st.session_state.cohort_handler = CohortHandler()
-    #if 'visualization' not in st.session_state:
     st.session_state.visualization = Visualization()
     get_pathogenic_TRs()
     
@@ -78,7 +76,6 @@ def main():
     """, unsafe_allow_html=True)
 
     if analysis_mode == "individual sample":
-        # posistion the button in the center
         vcf_handler.handle_individual_sample()
         st.session_state.analysis_mode = "individual sample"
         
@@ -95,16 +92,7 @@ def main():
         # if the path doesn't end with a slash add it
 
         visualization.visulize_cohort()
-    elif analysis_mode == "comparison":
-        if 'all_files_parsed' not in st.session_state:
-            st.session_state.all_files_parsed = False
-        st.session_state.analysis_mode = "comparison"
-        vcf_handler.handle_comparison_samples()
-        if st.session_state.all_files_parsed:
-            visualization.compare_different_technologies()
-        else:
-            st.warning("Failed to parse the VCF files")
-            #st.stop()  
+
 
 if __name__ == "__main__":
 
@@ -376,12 +364,6 @@ if __name__ == "__main__":
         """,
         unsafe_allow_html=True,
     )
-
-        
-    # <div class="logo-container">
-    #     <div class="logo">
-    #         <img src="data:image/png;base64,{logo_base64}" alt="Logo">
-    #     </div>
-    # </div>
+    
     main()
     
