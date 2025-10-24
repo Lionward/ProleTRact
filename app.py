@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from data_handling import VCFHandler, CohortHandler
 from visualization import Visualization
 import pandas as pd 
@@ -199,6 +200,61 @@ if __name__ == "__main__":
             }
         </style>
     """, unsafe_allow_html=True)
+    
+    # Add JavaScript to make navigation buttons fixed
+    components.html("""
+        <script>
+        (function() {
+            function makeNavButtonsFixed() {
+                const buttons = document.querySelectorAll('button');
+                let prevButton = null;
+                let nextButton = null;
+                
+                buttons.forEach(btn => {
+                    const text = btn.textContent || btn.innerText || '';
+                    if (text.includes('Previous region') && btn.style.position !== 'fixed') {
+                        prevButton = btn;
+                    }
+                    if (text.includes('Next region') && btn.style.position !== 'fixed') {
+                        nextButton = btn;
+                    }
+                });
+                
+                if (prevButton && nextButton) {
+                    // Style the buttons to be fixed
+                    prevButton.style.position = 'fixed';
+                    prevButton.style.bottom = '20px';
+                    prevButton.style.left = 'calc(50% - 150px)';
+                    prevButton.style.zIndex = '999';
+                    
+                    nextButton.style.position = 'fixed';
+                    nextButton.style.bottom = '20px';
+                    nextButton.style.left = 'calc(50% + 50px)';
+                    nextButton.style.zIndex = '999';
+                }
+            }
+            
+            // Run immediately
+            makeNavButtonsFixed();
+            
+            // Run after a delay
+            setTimeout(makeNavButtonsFixed, 100);
+            setTimeout(makeNavButtonsFixed, 500);
+            setTimeout(makeNavButtonsFixed, 1000);
+            
+            // Use MutationObserver to watch for DOM changes
+            const observer = new MutationObserver(function(mutations) {
+                makeNavButtonsFixed();
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        })();
+        </script>
+    """, height=0)
+    
     st.sidebar.markdown(
         """
         <div style="

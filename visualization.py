@@ -170,7 +170,96 @@ class Visualization:
     def visulize_cohort(self):
         col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")
         if 'cohorts_records_map' in st.session_state:
-            region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
+            region_options = list(st.session_state.cohorts_records_map.values())
+            
+            # Safe index access with bounds checking
+            regions_idx = st.session_state.get('regions_idx', 0)
+            if regions_idx >= len(region_options):
+                regions_idx = 0
+                st.session_state.regions_idx = 0
+            
+            default_region = region_options[regions_idx] if region_options else ""
+            
+            # Cache the full options list to avoid recreating it
+            if 'cached_region_options_cohort' not in st.session_state:
+                st.session_state.cached_region_options_cohort = region_options
+            
+            # Single unified field: text input with autocomplete suggestions
+            # Track if a selection was made
+            if 'region_selected_cohort' not in st.session_state:
+                st.session_state.region_selected_cohort = ""
+            
+            search_query = st.sidebar.text_input(
+                "🔍 Search region:", 
+                value=st.session_state.region_selected_cohort,
+                key="region_search_cohort",
+                help="Type to search and filter results",
+                placeholder="Type to search..."
+            )
+            
+            # Use markdown+CSS trick to make selectbox text black
+            st.markdown("""
+                <style>
+                /* Ensure all selectbox texts are black, regardless of state */
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] span {
+                    color: black !important;
+                }
+                [data-testid="stSidebar"] .stSelectbox label, 
+                [data-testid="stSidebar"] .stSelectbox div[role="listbox"] span {
+                    color: black !important;
+                }
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] input,
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[role="combobox"] span,
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[role="button"] span,
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[role="option"] span,
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[role="listbox"] span {
+                    color: black !important;
+                }
+                /* Also set all the selectbox selected value text to black */
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] input {
+                    color: black !important;
+                    font-weight: 700;
+                }
+                /* For v1.31+ (possible dark mode or material theme changes): */
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[aria-selected="true"] span {
+                    color: black !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+    
+            
+            # Filter and show suggestions only when typing
+            if search_query:
+                search_lower = search_query.lower()
+                filtered = [r for r in st.session_state.cached_region_options_cohort if search_lower in r.lower()]
+                filtered_regions = filtered[:10]  # Limit to 10 results
+                total_matches = len(filtered)
+                
+                # Show filtered suggestions as a dropdown without label to feel unified
+                if filtered_regions:
+                    region = st.sidebar.selectbox(
+                        " ",  # Empty label
+                        filtered_regions, 
+                        index=0,
+                        key="region_suggest",
+                        help="Select from suggestions",
+                        label_visibility="collapsed"
+                    )
+                    # Update the text input with the selected region
+                    st.session_state.region_selected_cohort = region
+                else:
+                    region = search_query
+                    
+                # Show match count
+                if total_matches > 10:
+                    st.sidebar.markdown(f"<span style='font-size:11px; color:orange;'>Showing 10 of {total_matches:,} matches</span>", unsafe_allow_html=True)
+                else:
+                    st.sidebar.markdown(f"<span style='font-size:11px; color:white;'>{total_matches:,} matches</span>", unsafe_allow_html=True)
+            else:
+                # When not typing, use the current region from session state
+                region = default_region
+                total_matches = len(st.session_state.cached_region_options_cohort)
+                st.sidebar.markdown(f"<span style='font-size:11px; color:white;'>Search to find from {total_matches:,} regions</span>", unsafe_allow_html=True)
 
             if 'regions_idx' not in st.session_state:
                 st.session_state.regions_idx = 0
@@ -397,9 +486,66 @@ class Visualization:
     def visulize_region(self):
         if 'regions_idx' not in st.session_state:
             st.session_state.regions_idx = 0
+        region_options = list(st.session_state.records_map.values())
+        
+        # Safe index access with bounds checking
+        regions_idx = st.session_state.get('regions_idx', 0)
+        if regions_idx >= len(region_options):
+            regions_idx = 0
+            st.session_state.regions_idx = 0
+        
+        default_region = region_options[regions_idx] if region_options else ""
         st.sidebar.markdown("### Select Region to Visualize")
-        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
+        
+        # Cache the full options list to avoid recreating it
+        if 'cached_region_options' not in st.session_state:
+            st.session_state.cached_region_options = region_options
+        
+        # Track if a selection was made
+        if 'region_selected_ind' not in st.session_state:
+            st.session_state.region_selected_ind = ""
+        
+        # Searchable field: text input that filters selectbox
+        search_query = st.sidebar.text_input(
+            "🔍 Search region:", 
+            value=st.session_state.region_selected_ind,
+            key="region_search",
+            help="Type to search and filter results",
+            placeholder="Type to search..."
+        )
+        
+        # Filter options based on search and show only 10 results
+        if search_query:
+            search_lower = search_query.lower()
+            filtered = [r for r in st.session_state.cached_region_options if search_lower in r.lower()]
+            filtered_regions = filtered[:10]  # Show only 10 results
+            total_matches = len(filtered)
+            
+            # Show the filtered selectbox without label to feel unified
+            if filtered_regions:
+                region = st.sidebar.selectbox(
+                    " ",  # Empty label
+                    filtered_regions, 
+                    index=0,
+                    key="region_suggest",
+                    help="Select from filtered results",
+                    label_visibility="collapsed"
+                )
+                # Update the text input with the selected region
+                st.session_state.region_selected_ind = region
+            else:
+                region = search_query
                 
+            if total_matches > 10:
+                st.sidebar.markdown(f"<span style='font-size:11px; color:orange;'>Showing 10 of {total_matches:,} matches</span>", unsafe_allow_html=True)
+            else:
+                st.sidebar.markdown(f"<span style='font-size:11px; color:white;'>{total_matches:,} matches</span>", unsafe_allow_html=True)
+        else:
+            # No search - show default region
+            region = default_region
+            total_matches = len(st.session_state.cached_region_options)
+            st.sidebar.markdown(f"<span style='font-size:11px; color:white;'>Search to find from {total_matches:,} regions</span>", unsafe_allow_html=True)
+        
         display_option = st.sidebar.radio("Select Display Type", 
                                             ("Sequence with Highlighted Motifs", "Bars"))
 
@@ -468,11 +614,6 @@ class Visualization:
                         }
                         </style>
                     """, unsafe_allow_html=True)
-        # REF.markdown(f"""
-        #             <div style="font-size: 20px; color: #4CAF50; margin-bottom: 10px;">
-        #                 <strong>Reference Copy Number:</strong> {record['ref_CN']}
-        #             </div>
-        #         """, unsafe_allow_html=True)
 
         container = st.container()
         motif_colors = self.get_color_palette(len(record['motifs']))
