@@ -44,7 +44,7 @@
 
 <h2></h2>
 <p>Below is an example screenshot of the Tandem Repeat Visualization Tool in action:</p>
-<img src="EXAMPLE.png" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
+<img src="example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
 
 <h2>Contributing</h2>
 <p>If you'd like to contribute to this project, please fork the repository, make your changes, and submit a pull request. Any contributions are welcome!</p>
