@@ -271,6 +271,148 @@ if __name__ == "__main__":
             icon="💡"
         )
 
+    # Custom HTML/CSS to align the logo to the left with a transparent background
+    st.sidebar.markdown(
+        f"""
+        <style>
+        .sidebar {{
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            padding: 0;
+            margin: 0;
+        }}
+        .sidebar .sidebar-content {{
+            background: transparent !important;
+        }}
+        .proletract-title-container {{
+            text-align: center;
+            margin-top: 32px;
+            margin-bottom: -8px;
+        }}
+        .proletract-title {{
+            font-size: 2.3rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: white;
+            font-family: inherit;
+            display: inline-block;
+            line-height: 1.12;
+        }}
+        .proletract-subtitle {{
+            color: white;
+            text-align: center;
+            font-size: 14px;
+            margin-top: -8px;
+            margin-bottom: 10px;
+            font-family: inherit;
+            font-weight: 500;
+        }}
+        .logo-container {{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 25px 20px;
+            background: rgba(255, 255, 255, 0.0); /* Make logo container fully transparent */
+            backdrop-filter: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 25px;
+        }}
+        .logo {{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: transparent; /* Remove white frame and make background transparent */
+            padding: 0;              /* Remove extra padding so image stands alone */
+            border-radius: 0;        /* Remove border radius so image outline is unchanged */
+            box-shadow: none;        /* Remove box shadow */
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }}
+        .logo:hover {{
+            transform: translateY(-3px);
+            box-shadow: none;        /* No shadow on hover */
+            background: transparent; /* Keep transparent background on hover */
+        }}
+        .logo img {{
+            width: 220px;
+            height: auto;
+            border-radius: 8px;
+            background: transparent;   /* Ensure image background is transparent */
+            box-shadow: none;          /* Remove any shading */
+        }}
+        .sidebar-section {{
+            background: rgba(255, 255, 255, 0.95);
+            margin: 15px;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }}
+        .sidebar-title {{
+            font-size: 16px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 15px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+        }}
+        .sidebar-widget {{
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            padding: 15px;
+            border-radius: 12px;
+            margin: 10px 0;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }}
+        .sidebar-widget:hover {{
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }}
+        [data-testid="stSidebar"] {{
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        }}
+        [data-testid="stSidebar"] * {{
+            color: white;
+        }}
+        /* Fix: Override text input and textarea text color for sidebar */
+        [data-testid="stSidebar"] input,
+        [data-testid="stSidebar"] textarea {{
+            color: #222 !important;
+            background: rgba(255, 255, 255, 0.92);
+        }}
+        [data-testid="stSidebar"] input::placeholder,
+        [data-testid="stSidebar"] textarea::placeholder {{
+            color: #667eea99 !important;
+        }}
+        /* Style the Streamlit radio widget on the sidebar to match sidebar theme */
+        [data-testid="stSidebar"] [data-baseweb="radio"] label {{
+            color: black !important;
+            background: transparent;
+        }}
+        [data-testid="stSidebar"] [data-baseweb="radio"] .css-1aehpvj,  /* radio background */
+        [data-testid="stSidebar"] [data-baseweb="radio"] .css-1e3y7mc {{
+            background: black !important;
+        }}
+        [data-testid="stSidebar"] [data-baseweb="radio"] span {{
+            color: white !important;
+        }}
+        [data-testid="stSidebar"] [data-baseweb="radio"] svg {{
+            fill: #e7e5f8 !important;
+            stroke: #fff !important;
+        }}
+        [data-testid="stSidebar"] [data-baseweb="radio"] input[type="radio"]:checked + div > div > svg {{
+            fill: #fff !important;
+            stroke: #764ba2 !important;
+        }}
+        </style>
+
+        """,
+        unsafe_allow_html=True,
+    )
 
     main()
     
