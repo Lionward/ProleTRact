@@ -3,11 +3,11 @@
 
 <h2>Features</h2>
 <ul>
+  <li><strong>Chohort and indivisual mode</li>
   <li><strong>Dynamic Sequence Visualization:</strong> Displays the sequence with color-coded motifs, highlighting interruptions in red and making it easy to identify motif patterns and interruptions.</li>
   <li><strong>Motif Comparison Across Alleles:</strong> Visualizes motifs for each allele separately, providing a side-by-side comparison of motif structures and copy numbers.</li>
-  <li><strong>Hover Functionality:</strong> Enables users to hover over motifs and interruptions, with tooltip descriptions of the corresponding motif or interruption for detailed analysis.</li>
-  <li><strong>Summary Statistics:</strong> Provides statistics on the total number of records and motifs directly in the sidebar.</li>
-  <li><strong>Region Navigation:</strong> Offers seamless navigation between tandem repeat regions via "Previous" and "Next" buttons, or manual input for specific genomic locations.</li>
+  <li><strong>Population comparsion</li>
+
 </ul>
 
 <h2>Installation</h2>
