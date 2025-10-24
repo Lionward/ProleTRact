@@ -13,10 +13,10 @@
 <h2>Installation</h2>
 <ol>
   <li>Clone this repository:
-    <pre><code>git clone git@github.com:Lionward/tandemtwister-vis.git</code></pre>
+    <pre><code>git clone git@github.com:Lionward/ProleTRact.git</code></pre>
   </li>
   <li>Navigate to the project directory:
-    <pre><code>cd tandemtwister-vis</code></pre>
+    <pre><code>cd ProleTRact</code></pre>
   </li>
   <li>Install the required dependencies:
   </li>
