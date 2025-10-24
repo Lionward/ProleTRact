@@ -12,6 +12,10 @@ display_dynamic_sequence_with_highlighted_motifs = importlib.reload(__import__("
 display_motifs_as_bars = importlib.reload(__import__("vis_helper")).display_motifs_as_bars
 motif_legend_html = importlib.reload(__import__("vis_helper")).motif_legend_html
 plot_motif_bar = importlib.reload(__import__("vis_helper")).plot_motif_bar
+interpret_genotype = importlib.reload(__import__("vis_helper")).interpret_genotype
+display_genotype_card = importlib.reload(__import__("vis_helper")).display_genotype_card
+display_genotype_badge = importlib.reload(__import__("vis_helper")).display_genotype_badge
+create_genotype_comparison_matrix = importlib.reload(__import__("vis_helper")).create_genotype_comparison_matrix
 
 
 class Visualization:
@@ -402,6 +406,15 @@ class Visualization:
         elif not isinstance(motif_names, list):
             motif_names = [motif_names]
 
+        gt = rec.samples[0]['GT']
+        supporting_reads = rec.samples[0]['DP']
+        gt = '/'.join([str(i) for i in gt])
+        if isinstance(supporting_reads, tuple):
+            supporting_reads_h1 = supporting_reads[0]
+            supporting_reads_h2 = supporting_reads[1]
+        else:
+            supporting_reads_h1 = supporting_reads
+            supporting_reads_h2 = supporting_reads
         # Final record dictionary
         record = {
             'chr': rec.chrom,
@@ -417,7 +430,10 @@ class Visualization:
             'spans': spans,
             'ref_allele': ref_allele,
             'alt_allele1': alt_allele1,
-            'alt_allele2': alt_allele2
+            'alt_allele2': alt_allele2,
+            'gt': gt,
+            'supported_reads_h1': supporting_reads_h1,
+            'supported_reads_h2': supporting_reads_h2
         }
         # For debugging/inspection purposes
         return record
@@ -722,15 +738,29 @@ class Visualization:
                 "<style>.tab-content {font-size: 20px;}</style>",
                 unsafe_allow_html=True,
             )
+
+
             with tab2:
                 motif_legend_html(record['motif_ids_ref'], motif_colors, motif_names)
-                display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
-                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+                
+                # Add genotype visualization under motifs in region
+                st.markdown("### Genotype Information")
+                display_genotype_card(record['gt'], "Current Sample", show_details=True)
+                st.markdown("---")
+                
+                display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names, None)
+                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names, record['supported_reads_h1'])
                 if record['alt_allele2'] != '':
-                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
+                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names, record['supported_reads_h2'])
             with tab1:
                 motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
-                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+                
+                # Add genotype visualization under motifs in region
+                st.markdown("###  Genotype Information")
+                display_genotype_card(record['gt'], "Current Sample", show_details=True)
+                st.markdown("---")
+                
+                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names, record['supported_reads_h1'])
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
                     if show_comparison == False:
@@ -738,7 +768,7 @@ class Visualization:
                             plot_motif_bar(motif_count_h1, motif_names, motif_colors)
                 
                 if record['alt_allele2'] != '':
-                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names,)
+                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names, record['supported_reads_h2'])
                     plot_container_h2 = st.empty()
 
                     with plot_container_h2:
@@ -748,6 +778,17 @@ class Visualization:
 
             with tab3:
                 if hgsvc_records:
+                    # Add genotype comparison for population data
+                    st.markdown("### 🧬 Population Genotype Comparison")
+                    population_genotypes = {"Current Sample": record['gt']}
+                    for sample_name, sample_record in hgsvc_records.items():
+                        if 'gt' in sample_record:
+                            population_genotypes[sample_name] = sample_record['gt']
+                    
+                    if len(population_genotypes) > 1:
+                        create_genotype_comparison_matrix(population_genotypes)
+                        st.markdown("---")
+                    
                     self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
                 else:
                     st.info("no population data found")
@@ -762,6 +803,17 @@ class Visualization:
         motif_ids_list = []
         # make space between the last print 
         sort_by = st.radio("Sort by:", ("Value", "Sample Name"), horizontal=True, key="sort_by_cohort")
+        
+        # Extract genotype information for comparison
+        genotypes_dict = {}
+        for key in cohort_records.keys():
+            genotypes_dict[key] = cohort_records[key]['gt']
+        
+        # Display genotype comparison matrix
+        st.markdown("---")
+        create_genotype_comparison_matrix(genotypes_dict)
+        st.markdown("---")
+        
         for key in cohort_records.keys():
             sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
             span_list.append(cohort_records[key]['spans'][1])
@@ -1780,18 +1832,30 @@ class Visualization:
                 st.html('<div class="tab-content">')
                 # Your tab1 content here
                 motif_legend_html(record['motif_ids_ref'], motif_colors, motif_names)
+                
+                # Add genotype visualization under motifs in region
+                st.markdown("### 🧬 Genotype Information")
+                display_genotype_card(record['gt'], "Current Sample", show_details=True)
+                st.markdown("---")
+                
                 display_dynamic_sequence_with_highlighted_motifs("Ref", record['ref_allele'], record['motif_ids_ref'], record['spans'][0], motif_colors, motif_names)
                 alt_allele1 = record['alt_allele1']
-                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names, record['supported_reads_h1'])
                 if record['alt_allele2'] != '':
                     alt_allele2 = record['alt_allele2'] 
-                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names, record['supported_reads_h2'])
                 st.html('</div>')
             with tab1:
                 motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
+                
+                # Add genotype visualization under motifs in region
+                st.markdown("### 🧬 Genotype Information")
+                display_genotype_card(record['gt'], "Current Sample", show_details=True)
+                st.markdown("---")
+                
                 st.html('<div class="tab-content">')
                 alt_allele1 = record['alt_allele1']
-                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names, record['supported_reads_h1'])
 
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
@@ -1802,7 +1866,7 @@ class Visualization:
                 if record['alt_allele2'] != '':
 
                     alt_allele2 = record['alt_allele2'] 
-                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names, record['supported_reads_h2'])
                     
                     plot_container_h2 = st.empty()
                     with plot_container_h2:
@@ -1811,9 +1875,18 @@ class Visualization:
                                 plot_motif_bar(motif_count_h2, motif_names, motif_colors)
                 st.html('</div>')
             with tab3:
-
-
                 if hgsvc_records:
+                    # Add genotype comparison for population data
+                    st.markdown("### 🧬 Population Genotype Comparison")
+                    population_genotypes = {"Current Sample": record['gt']}
+                    for sample_name, sample_record in hgsvc_records.items():
+                        if 'gt' in sample_record:
+                            population_genotypes[sample_name] = sample_record['gt']
+                    
+                    if len(population_genotypes) > 1:
+                        create_genotype_comparison_matrix(population_genotypes)
+                        st.markdown("---")
+                    
                     self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
                 else:
                     st.info("no population data found")
