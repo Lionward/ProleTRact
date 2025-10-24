@@ -1,16 +1,13 @@
-<h1>ProleTRact</h1>
-<p align="center">
-<img width="503" alt="grafik" src="https://github.com/user-attachments/assets/6aaace39-159b-4008-9f1f-fa1d37a1b4e8">
-</p>
+<h1>🧬 ProleTRact</h1>
 <p>This repository contains a <strong>Tandem Repeat Visualization Tool</strong> designed using Streamlit. The tool processes Variant Call Format (VCF) files, visualizing tandem repeats in an intuitive, interactive format. Users can explore motifs, compare alleles, and gain insights into the structure of tandem repeats, enhancing their ability to interpret genomic variation.</p>
 
 <h2>Features</h2>
 <ul>
+  <li><strong>Chohort and indivisual mode</li>
   <li><strong>Dynamic Sequence Visualization:</strong> Displays the sequence with color-coded motifs, highlighting interruptions in red and making it easy to identify motif patterns and interruptions.</li>
   <li><strong>Motif Comparison Across Alleles:</strong> Visualizes motifs for each allele separately, providing a side-by-side comparison of motif structures and copy numbers.</li>
-  <li><strong>Hover Functionality:</strong> Enables users to hover over motifs and interruptions, with tooltip descriptions of the corresponding motif or interruption for detailed analysis.</li>
-  <li><strong>Summary Statistics:</strong> Provides statistics on the total number of records and motifs directly in the sidebar.</li>
-  <li><strong>Region Navigation:</strong> Offers seamless navigation between tandem repeat regions via "Previous" and "Next" buttons, or manual input for specific genomic locations.</li>
+  <li><strong>Population comparsion</li>
+
 </ul>
 
 <h2>Installation</h2>
@@ -47,7 +44,7 @@
 
 <h2></h2>
 <p>Below is an example screenshot of the Tandem Repeat Visualization Tool in action:</p>
-<img src="EXAMPLE.png" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
+<img src="example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
 
 <h2>Contributing</h2>
 <p>If you'd like to contribute to this project, please fork the repository, make your changes, and submit a pull request. Any contributions are welcome!</p>

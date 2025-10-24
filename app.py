@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from data_handling import VCFHandler, CohortHandler
 from visualization import Visualization
 import pandas as pd 
@@ -16,7 +17,6 @@ def get_pathogenic_TRs():
     pathogenic_trs = pd.read_csv(current_path+"/pathogenic_TRs.bed", sep="\t", header=None)
     pathogenic_trs.columns = ["chrom",'start','end','motif','pathogenic_min','inheritance','disease','gene']
     st.session_state.pathogenic_TRs = pathogenic_trs
-    # make column region
     pathogenic_trs['region'] = pathogenic_trs['chrom'] + ":" + pathogenic_trs['start'].astype(str) + "-" + pathogenic_trs['end'].astype(str)
 
 
@@ -26,7 +26,6 @@ def main():
         st.session_state.vcf_handler = VCFHandler()
     if 'cohort_handler' not in st.session_state:
         st.session_state.cohort_handler = CohortHandler()
-    #if 'visualization' not in st.session_state:
     st.session_state.visualization = Visualization()
     get_pathogenic_TRs()
     
@@ -38,7 +37,7 @@ def main():
         
     analysis_mode = st.sidebar.radio(
         "Select the type of analysis", 
-        ("individual sample", "Cohort", "comparison"), 
+        ("individual sample", "Cohort"), 
         key="analysis_mode_radio",
         label_visibility='visible',
         help="Choose the analysis workflow.",
@@ -78,7 +77,6 @@ def main():
     """, unsafe_allow_html=True)
 
     if analysis_mode == "individual sample":
-        # posistion the button in the center
         vcf_handler.handle_individual_sample()
         st.session_state.analysis_mode = "individual sample"
         
@@ -95,16 +93,7 @@ def main():
         # if the path doesn't end with a slash add it
 
         visualization.visulize_cohort()
-    elif analysis_mode == "comparison":
-        if 'all_files_parsed' not in st.session_state:
-            st.session_state.all_files_parsed = False
-        st.session_state.analysis_mode = "comparison"
-        vcf_handler.handle_comparison_samples()
-        if st.session_state.all_files_parsed:
-            visualization.compare_different_technologies()
-        else:
-            st.warning("Failed to parse the VCF files")
-            #st.stop()  
+
 
 if __name__ == "__main__":
 
@@ -211,6 +200,61 @@ if __name__ == "__main__":
             }
         </style>
     """, unsafe_allow_html=True)
+    
+    # Add JavaScript to make navigation buttons fixed
+    components.html("""
+        <script>
+        (function() {
+            function makeNavButtonsFixed() {
+                const buttons = document.querySelectorAll('button');
+                let prevButton = null;
+                let nextButton = null;
+                
+                buttons.forEach(btn => {
+                    const text = btn.textContent || btn.innerText || '';
+                    if (text.includes('Previous region') && btn.style.position !== 'fixed') {
+                        prevButton = btn;
+                    }
+                    if (text.includes('Next region') && btn.style.position !== 'fixed') {
+                        nextButton = btn;
+                    }
+                });
+                
+                if (prevButton && nextButton) {
+                    // Style the buttons to be fixed
+                    prevButton.style.position = 'fixed';
+                    prevButton.style.bottom = '20px';
+                    prevButton.style.left = 'calc(50% - 150px)';
+                    prevButton.style.zIndex = '999';
+                    
+                    nextButton.style.position = 'fixed';
+                    nextButton.style.bottom = '20px';
+                    nextButton.style.left = 'calc(50% + 50px)';
+                    nextButton.style.zIndex = '999';
+                }
+            }
+            
+            // Run immediately
+            makeNavButtonsFixed();
+            
+            // Run after a delay
+            setTimeout(makeNavButtonsFixed, 100);
+            setTimeout(makeNavButtonsFixed, 500);
+            setTimeout(makeNavButtonsFixed, 1000);
+            
+            // Use MutationObserver to watch for DOM changes
+            const observer = new MutationObserver(function(mutations) {
+                makeNavButtonsFixed();
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        })();
+        </script>
+    """, height=0)
+    
     st.sidebar.markdown(
         """
         <div style="
@@ -377,11 +421,5 @@ if __name__ == "__main__":
         unsafe_allow_html=True,
     )
 
-        
-    # <div class="logo-container">
-    #     <div class="logo">
-    #         <img src="data:image/png;base64,{logo_base64}" alt="Logo">
-    #     </div>
-    # </div>
     main()
     

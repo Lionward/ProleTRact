@@ -170,7 +170,96 @@ class Visualization:
     def visulize_cohort(self):
         col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")
         if 'cohorts_records_map' in st.session_state:
-            region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
+            region_options = list(st.session_state.cohorts_records_map.values())
+            
+            # Safe index access with bounds checking
+            regions_idx = st.session_state.get('regions_idx', 0)
+            if regions_idx >= len(region_options):
+                regions_idx = 0
+                st.session_state.regions_idx = 0
+            
+            default_region = region_options[regions_idx] if region_options else ""
+            
+            # Cache the full options list to avoid recreating it
+            if 'cached_region_options_cohort' not in st.session_state:
+                st.session_state.cached_region_options_cohort = region_options
+            
+            # Single unified field: text input with autocomplete suggestions
+            # Track if a selection was made
+            if 'region_selected_cohort' not in st.session_state:
+                st.session_state.region_selected_cohort = ""
+            
+            search_query = st.sidebar.text_input(
+                "🔍 Search region:", 
+                value=st.session_state.region_selected_cohort,
+                key="region_search_cohort",
+                help="Type to search and filter results",
+                placeholder="Type to search..."
+            )
+            
+            # Use markdown+CSS trick to make selectbox text black
+            st.markdown("""
+                <style>
+                /* Ensure all selectbox texts are black, regardless of state */
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] span {
+                    color: black !important;
+                }
+                [data-testid="stSidebar"] .stSelectbox label, 
+                [data-testid="stSidebar"] .stSelectbox div[role="listbox"] span {
+                    color: black !important;
+                }
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] input,
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[role="combobox"] span,
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[role="button"] span,
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[role="option"] span,
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[role="listbox"] span {
+                    color: black !important;
+                }
+                /* Also set all the selectbox selected value text to black */
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] input {
+                    color: black !important;
+                    font-weight: 700;
+                }
+                /* For v1.31+ (possible dark mode or material theme changes): */
+                [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div[aria-selected="true"] span {
+                    color: black !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+    
+            
+            # Filter and show suggestions only when typing
+            if search_query:
+                search_lower = search_query.lower()
+                filtered = [r for r in st.session_state.cached_region_options_cohort if search_lower in r.lower()]
+                filtered_regions = filtered[:10]  # Limit to 10 results
+                total_matches = len(filtered)
+                
+                # Show filtered suggestions as a dropdown without label to feel unified
+                if filtered_regions:
+                    region = st.sidebar.selectbox(
+                        " ",  # Empty label
+                        filtered_regions, 
+                        index=0,
+                        key="region_suggest",
+                        help="Select from suggestions",
+                        label_visibility="collapsed"
+                    )
+                    # Update the text input with the selected region
+                    st.session_state.region_selected_cohort = region
+                else:
+                    region = search_query
+                    
+                # Show match count
+                if total_matches > 10:
+                    st.sidebar.markdown(f"<span style='font-size:11px; color:orange;'>Showing 10 of {total_matches:,} matches</span>", unsafe_allow_html=True)
+                else:
+                    st.sidebar.markdown(f"<span style='font-size:11px; color:white;'>{total_matches:,} matches</span>", unsafe_allow_html=True)
+            else:
+                # When not typing, use the current region from session state
+                region = default_region
+                total_matches = len(st.session_state.cached_region_options_cohort)
+                st.sidebar.markdown(f"<span style='font-size:11px; color:white;'>Search to find from {total_matches:,} regions</span>", unsafe_allow_html=True)
 
             if 'regions_idx' not in st.session_state:
                 st.session_state.regions_idx = 0
@@ -237,178 +326,6 @@ class Visualization:
             else:
                 st.stop()
 
-    def parse_record_TRGT(self, vcf_file, region):
-        """
-        Parse a TRGT-formatted VCF record for a given region string (e.g., chr:start-end).
-        Handles parsing GT, motif occurrences, alleles, and works out spans for each haplotype.
-        Returns a dictionary with all the key info for visualization or downstream analysis.
-
-        Args:
-            vcf_file (str): Path to the VCF file.
-            region (str): Region string, e.g. "chr1:12345-12399"
-
-        Returns:
-            dict: Parsed record info if present in region, otherwise None.
-        """
-
-
-
-        vcf = pysam.VariantFile(vcf_file)
-        record_iter = vcf.fetch(region=region)
-        record = next(record_iter, None)
-
-        if record is None:
-            st.warning(f"No records found for region {region}")
-            return None
-        st.write(record)
-        # Pull out identifiers and motif info
-        ID = record.info['TRID']
-        chrom = ID.split('_')[0]
-        start = int(ID.split('_')[1])
-        end = int(ID.split('_')[2])
-        motifs = record.info['MOTIFS']
-        sample = record.samples[0]
-        GT_tuple = sample['GT']
-        GT = '/'.join([str(i) for i in GT_tuple])  
-
-        # fields we'll be filling
-        occurrences_h1 = ""
-        occurrences_h2 = ""
-        motif_ids_hap1 = []
-        motif_ids_hap2 = []
-        CN_ref = np.nan
-        CN_hap1 = np.nan
-        CN_hap2 = np.nan
-        ref_seq = record.ref
-        seq_hap1 = "."
-        seq_hap2 = "."
-
-        # Motif "spans" (MS field) -- tells us where the repeats are
-        spans = sample.get('MS')
-        if spans and spans != ('.',):
-            MC_value = sample.get('MC')
-            # Support for both tuple and single string for spans
-            if isinstance(spans, tuple) and len(spans) > 0:
-                spans_string_h1 = spans[0] if spans[0] else ""
-                spans_string_h2 = spans[1] if len(spans) > 1 else spans[0]
-                MC_value_h1 = MC_value[0] if MC_value[0] else ""
-                MC_value_h2 = MC_value[1] if len(MC_value) > 1 else MC_value[0]
-                MC_value_h1 = list(map(int, MC_value_h1.split('_')))
-                MC_value_h2 = list(map(int, MC_value_h2.split('_')))
-            else:
-                spans_string_h1 = spans
-                spans_string_h2 = spans
-                MC_value_h1 = MC_value if MC_value else ""
-                MC_value_h2 = MC_value if MC_value else ""
-
-            motif_indices_h1 = []
-            motif_indices_h2 = []
-            intervals_h1 = []
-            intervals_h2 = []
-            # Split and parse the motif indices and intervals for both haplotypes.
-            def parse_spans(spans_string, motif_indices, intervals):
-                if spans_string:
-                    spans_list = spans_string.split('_')
-                    a = 0
-                    for span in spans_list:
-                        match = re.match(r'(\d+)\((\d+)-(\d+)\)', span)
-                        if match:
-                            motif_indices.append(str(match.group(1)))
-                            # Store tuple of ints for easier downstream adjustment
-                            if a==0:
-                                intervals.append((int(match.group(2))+1, int(match.group(3))+1))
-                            else:
-                                intervals.append((int(match.group(2))+2, int(match.group(3))+1))
-                            a += 1
-            parse_spans(spans_string_h1, motif_indices_h1, intervals_h1)
-            parse_spans(spans_string_h2, motif_indices_h2, intervals_h2)
-            # make the intervals in this format again (start-end    )
-            intervals_h1 = [f"({start}-{end})" for start, end in intervals_h1]
-            intervals_h2 = [f"({start}-{end})" for start, end in intervals_h2]
- 
-            spans_h1 = ''.join(intervals_h1)
-            spans_h2 = ''.join(intervals_h2)
-   
-            # Get occurrence numbers from spans strings
-            # This function must be implemented elsewhere in the class
-            # occurrences_h1 = self.convert_trgt_spans_to_occurrences(spans_string_h1, motifs)
-            # occurrences_h2 = self.convert_trgt_spans_to_occurrences(spans_string_h2, motifs)
-
-            # # For each haplotype, the occurrences string is like "3_2" (for motif counts)
-            # motif_ids_hap1 = list(map(int, occurrences_h1.split('_'))) if occurrences_h1 else []
-            # motif_ids_hap2 = list(map(int, occurrences_h2.split('_'))) if occurrences_h2 else []
-            # get the MC format
-            CN_hap1 = sum(MC_value_h1)
-            CN_hap2 = sum(MC_value_h2)
-
-            # # Convert motif counts to string format for output
-            # motif_ids_hap1_str = [str(i) for i in MC_value_h1]
-            # motif_ids_hap2_str = [str(i) for i in MC_value_h2]
-
-      
-
-            # Figure out alternate allele sequences
-            alt_allele1 = "."
-            alt_allele2 = "."
-
-            if record.alts:
-                # Usually one or two alternates; handle accordingly
-                if len(record.alts) > 0:
-                    alt_allele2 = record.alts[0]
-                    if len(record.alts) > 1:
-                        alt_allele2 = record.alts[1]
-                    else:
-                        # Only one alt; what haplotype does it belong to? 
-                        if GT == '0/1':
-                            alt_allele1 = ref_seq
-                        else:
-                            # Both haplotypes are alt, GT==1/1
-                            alt_allele1 = alt_allele2
-                else:
-                    # No valid alt, just reference
-                    alt_allele1 = ref_seq
-                    alt_allele2 = ref_seq
-            else:
-                if GT == '0/0':
-                    alt_allele1 = ref_seq
-                    alt_allele2 = ref_seq
-                
-            # Set output sequences for haplotypes if available
-            if alt_allele1 != ".":
-                seq_hap1 = alt_allele1
-            if alt_allele2 != ".":
-                seq_hap2 = alt_allele2
-
-
-            motif_ids_hap1_str = motif_indices_h1
-            motif_ids_hap2_str = motif_indices_h2
-            # # Split the overall spans for visualization (especially for stacked motif visualization)
-            # spans_h1_intervals = split_spans_by_occurrences(spans_string_h1, motif_ids_hap1, motifs)
-            # spans_h2_intervals = split_spans_by_occurrences(spans_string_h2, motif_ids_hap2, motifs)
-            # spans_list = [spans_h1_intervals, spans_h2_intervals]
-            spans_list = [spans_h1, spans_h2]
-        else:
-            motif_ids_hap1_str = []
-            motif_ids_hap2_str = []
-            spans_list = []
-
-        output_record = {
-            'chr': chrom,
-            'pos': start,
-            'stop': end,
-            'motifs': list(motifs),
-            'motif_ids_h1': motif_ids_hap1_str,
-            'motif_ids_h2': motif_ids_hap2_str,
-            'motif_ids_ref': [],
-            'ref_CN': CN_ref,
-            'CN_H1': CN_hap1,
-            'CN_H2': CN_hap2,
-            'spans': spans_list,
-            'ref_allele': ref_seq,
-            'alt_allele1': seq_hap1,
-            'alt_allele2': seq_hap2
-        }
-        return output_record
 
     def parse_record(self, vcf_file, region):
         """
@@ -505,304 +422,7 @@ class Visualization:
         # For debugging/inspection purposes
         return record
 
-    def compare_different_technologies(self):
-        if 'regions_idx' not in st.session_state:
-            st.session_state.regions_idx = 0
-        st.sidebar.markdown("### Select Region to Visualize")
-        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
-        col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")  
-        REF, CN1_col, CN2_col = st.columns([1, 1, 1])
-        with col1:
-            if st.button("Previous region"):
-                region = None
-                st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
-        with col2:
-            if st.button("Next region"):
-                region = None
-                st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.assembly_vcf_records_map_h1) - 1)
-        if region and region != st.session_state.get('previous_region', None):
-            try:
-                chr_input, start_end_input = region.split(':')
-                start_input, end_input = map(int, start_end_input.split('-'))
-                input_region = f"{chr_input}:{start_input}-{end_input}"
-                if input_region not in st.session_state.assembly_vcf_records_h1:
-                    st.warning(f"No records found for the region: {input_region}")
-                record_key = st.session_state.assembly_vcf_records_h1[input_region]
-                st.session_state.regions_idx = list(st.session_state.assembly_vcf_records_map_h1.values()).index(input_region)
 
-            except:
-                try:
-                    chr_input, start_input, end_input = re.split(r'\s+', region)
-                    start_input, end_input = int(start_input), int(end_input)
-                    input_region = f"{chr_input}:{start_input}-{end_input}"
-                    record_key = st.session_state.assembly_vcf_records_h1[input_region]
-                    st.session_state.regions_idx = list(st.session_state.assembly_vcf_records_map_h1.values()).index(input_region)
-                except:
-                    st.warning(f"Invalid region format: {region}")
-                    st.stop()
-        else:
-            try:
-                record_key = st.session_state.assembly_vcf_records_h1[st.session_state.assembly_vcf_records_map_h1[st.session_state.regions_idx]]
-            except:
-                try:
-                    record_key = st.session_state.assembly_vcf_records_h1[st.session_state.assembly_vcf_records_map_h1[st.session_state.regions_idx]]   
-                except:
-                    st.warning(f"No records found for the region in the assembly vcfs")
-                    st.stop()
-                    
-        st.session_state.previous_region = region
-        tandemtwister_record = self.parse_record(st.session_state.vcf_file_tandemtwister, record_key)
-        assembly_record_h1 = self.parse_record_assembly(st.session_state.assembly_vcf_h1, record_key)
-        assembly_record_h2 = self.parse_record_assembly(st.session_state.assembly_vcf_h2, record_key)
-        trgt_record = self.parse_record_TRGT(st.session_state.vcf_file_trgt, record_key)
-
-
-
-        # /confidential/home01/Calraei/tandemrepeats/trgt/results/HG002_trgt.vcf.gz
-        # /confidential/home01/Calraei/tandemrepeats/tandemtwister/results/HG002_CCS.vcf.gz
-        # /confidential/home01/Calraei/tandemrepeats/tandemtwister/assembly_results/NA24385_h1.vcf.gz
-        if trgt_record is None or tandemtwister_record is None or assembly_record_h1 is None or assembly_record_h2 is None:
-            st.warning(f"No records found for the region: {record_key}")
-            st.stop()
-        region_display = st.empty()
-        self.render_region_display(region_display, record_key)
-        
-        st.markdown("""
-                <style>
-                :root {
-                    --region-color-light: black;
-                    --region-color-dark: white;
-                }
-                /* Default style for light mode */
-                .region-container {
-                    color: var(--region-color-light);
-                }
-                /* Apply different color for dark mode */
-                @media (prefers-color-scheme: dark) {
-                    .region-container {
-                        color: var(--region-color);
-                    }
-                }
-                </style>
-            """, unsafe_allow_html=True)
-
-        self.compare_TR_results(trgt_record, tandemtwister_record, assembly_record_h1, assembly_record_h2)
-    def merge_spans_based_on_motif_ids(self, spans, motif_ids):
-        """
-        Given a list of spans (as strings) and motif IDs, merges consecutive spans
-        with the same motif ID and returns a list of merged span strings and the corresponding merged ids.
-        
-        Args:
-            spans (list): List of strings like '(0-8)', '(8-12)', ...
-            motif_ids (list): List of motif IDs, e.g., [0,0,0,2,1]
-        Returns:
-            Tuple:
-              - List of merged spans as strings, e.g. ['(0-16)', '(16-19)', '(19-23)']
-              - List of the merged motif IDs, e.g. [0, 2, 1]
-        """
-        import re
-
-        def parse_span(span_str):
-            # Expect input like '(0-8)' or similar
-            s = str(span_str).strip()
-            if not (s.startswith('(') and s.endswith(')')):
-                return None, None
-            s = s[1:-1]  # Remove parentheses
-            parts = s.split('-')
-            if len(parts) != 2:
-                return None, None
-            try:
-                return int(parts[0]), int(parts[1])
-            except ValueError:
-                return None, None
-
-
-        # the span is a str  (1-3)(4-6)(7-9)(10-12)(13-15)(16-18)(19-21)(22-26)(27-31)(32-35)(36-39)(40-43)(44-47)(48-50)(51-54)
-        # split the spans into a list of spans
-        # add _ after each span
-        tmp_span_str = ""
-        for i in range(len(spans)):
-            if spans[i] == ")":
-                tmp_span_str += spans[i] + "_"
-            else:
-                tmp_span_str += spans[i]
-        spans = tmp_span_str.split("_")
-        spans = [s for s in spans if s != ""]
-
-        if not spans or not motif_ids or len(spans) != len(motif_ids):
-            return ".", ["."]
-        merged_spans = []
-        merged_ids = []
-        curr_start, curr_end = None, None
-        curr_id = None
-
-        prev_end = None
-        prev_seq_int = None
-
-        for idx, (span, mid) in enumerate(zip(spans, motif_ids)):
-            s, e = parse_span(span)
-            if s is None or e is None:
-                continue
-            # At first, or after a merge, set tracking variables
-            if curr_id is None:
-                curr_id = mid
-                curr_start = s
-                curr_end = e
-                prev_end = e
-                prev_seq_int = None if idx == 0 else None
-            else:
-                # Check if motifs match and intervals are contiguous (no interruption/gap)
-                # That is, if this span starts exactly after the last one ended
-                if mid == curr_id and s == prev_end + 1:
-                    # Extend current span
-                    curr_end = e
-                    prev_end = e
-                else:
-                    # End current, start new
-                    merged_spans.append(f"({curr_start}-{curr_end})")
-                    merged_ids.append(curr_id)
-                    curr_id = mid
-                    curr_start = s
-                    curr_end = e
-                    prev_end = e
-        # Don't forget the last run
-        if curr_start is not None and curr_end is not None:
-            merged_spans.append(f"({curr_start}-{curr_end})")
-            merged_ids.append(curr_id)
-        merged_spans = "".join(merged_spans)
-        return merged_spans, merged_ids
-    def visulize_assembly_h1_h2(self, assembly_record_h1, assembly_record_h2):
-     
-        # Visualize the dynamic motifs for assembly haplotype 1 and 2
-        assembly_h1_motifs_ids = assembly_record_h1['motif_ids_h'] if assembly_record_h1['motif_ids_h'] != ['.'] else []
-        assembly_h2_motifs_ids = assembly_record_h2['motif_ids_h'] if assembly_record_h2['motif_ids_h'] != ['.'] else []
-
-    
-        assembly_h1_spans = assembly_record_h1['spans'] if len(assembly_record_h1['spans']) > 0 else "."
-        assembly_h2_spans = assembly_record_h2['spans'] if len(assembly_record_h2['spans']) > 0 else "."
- 
-        #  sequence_name, sequence, motif_ids, spans, motif_colors, motif_names):
-        assembly_h1_motifs_names = assembly_record_h1['motifs'] if len(assembly_record_h1['motifs']) > 0 else "."
-        assembly_h2_motifs_names = assembly_record_h2['motifs'] if len(assembly_record_h2['motifs']) > 0 else "."
-
-        assembly_h1_alt_allele = assembly_record_h1['alt_allele'] if len(assembly_record_h1['alt_allele']) > 0 else "."
-        assembly_h2_alt_allele = assembly_record_h2['alt_allele'] if len(assembly_record_h2['alt_allele']) > 0 else "."
-
-        assembly_h1_spans, assembly_h1_motifs_ids = self.merge_spans_based_on_motif_ids(assembly_h1_spans, assembly_h1_motifs_ids)
-        assembly_h2_spans, assembly_h2_motifs_ids = self.merge_spans_based_on_motif_ids(assembly_h2_spans, assembly_h2_motifs_ids)
- 
-        assembly_h1_motifs_colors = self.get_color_palette(len(assembly_h1_motifs_names))
-        assembly_h1_motifs_colors = {idx: color for idx, color in enumerate(assembly_h1_motifs_colors)}
-        assembly_h2_motifs_colors = self.get_color_palette(len(assembly_h2_motifs_names))
-        assembly_h2_motifs_colors = {idx: color for idx, color in enumerate(assembly_h2_motifs_colors)}
-        if assembly_h1_motifs_names == ['.'] and assembly_h2_motifs_names == ['.']:
-            st.warning(f"No motifs found in the region: {assembly_record_h1['chr']}:{assembly_record_h1['pos']}-{assembly_record_h1['stop']}")
-            st.stop()
-        else:
-            if assembly_h1_motifs_names == ['.']:
-                assembly_h1_motifs_names = assembly_h2_motifs_names
-                assembly_h1_motifs_colors = assembly_h2_motifs_colors
-
-            else:
-                assembly_h2_motifs_names = assembly_h1_motifs_names
-                assembly_h2_motifs_colors = assembly_h1_motifs_colors
-
-        
-        display_dynamic_sequence_with_highlighted_motifs(
-            "Assembly H1",
-            assembly_h1_alt_allele,        
-            assembly_h1_motifs_ids,      
-            assembly_h1_spans,                        
-            assembly_h1_motifs_colors,   
-            assembly_h1_motifs_names    
-        )
-        display_dynamic_sequence_with_highlighted_motifs(
-            "Assembly H2",
-            assembly_h2_alt_allele,        
-            assembly_h2_motifs_ids,     
-            assembly_h2_spans,       
-            assembly_h2_motifs_colors,   
-            assembly_h2_motifs_names   
-        )
-
-
-        
-    def visulize_tandemtwister_h1_h2(self, tandemtwister_record, tandemtwister_motifs_colors):
-
-        tandemtwister_motifs_names = tandemtwister_record['motifs']
-        tandemtwister_motifs_ids_h1 = tandemtwister_record['motif_ids_h1'] if tandemtwister_record['motif_ids_h1'] != ['.'] else []
-        tandemtwister_motifs_ids_h2 = tandemtwister_record['motif_ids_h2'] if tandemtwister_record['motif_ids_h2'] != ['.'] else []
-        tandemtwister_spans_h1 = tandemtwister_record['spans'][1]  if len(tandemtwister_record['spans']) > 1 else "."
-        tandemtwister_spans_h2 = tandemtwister_record['spans'][2] if len(tandemtwister_record['spans']) > 2 else "."
-        tandemtwister_alt_allele_h1 = tandemtwister_record['alt_allele1']
-        tandemtwister_alt_allele_h2 = tandemtwister_record['alt_allele2']
-        
-        tandemtwister_spans_h1, tandemtwister_motifs_ids_h1 = self.merge_spans_based_on_motif_ids(tandemtwister_spans_h1, tandemtwister_motifs_ids_h1)
-        tandemtwister_spans_h2, tandemtwister_motifs_ids_h2 = self.merge_spans_based_on_motif_ids(tandemtwister_spans_h2, tandemtwister_motifs_ids_h2)
-
-        display_dynamic_sequence_with_highlighted_motifs(
-                "TandemTwister H1",
-                tandemtwister_alt_allele_h1,        
-                tandemtwister_motifs_ids_h1,     
-                tandemtwister_spans_h1,       
-                tandemtwister_motifs_colors,   
-                tandemtwister_motifs_names   
-            )
-        display_dynamic_sequence_with_highlighted_motifs(
-            "TandemTwister H2",
-            tandemtwister_alt_allele_h2,        
-            tandemtwister_motifs_ids_h2,     
-            tandemtwister_spans_h2,       
-            tandemtwister_motifs_colors,   
-            tandemtwister_motifs_names   
-        )
-    def visulize_trgt_results(self, trgt_record, trgt_motifs_colors):
-        trgt_motifs_names = trgt_record['motifs']
-        trgt_motifs_ids_h1 = trgt_record['motif_ids_h1'] 
-        trgt_motifs_ids_h2 = trgt_record['motif_ids_h2']
-        trgt_spans_h1 = trgt_record['spans'][0] if len(trgt_record['spans']) > 0 else "."
-        trgt_spans_h2 = trgt_record['spans'][1] if len(trgt_record['spans']) > 1 else "."
-        trgt_alt_allele_h1 = trgt_record['alt_allele1'] if len(trgt_record['alt_allele1']) > 0 else "."
-        trgt_alt_allele_h2 = trgt_record['alt_allele2'] if len(trgt_record['alt_allele2']) > 0 else "."
-  
-        display_dynamic_sequence_with_highlighted_motifs(
-            "TRGT H1",
-            trgt_alt_allele_h1,
-            trgt_motifs_ids_h1,
-            trgt_spans_h1,
-            trgt_motifs_colors,
-            trgt_motifs_names
-        )
-        display_dynamic_sequence_with_highlighted_motifs(
-            "TRGT H2",
-            trgt_alt_allele_h2,        
-            trgt_motifs_ids_h2,     
-            trgt_spans_h2,       
-            trgt_motifs_colors,   
-            trgt_motifs_names   
-        )
-    def compare_TR_results(self, trgt_record, tandemtwister_record, assembly_record_h1, assembly_record_h2):
-        # print the motif ids and the spans of the TRGT, TandemTwister, and Assembly records
-        assembly_motifs_names = assembly_record_h1['motifs']
-        trgt_motifs_names = trgt_record['motifs']
-        tandemtwister_motifs_names = tandemtwister_record['motifs']
-        # make a color map and assign it to the motifs but only for the assembly motifs
-        assembly_motifs_colors = self.get_color_palette(len(assembly_motifs_names))
-        assembly_motifs_colors = {assembly_motif: color for assembly_motif, color in zip(assembly_motifs_names, assembly_motifs_colors)}
-        # based on the assembly motifs colors, assign the colors to the trgt and tandemtwister motifs
-        trgt_motifs_colors = {idx: assembly_motifs_colors[trgt_motif] for idx, trgt_motif in enumerate(trgt_motifs_names)}
-        tandemtwister_motifs_colors = {idx: assembly_motifs_colors[tandemtwister_motif] for idx, tandemtwister_motif in enumerate(tandemtwister_motifs_names)}
-        assembly_motifs_colors = {idx: assembly_motifs_colors[assembly_motif] for idx, assembly_motif in enumerate(assembly_motifs_names)}
-  
-        assembly_motif_ids  = assembly_record_h1['motif_ids_h'] if assembly_record_h1['motif_ids_h'] != ['.'] else []
-        motif_legend_html(assembly_motif_ids, assembly_motifs_colors, assembly_motifs_names)
- 
-        # visulize the assembly h1 and h2 with coloring the spans with the motif ids
-        # with col1:
-        self.visulize_assembly_h1_h2(assembly_record_h1, assembly_record_h2)
-        self.visulize_tandemtwister_h1_h2(tandemtwister_record, tandemtwister_motifs_colors)
-        self.visulize_trgt_results(trgt_record, trgt_motifs_colors)
- 
     def get_color_palette(self, num_colors):
         """
         Generate a color palette optimized for motif visualization with good distinctiveness
@@ -866,9 +486,66 @@ class Visualization:
     def visulize_region(self):
         if 'regions_idx' not in st.session_state:
             st.session_state.regions_idx = 0
+        region_options = list(st.session_state.records_map.values())
+        
+        # Safe index access with bounds checking
+        regions_idx = st.session_state.get('regions_idx', 0)
+        if regions_idx >= len(region_options):
+            regions_idx = 0
+            st.session_state.regions_idx = 0
+        
+        default_region = region_options[regions_idx] if region_options else ""
         st.sidebar.markdown("### Select Region to Visualize")
-        region = st.sidebar.text_input("TR region (e.g., chr1:1000-2000)", value=None, key="region", help="Enter the region in the format: chr:start-end")
+        
+        # Cache the full options list to avoid recreating it
+        if 'cached_region_options' not in st.session_state:
+            st.session_state.cached_region_options = region_options
+        
+        # Track if a selection was made
+        if 'region_selected_ind' not in st.session_state:
+            st.session_state.region_selected_ind = ""
+        
+        # Searchable field: text input that filters selectbox
+        search_query = st.sidebar.text_input(
+            "🔍 Search region:", 
+            value=st.session_state.region_selected_ind,
+            key="region_search",
+            help="Type to search and filter results",
+            placeholder="Type to search..."
+        )
+        
+        # Filter options based on search and show only 10 results
+        if search_query:
+            search_lower = search_query.lower()
+            filtered = [r for r in st.session_state.cached_region_options if search_lower in r.lower()]
+            filtered_regions = filtered[:10]  # Show only 10 results
+            total_matches = len(filtered)
+            
+            # Show the filtered selectbox without label to feel unified
+            if filtered_regions:
+                region = st.sidebar.selectbox(
+                    " ",  # Empty label
+                    filtered_regions, 
+                    index=0,
+                    key="region_suggest",
+                    help="Select from filtered results",
+                    label_visibility="collapsed"
+                )
+                # Update the text input with the selected region
+                st.session_state.region_selected_ind = region
+            else:
+                region = search_query
                 
+            if total_matches > 10:
+                st.sidebar.markdown(f"<span style='font-size:11px; color:orange;'>Showing 10 of {total_matches:,} matches</span>", unsafe_allow_html=True)
+            else:
+                st.sidebar.markdown(f"<span style='font-size:11px; color:white;'>{total_matches:,} matches</span>", unsafe_allow_html=True)
+        else:
+            # No search - show default region
+            region = default_region
+            total_matches = len(st.session_state.cached_region_options)
+            st.sidebar.markdown(f"<span style='font-size:11px; color:white;'>Search to find from {total_matches:,} regions</span>", unsafe_allow_html=True)
+        
         display_option = st.sidebar.radio("Select Display Type", 
                                             ("Sequence with Highlighted Motifs", "Bars"))
 
@@ -937,11 +614,6 @@ class Visualization:
                         }
                         </style>
                     """, unsafe_allow_html=True)
-        # REF.markdown(f"""
-        #             <div style="font-size: 20px; color: #4CAF50; margin-bottom: 10px;">
-        #                 <strong>Reference Copy Number:</strong> {record['ref_CN']}
-        #             </div>
-        #         """, unsafe_allow_html=True)
 
         container = st.container()
         motif_colors = self.get_color_palette(len(record['motifs']))
@@ -964,46 +636,6 @@ class Visualization:
         ranges = [(int(start)-1, int(end)-1) for start, end in matches]
         return ranges
     
-    def convert_trgt_spans_to_occurrences(self, spans_string, motifs):
-        """
-        Convert TRGT spans string to motif occurrences based on motif sizes and spans.
-        
-        Args:
-            spans_string (str): TRGT spans format like '0(3-9)_2(15-21)_3(22-29)_4(29-35)'
-            motifs (tuple/list): List of motif sequences to determine motif lengths
-            
-        Returns:
-            str: Motif occurrences like '0_2_3_4' or '0_0_2_3_4' if first motif spans longer
-        """
-        if not spans_string or spans_string == "":
-            return ""
-            
-        # Parse the spans string to extract motif index and position ranges
-        # Format: '0(3-9)_2(15-21)_3(22-29)_4(29-35)'
-        pattern = re.compile(r'(\d+)\((\d+)-(\d+)\)')
-        matches = pattern.findall(spans_string)
-        
-        occurrences = []
-        for motif_idx_str, start_str, end_str in matches:
-            motif_idx = int(motif_idx_str)
-            start_pos = int(start_str)
-            end_pos = int(end_str)
-           
-            # Get motif length from the motifs tuple/list
-            if motif_idx < len(motifs):
-                motif_length = len(motifs[motif_idx])
-            else:
-                # Fallback if motif index is out of range
-                motif_length = end_pos - start_pos + 1
-        
-            # Calculate how many motif occurrences fit in this span
-            span_length = end_pos - start_pos + 1
-            num_occurrences = span_length // motif_length
-            # Add the motif index the appropriate number of times
-            for _ in range(num_occurrences):
-                occurrences.append(str(motif_idx))
-        
-        return '_'.join(occurrences)   
     
     def parse_motif_in_region(self,record):
 
@@ -1102,7 +734,8 @@ class Visualization:
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
                     if show_comparison == False:
-                        plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+                        with st.expander("Show motif bar plot for Allel1", expanded=False):
+                            plot_motif_bar(motif_count_h1, motif_names, motif_colors)
                 
                 if record['alt_allele2'] != '':
                     display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names,)
@@ -1110,7 +743,8 @@ class Visualization:
 
                     with plot_container_h2:
                         if show_comparison == False:
-                            plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                            with st.expander("Show motif bar plot for Allel2", expanded=False):
+                                plot_motif_bar(motif_count_h2, motif_names, motif_colors)
 
             with tab3:
                 if hgsvc_records:
@@ -1120,84 +754,6 @@ class Visualization:
 
             
 
-    # def plot_motif_bar(self, motif_count, motif_names, motif_colors=None, sequence_name=""):
-    #     motif_labels = []
-    #     motif_counts = []
-    #     motif_ids = []
-        
-    #     for label, value in sorted(motif_count.items()):
-    #         motif_name = motif_names[int(label)]
-    #         if motif_name:
-    #             motif_labels.append(motif_name)
-    #             motif_counts.append(value)
-    #             motif_ids.append(int(label))
-        
-    #     data = {
-    #         'Motif': motif_labels,
-    #         'Count': motif_counts,
-    #         'Motif_ID': motif_ids
-    #     }
-    #     df = pd.DataFrame(data)
-        
-    #     color_list = [motif_colors[motif_id] for motif_id in motif_ids] if motif_colors else None
-        
-    #     # Create interactive bar chart with selection
-    #     selection = alt.selection_point(
-    #         name='select',
-    #         fields=['Motif'],
-    #         bind='legend'
-    #     )
-        
-    #     bar_chart = alt.Chart(df).mark_bar(
-    #         cornerRadius=8,
-    #         stroke='white',
-    #         strokeWidth=2
-    #     ).encode(
-    #         x=alt.X('Count:Q', 
-    #             title='Occurrences',
-    #             axis=alt.Axis(
-    #                 labelColor='#4B5563',
-    #                 titleColor='#374151',
-    #                 labelFontWeight='bold',
-    #                 titleFontWeight='bold'
-    #             )),
-    #         y=alt.Y('Motif:N', 
-    #             sort='-x',
-    #             title='',
-    #             axis=alt.Axis(
-    #                 labelColor='#4B5563',
-    #                 labelFontWeight='bold'
-    #             )),
-    #         color=alt.Color('Motif:N',
-    #                     scale=alt.Scale(domain=motif_labels, range=color_list),
-    #                     legend=alt.Legend(
-    #                         title='Motifs',
-    #                         orient='top',
-    #                         titleFontWeight='bold',
-    #                         labelFontWeight='bold'
-    #                     )),
-    #         tooltip=['Motif', 'Count'],
-    #         opacity=alt.condition(selection, alt.value(1), alt.value(0.3))
-    #     ).properties(
-    #         width=400,
-    #         height=300,
-    #         title=alt.TitleParams(
-    #             text=f'🧬 Motif Occurrences - {sequence_name}',^
-    #             fontSize=16,
-    #             fontWeight='bold',
-    #             color='#1F2937'
-    #         )
-    #     ).add_params(
-    #         selection
-    #     ).configure_view(
-    #         strokeWidth=0,
-    #         fill='rgba(255,255,255,0.9)'
-    #     )
-        
-    #     # plot 
-    #     # bar_chart = bar_chart.configure_axisX(labelAngle=0)
-    #     # st.altair_chart(bar_chart, use_container_width=True)
-    #     return bar_chart, df
 
 
     def plot_Cohort_results(self,cohort_records):
@@ -1473,23 +1029,11 @@ class Visualization:
         
         # Create two columns for side-by-side plots
 
-        col1, col2 = st.columns(2)
 
-        with col1:
-            st.markdown('<div class="plot-card">', unsafe_allow_html=True)
-            self.bar_plot_motif_count(df, region, sort_by)
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="plot-card">', unsafe_allow_html=True)
+        self.bar_plot_motif_count(df, region, sort_by)
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        #     st.markdown('<div class="plot-card">', unsafe_allow_html=True)
-        #     pivot_hgsvc = pd.pivot_table(df[df['Sample'] == 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
-        #     pivot_sample = pd.pivot_table(df[df['Sample'] != 'HGSVC'], index='Motif', columns='Sample', values='Length', aggfunc='count', fill_value=0)
-
-        #     pivot_hgsvc_long = pivot_hgsvc.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
-        #     pivot_sample_long = pivot_sample.reset_index().melt(id_vars='Motif', var_name='Sample', value_name='Count')
-
-        #     combined_data = pd.concat([pivot_hgsvc_long, pivot_sample_long])
-        #     self.plot_heatmap(combined_data, sort_by=sort_by)
-        #     st.markdown('</div>', unsafe_allow_html=True)
         
         # Scatter plot in full width below
         st.markdown('<div class="plot-card-full">', unsafe_allow_html=True)
@@ -1556,54 +1100,53 @@ class Visualization:
                 trace.showlegend = False
 
         name = "HGSVC" if st.session_state.analysis_mode == "indivisual sample" else st.session_state.analysis_mode 
-        with col2:
-            figure.add_trace(go.Scatter(
-                x=[None], y=[None], 
-                mode='markers', 
-                marker=dict(color='#6B7280', size=20, line=dict(width=2, color='white')), 
-                name=name
-            ))
+        figure.add_trace(go.Scatter(
+            x=[None], y=[None], 
+            mode='markers', 
+            marker=dict(color='#6B7280', size=20, line=dict(width=2, color='white')), 
+            name=name
+        ))
 
-            figure.update_layout(
-                title=dict(
-                    text="Motif Occurrences Across Samples",
-                    x=0.2,
-                    font=dict(size=20, color='#1F2937')
-                ),
-                xaxis_title=dict(text="Motif", font=dict(size=14, color='#4B5563')),
-                yaxis_title=dict(text="Occurrence Count", font=dict(size=14, color='#4B5563')),
-                plot_bgcolor='rgba(255,255,255,0.9)',
-                paper_bgcolor='rgba(255,255,255,0.9)',
-                hoverlabel=dict(
-                    bgcolor="white",
-                    font_size=12,
-                    font_family="Inter"
-                ),
-                legend=dict(
-                    bgcolor='rgba(255,255,255,0.8)',
-                    bordercolor='rgba(0,0,0,0.1)',
-                    borderwidth=1
-                )
+        figure.update_layout(
+            title=dict(
+                text="Motif Occurrences Across Samples",
+                x=0.2,
+                font=dict(size=20, color='#1F2937')
+            ),
+            xaxis_title=dict(text="Motif", font=dict(size=14, color='#4B5563')),
+            yaxis_title=dict(text="Occurrence Count", font=dict(size=14, color='#4B5563')),
+            plot_bgcolor='rgba(255,255,255,0.9)',
+            paper_bgcolor='rgba(255,255,255,0.9)',
+            hoverlabel=dict(
+                bgcolor="white",
+                font_size=12,
+                font_family="Inter"
+            ),
+            legend=dict(
+                bgcolor='rgba(255,255,255,0.8)',
+                bordercolor='rgba(0,0,0,0.1)',
+                borderwidth=1
             )
+        )
 
-            xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
-            figure.update_xaxes(
-                tickmode='array', 
-                tickvals=list(xaxis_colors.keys()), 
-                ticktext=[
-                    f'<span style="color:{xaxis_colors[motif]}; font-weight:600">{motif}</span>' for motif in xaxis_colors.keys()
-                ], 
-                tickangle=45,
-                gridcolor='rgba(0,0,0,0.1)'
-            )
+        xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
+        figure.update_xaxes(
+            tickmode='array', 
+            tickvals=list(xaxis_colors.keys()), 
+            ticktext=[
+                f'<span style="color:{xaxis_colors[motif]}; font-weight:600">{motif}</span>' for motif in xaxis_colors.keys()
+            ], 
+            tickangle=45,
+            gridcolor='rgba(0,0,0,0.1)'
+        )
 
-            figure.update_yaxes(
-                range=[0, df['Sample'].value_counts().max()],
-                gridcolor='rgba(0,0,0,0.1)'
-            )
-            
-            st.plotly_chart(figure, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+        figure.update_yaxes(
+            range=[0, df['Sample'].value_counts().max()],
+            gridcolor='rgba(0,0,0,0.1)'
+        )
+        
+        st.plotly_chart(figure, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
     def bar_plot_motif_count(self, df, region, sort_by="Value"):
@@ -1789,45 +1332,7 @@ class Visualization:
                     'Sequence': sequence['sequence'][previous_end:],
                 })
         
-        # # Nicer, more visually appealing display for interruptions
-        # if interruptions_dict:
-        #     st.markdown("""
-        #         <div style='
-        #             background: linear-gradient(90deg, #fee2e2, #fef6f6 90%);
-        #             border-left: 5px solid #ef4444;
-        #             padding: 15px 20px 15px 16px;
-        #             margin-top: 15px;
-        #             margin-bottom: 18px;
-        #             border-radius: 8px;
-        #             box-shadow: 0px 3px 16px #fca5a51a;
-        #             '>
-        #         <span style='font-weight: bold; color: #991b1b; font-size: 1rem; display: block; letter-spacing: 0.01em; margin-bottom: 6px;'>
-        #             🚨 Interruptions Observed:
-        #         </span>
-        #         <div style='display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px;'>
-        #     """, unsafe_allow_html=True)
-        #     for seq in interruptions_dict:
-        #         st.markdown(
-        #             f"<span style='display: inline-block; background: #991b1b; color: #fff; padding: 5px 13px; border-radius: 17px; font-size: 14px; font-family: monospace; box-shadow: 0 1px 5px #991b1b18;'>{seq}</span>",
-        #             unsafe_allow_html=True
-        #         )
-        #     st.markdown("</div></div>", unsafe_allow_html=True)
-        # else:
-        #     st.markdown("""
-        #         <div style='
-        #             background: linear-gradient(90deg, #f3f4f6, #e0e7ef 85%);
-        #             border-left: 5px solid #94a3b8;
-        #             padding: 14px 20px 14px 16px;
-        #             margin-top: 16px;
-        #             margin-bottom: 16px;
-        #             border-radius: 7px;
-        #             box-shadow: 0px 2px 11px #64748b19;
-        #             '>
-        #         <span style='font-weight: 600; color: #52525b; font-size: 1rem; letter-spacing:0.01em'>
-        #             No Significant Interruptions Detected.
-        #         </span>
-        #         </div>
-        #     """, unsafe_allow_html=True)
+
         return pd.DataFrame(data)
 
     def stack_plot(self, record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value"):
@@ -2291,7 +1796,8 @@ class Visualization:
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
                     if show_comparison == False:
-                        plot_motif_bar(motif_count_h1, motif_names, motif_colors)
+                        with st.expander("Show motif bar plot for Allel1", expanded=False):
+                            plot_motif_bar(motif_count_h1, motif_names, motif_colors)
 
                 if record['alt_allele2'] != '':
 
@@ -2301,11 +1807,11 @@ class Visualization:
                     plot_container_h2 = st.empty()
                     with plot_container_h2:
                         if show_comparison == False:
-                            plot_motif_bar(motif_count_h2, motif_names, motif_colors)
+                            with st.expander("Show motif bar plot for Allel2", expanded=False):
+                                plot_motif_bar(motif_count_h2, motif_names, motif_colors)
                 st.html('</div>')
             with tab3:
-                #motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
-                                # Create a more compact legend for motifs
+
 
                 if hgsvc_records:
                     self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
@@ -2335,62 +1841,3 @@ class Visualization:
         
         st.markdown('</div>', unsafe_allow_html=True)
 
-
-
-
-
-
-
-# --- Helper Functions Below ---
-
-# def get_simple_spans(spans_string):
-#     """
-#     Take a string like '0(0-27)_1(0-28)' and pull out just the span coordinates as strings,
-#     e.g. ['(0-27)', '(0-28)']. Ignores motif ids.
-#     """
-#     if not spans_string:
-#         return []
-#     simple_spans = []
-#     for motif_span in spans_string.split('_'):
-#         match = re.match(r'(?:\d+)?\((\d+-\d+)\)', motif_span)
-#         if match:
-#             span = match.group(1)
-#             simple_spans.append(f'({span})')
-#     return simple_spans
-
-# def split_spans_by_occurrences(spans_string, motif_ids, motifs):
-#     """
-#     Split all TRGT-style (multi-span) regions into subspans per-motif occurrence for visualization.
-#     Handles multiple spans and motif counts, e.g.:
-#     spans_string: "15(0-51)_0(51-102)_9(102-155)_..."
-#     motif_ids: [1, 1, 1, ...] (total n)
-#     Returns a flattened list of per-motif subspans, e.g. ['(0-51)', '(51-102)', ...]
-#     """
-#     import re
-
-#     if not spans_string or not motif_ids or not isinstance(motif_ids, list):
-#         return []
-
-#     # Parse all spans in the TRGT string
-#     # Format: "motif_idx(start-end)_motif_idx(start-end)_..."
-#     span_matches = re.findall(r'(?:\d+)?\((\d+)-(\d+)\)', spans_string)
-#     if not span_matches or len(motif_ids) == 0:
-#         return []
-
-#     subspans = []
-#     for idx, span in enumerate(span_matches):
-
-#         span_start = int(span[0])
-#         span_end = int(span[1])
-#         raw_len = span_end - span_start 
-#          # Always run at least once, but can be 0
-#         # Handle unit length: motif spanning single bases
-#         unit_len = len(motifs[motif_ids[idx]])
-#         actual_count = max(1, raw_len // unit_len)
-#         curr_start = span_start
-#         for repeat in range(actual_count):
-#             curr_end = curr_start + unit_len
-#             subspans.append(f'({curr_start}-{curr_end})')
-#             curr_start = curr_end
-#     subspans = ''.join(subspans)
-#     return subspans

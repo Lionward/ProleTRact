@@ -340,7 +340,6 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
     highlighted_sequence = ""
     previous_end = 0
 
-    # To keep size boxes visually the same, make interruption-segment the same element type and paddings as motif-segment
     interruption_class = "interruption-segment motif-segment"
     interruption_style = "background: linear-gradient(135deg, #fc8181, #e53e3e); opacity: 0.85; border: 1px dashed rgba(255,255,255,0.5); color: #fff;"
 
@@ -663,7 +662,6 @@ def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequen
             f"Coverage: <b>{coverage_bases} bp</b> ({coverage_percent:.2f}%)"
         )
 
-    # Collect motif/interruption bar HTMLs into a list so we can mark them for targeting in JS easily
     motif_bar_htmls = []
     previous_end = 0
     gap = 0.3   # minimum gap between bars
@@ -690,7 +688,6 @@ def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequen
             relative_width = max((span_length / sequence_length) * 100 - gap, 0.5)
             relative_start = (start / sequence_length) * 100
 
-            # Do NOT display motif name on bar; tooltip only
             display_content = ""
             tooltip_html = (
                 motif_tooltip_map[motif]
@@ -1024,6 +1021,8 @@ def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequen
         </script>
     """)
 
+
+
 def plot_motif_bar(motif_count, motif_names, motif_colors=None, sequence_name=""):
     motif_labels = []
     motif_counts = []
@@ -1058,8 +1057,8 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None, sequence_name=""
                 titleColor='#374151',
                 labelFontWeight='bold',
                 titleFontWeight='bold',
-                tickMinStep=1,                # Only integer ticks
-                format='d'                    # Integer formatting
+                tickMinStep=1,              
+                format='d'                 
             )),
         x=alt.X('Motif:N', 
             sort='-y',
