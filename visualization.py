@@ -33,7 +33,10 @@ class Visualization:
 
         for i in range(len(files)):
             sample_name = file_paths[i].split(".")[0]
-            record = self.parse_record(files[i], region)
+            if st.session_state.cohort_mode == "assembly":
+                record = self.parse_record_assembly(files[i], region)
+            else:
+                record = self.parse_record(files[i], region)
             samples_results[sample_name] = record
         return samples_results
     
@@ -80,6 +83,7 @@ class Visualization:
                 'spans': [],
                 'ref_allele': '',
                 'alt_allele': '',
+                'gt': '',
             }
             return record
         # Extract motif ids for the ALT allele (usually in sample field)
@@ -122,6 +126,7 @@ class Visualization:
             'spans': spans,
             'ref_allele': rec.ref,
             'alt_allele': alt_allele,
+            'gt': str(rec.samples[0]['GT'][0]),
         }
 
         return record
@@ -813,19 +818,24 @@ class Visualization:
         st.markdown("---")
         create_genotype_comparison_matrix(genotypes_dict)
         st.markdown("---")
-        
-        for key in cohort_records.keys():
-            sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
-            span_list.append(cohort_records[key]['spans'][1])
-            motif_ids_list.append(cohort_records[key]['motif_ids_h1'])
-            if cohort_records[key]['alt_allele2'] != '':
-                sequences.append({'name': f'{key}_alle2', 'sequence': cohort_records[key]['alt_allele2']})
-                span_list.append(cohort_records[key]['spans'][2])
-                motif_ids_list.append(cohort_records[key]['motif_ids_h2'])
-            else :
-                sequences.append({'name': f'{key}_alle2', 'sequence': ""})
-                span_list.append("")
-                motif_ids_list.append([0])
+        if st.session_state.cohort_mode == "assembly":
+            for key in cohort_records.keys():
+                sequences.append({'name': f'{key}', 'sequence': cohort_records[key]['alt_allele']})
+                span_list.append(cohort_records[key]['spans'])
+                motif_ids_list.append(cohort_records[key]['motif_ids_h'])
+        else:
+            for key in cohort_records.keys():
+                sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
+                span_list.append(cohort_records[key]['spans'][1])
+                motif_ids_list.append(cohort_records[key]['motif_ids_h1'])
+                if cohort_records[key]['alt_allele2'] != '':
+                    sequences.append({'name': f'{key}_alle2', 'sequence': cohort_records[key]['alt_allele2']})
+                    span_list.append(cohort_records[key]['spans'][2])
+                    motif_ids_list.append(cohort_records[key]['motif_ids_h2'])
+                else :
+                    sequences.append({'name': f'{key}_alle2', 'sequence': ""})
+                    span_list.append("")
+                    motif_ids_list.append([0])
 
         motif_names = cohort_records[list(cohort_records.keys())[0]]['motifs']
         record = cohort_records[list(cohort_records.keys())[0]]
@@ -1834,7 +1844,7 @@ class Visualization:
                 motif_legend_html(record['motif_ids_ref'], motif_colors, motif_names)
                 
                 # Add genotype visualization under motifs in region
-                st.markdown("### 🧬 Genotype Information")
+                st.markdown("###  Genotype Information")
                 display_genotype_card(record['gt'], "Current Sample", show_details=True)
                 st.markdown("---")
                 
@@ -1849,7 +1859,7 @@ class Visualization:
                 motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
                 
                 # Add genotype visualization under motifs in region
-                st.markdown("### 🧬 Genotype Information")
+                st.markdown("###  Genotype Information")
                 display_genotype_card(record['gt'], "Current Sample", show_details=True)
                 st.markdown("---")
                 

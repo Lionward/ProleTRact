@@ -84,6 +84,15 @@ def main():
 
 
     elif analysis_mode == "Cohort":
+        cohort_mode = st.sidebar.radio(
+            "Cohort Input Type",
+            ("Cohort VCF (reads-based)", "Assembly VCF (haplotype-resolved)"),
+            index=0,
+            key="cohort_mode_radio",
+            help="Are the cohort VCFs per individual (reads-based TR genotyping) or per-haplotype (assembly-based)?"
+        )
+        
+        st.session_state.cohort_mode = "assembly" if cohort_mode == "Assembly VCF (haplotype-resolved)" else "reads"
         cohort_handler.handle_cohort()
         st.session_state.analysis_mode = "Cohort"
         # if the path doesn't end with a slash add it

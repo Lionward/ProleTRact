@@ -208,6 +208,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
                 <span class="compact-motif-text">+{total_motifs - 12} more</span>
             </div>
             """
+
         
         st.html(f"""
             <style>
@@ -1261,18 +1262,17 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None, sequence_name=""
     bar_chart = bar_chart.configure_axisX(labelAngle=0).configure_legend(disable=True)
     st.altair_chart(bar_chart, use_container_width=True)
 
-
 def interpret_genotype(gt):
     """
-    Interpret genotype string and return meaningful description
+    Interpret genotype string and return meaningful description.
     
     Args:
-        gt (str): Genotype string like "0/0", "0/1", "1/2", etc.
+        gt (str): Genotype string like "0/0", "0/1", "1/2", "0", "1", etc.
     
     Returns:
         dict: Interpretation with description, colors, and icons
     """
-    if not gt or gt == "./.":
+    if not gt or gt in ["./.", ".", ""]:
         return {
             'description': 'No genotype called',
             'interpretation': 'Missing data',
@@ -1282,9 +1282,54 @@ def interpret_genotype(gt):
             'status': 'unknown'
         }
     
-    # Split genotype
-    alleles = gt.split('/')
-    if len(alleles) != 2:
+    # Clean and normalize input
+    gt_str = str(gt).strip()
+    # For assembly mode, genotype may be a single allele ("0", "1") or a tuple/list
+    if st.session_state.get("cohort_mode", "") == "assembly":
+        if isinstance(gt, (list, tuple)):
+            alleles = [str(a) for a in gt]
+        else:
+            # handle "0" or "1", or "0/1" (assembly data may sometimes use slash too)
+            if "/" in gt_str:
+                alleles = gt_str.split("/")
+            elif "|" in gt_str:
+                alleles = gt_str.split("|")
+            else:
+                alleles = [gt_str]
+    else:
+        # Default - try splitting with slash or pipe; else treat as single allele
+        if "/" in gt_str:
+            alleles = gt_str.split("/")
+        elif "|" in gt_str:
+            alleles = gt_str.split("|")
+        else:
+            alleles = [gt_str]
+
+    # Remove empty alleles (shouldn't happen with good VCFs)
+    alleles = [a for a in alleles if a not in [".", ""]]
+
+    # Accept single-haplotype genotypes as well (chrX, chrY, assemblies)
+    if len(alleles) == 1:
+        allele = alleles[0]
+        if allele == "0":
+            return {
+                'description': 'Hemizygous Reference (0)',
+                'interpretation': 'Only one haplotype; matches reference',
+                'color': '#10B981',
+                'bg_color': '#D1FAE5',
+                'icon': '🟢',
+                'status': 'hemizygous_ref'
+            }
+        else:
+            return {
+                'description': f'Hemizygous Alternative ({allele})',
+                'interpretation': f'Only one haplotype; differs from reference (allele {allele})',
+                'color': '#F59E0B',
+                'bg_color': '#FEF3C7',
+                'icon': '🟡',
+                'status': 'hemizygous_alt'
+            }
+    elif len(alleles) != 2:
         return {
             'description': f'Invalid genotype: {gt}',
             'interpretation': 'Malformed',
@@ -1293,7 +1338,7 @@ def interpret_genotype(gt):
             'icon': '⚠️',
             'status': 'error'
         }
-    
+
     allele1, allele2 = alleles
     
     # Handle different genotype patterns
@@ -1309,7 +1354,7 @@ def interpret_genotype(gt):
             }
         else:
             return {
-                'description': f'Homozygous Alternative ({gt})',
+                'description': f'Homozygous Alternative ({allele1}/{allele2})',
                 'interpretation': f'Both haplotypes different from reference (allele {allele1})',
                 'color': '#F59E0B',
                 'bg_color': '#FEF3C7',
@@ -1319,7 +1364,7 @@ def interpret_genotype(gt):
     else:
         if allele1 == "0" or allele2 == "0":
             return {
-                'description': f'Heterozygous Reference/Alternative ({gt})',
+                'description': f'Heterozygous Reference/Alternative ({allele1}/{allele2})',
                 'interpretation': 'One haplotype like reference, one different',
                 'color': '#3B82F6',
                 'bg_color': '#DBEAFE',
@@ -1328,7 +1373,7 @@ def interpret_genotype(gt):
             }
         else:
             return {
-                'description': f'Heterozygous Alternative ({gt})',
+                'description': f'Heterozygous Alternative ({allele1}/{allele2})',
                 'interpretation': f'Both haplotypes different from reference (alleles {allele1} and {allele2})',
                 'color': '#8B5CF6',
                 'bg_color': '#EDE9FE',
@@ -1473,70 +1518,76 @@ def display_genotype_badge(gt, size="medium"):
 
 def create_genotype_comparison_matrix(genotypes_dict):
     """
-    Create a visual comparison matrix of genotypes across samples
-    
+    Create a visual comparison matrix of genotypes across samples, hidden behind an expander
     Args:
         genotypes_dict (dict): Dictionary with sample names as keys and genotypes as values
     """
+
+
     st.markdown("### 🧬 Genotype Comparison Matrix")
-    
+
     # Create comparison data
     samples = list(genotypes_dict.keys())
     unique_genotypes = list(set(genotypes_dict.values()))
-    
+
     # Color mapping for different genotypes
     genotype_colors = {}
     for i, gt in enumerate(unique_genotypes):
         interpretation = interpret_genotype(gt)
         genotype_colors[gt] = interpretation['color']
-    
-    # Create matrix HTML
+
+    # Adjusted/Smaller matrix CSS
     matrix_html = """
         <style>
             .genotype-matrix {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 15px;
-                margin: 20px 0;
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                gap: 8px;
+                margin: 14px 0;
             }
             .matrix-cell {
                 background: white;
-                border: 2px solid #e5e7eb;
-                border-radius: 12px;
-                padding: 15px;
+                border: 1.5px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 7px 5px 9px 5px;
                 text-align: center;
-                transition: all 0.3s ease;
+                transition: all 0.22s ease;
                 position: relative;
                 overflow: hidden;
+                min-width: 0;
+                min-height: 0;
             }
             .matrix-cell:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+                transform: translateY(-1px) scale(1.02);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.10);
             }
             .sample-name {
-                font-size: 14px;
+                font-size: 11.5px;
                 font-weight: 600;
                 color: #374151;
-                margin-bottom: 8px;
+                margin-bottom: 3px;
+                white-space: pre-line;
+                overflow-wrap: anywhere;
+                word-break: break-all;
             }
             .genotype-display {
-                font-size: 18px;
+                font-size: 13px;
                 font-weight: 800;
                 font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-                letter-spacing: 1px;
-                margin-bottom: 5px;
+                letter-spacing: 0.6px;
+                margin-bottom: 2px;
+                line-height: 1.1;
             }
             .genotype-type {
-                font-size: 12px;
+                font-size: 9.5px;
                 color: #6B7280;
                 text-transform: uppercase;
-                letter-spacing: 0.5px;
+                letter-spacing: 0.28px;
             }
         </style>
-        
         <div class="genotype-matrix">
     """
-    
+
     for sample, gt in genotypes_dict.items():
         interpretation = interpret_genotype(gt)
         matrix_html += f"""
@@ -1546,26 +1597,26 @@ def create_genotype_comparison_matrix(genotypes_dict):
                 <div class="genotype-type">{interpretation['status'].replace('_', ' ').title()}</div>
             </div>
         """
-    
+
     matrix_html += "</div>"
-    
+
     st.html(matrix_html)
-    
+
     # Add summary statistics
     st.markdown("#### 📊 Genotype Summary")
-    
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         st.metric("Total Samples", len(samples))
-    
+
     with col2:
         st.metric("Unique Genotypes", len(unique_genotypes))
-    
+
     with col3:
         homozygous_count = sum(1 for gt in genotypes_dict.values() if interpret_genotype(gt)['status'].startswith('homozygous'))
         st.metric("Homozygous", homozygous_count)
-    
+
     with col4:
         heterozygous_count = sum(1 for gt in genotypes_dict.values() if interpret_genotype(gt)['status'].startswith('heterozygous'))
         st.metric("Heterozygous", heterozygous_count)
