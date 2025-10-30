@@ -84,6 +84,7 @@ class Visualization:
                 'ref_allele': '',
                 'alt_allele': '',
                 'gt': '',
+                'id': '',
             }
             return record
         # Extract motif ids for the ALT allele (usually in sample field)
@@ -127,6 +128,7 @@ class Visualization:
             'ref_allele': rec.ref,
             'alt_allele': alt_allele,
             'gt': str(rec.samples[0]['GT'][0]),
+            'id': rec.id,
         }
 
         return record
@@ -177,7 +179,6 @@ class Visualization:
         markdown_placeholder.html(html)
 
     def visulize_cohort(self):
-        col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")
         if 'cohorts_records_map' in st.session_state:
             region_options = list(st.session_state.cohorts_records_map.values())
             
@@ -272,15 +273,89 @@ class Visualization:
 
             if 'regions_idx' not in st.session_state:
                 st.session_state.regions_idx = 0
-            with col1:
-                if st.button("Previous region"):
+            
+            # Beautiful navigation buttons in sidebar
+            st.sidebar.markdown("""
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    background: linear-gradient(92deg, #667eea 0%, #a084e8 100%);
+                    padding: 10px 18px;
+                    border-radius: 14px;
+                    box-shadow: 0 2px 14px rgba(102, 126, 234, 0.10);
+                    margin-bottom: 8px;
+                    ">
+                    <span style="
+                        font-size: 28px;
+                        color: #4338ca;
+                        margin-right: 6px;
+                        filter: drop-shadow(0 2px 6px rgba(65,0,140,0.18));
+                        ">🧭</span>
+                    <span style="
+                        font-size: 1.25rem; 
+                        font-weight: 700; 
+                        letter-spacing: 0.03em; 
+                        color: #312e81;
+                        ">Region Navigation</span>
+                </div>
+            """, unsafe_allow_html=True)
+            nav_col1, nav_col2 = st.sidebar.columns(2, gap="small")
+            with nav_col1:
+                if st.button("◀ Previous", use_container_width=True, key="prev_region"):
                     region = None
                     st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
-
-            with col2:
-                if st.button("Next region"):
+            with nav_col2:
+                if st.button("Next ▶", use_container_width=True, key="next_region"):
                     region = None
                     st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
+            
+            # Add beautiful styling for sidebar navigation buttons
+            st.markdown("""
+                <style>
+                    /* Beautiful sidebar navigation buttons */
+                    [data-testid="stSidebar"] button[kind="secondary"] {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                        color: white !important;
+                        border: none !important;
+                        border-radius: 12px !important;
+                        font-weight: 700 !important;
+                        font-size: 15px !important;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+                    }
+                    [data-testid="stSidebar"] button[kind="secondary"]:hover {
+                        transform: translateY(-2px) scale(1.05) !important;
+                        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+                        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+                    }
+                </style>
+                <script>
+                (function() {
+                    function styleNavButtons() {
+                        const sidebarButtons = document.querySelectorAll('[data-testid="stSidebar"] button');
+                        sidebarButtons.forEach(btn => {
+                            const text = btn.textContent || btn.innerText || '';
+                            if (text.includes('◀ Previous') || text.includes('Next ▶')) {
+                                btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                                btn.style.color = 'white';
+                                btn.style.border = 'none';
+                                btn.style.borderRadius = '12px';
+                                btn.style.fontWeight = '700';
+                                btn.style.fontSize = '15px';
+                                btn.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                                btn.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                            }
+                        });
+                    }
+                    styleNavButtons();
+                    setTimeout(styleNavButtons, 100);
+                    setTimeout(styleNavButtons, 500);
+                    const observer = new MutationObserver(styleNavButtons);
+                    observer.observe(document.body, { childList: true, subtree: true });
+                })();
+                </script>
+            """, unsafe_allow_html=True)
             if region and region != st.session_state.get('previous_region', None):
                 try:
                     chr_input, start_end_input = region.split(':')
@@ -303,7 +378,8 @@ class Visualization:
                 region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
             mode_placeholder = st.empty()
             
-
+            # Create container for region display
+            middel, _ = st.columns([1, 0.1], gap="small")
             self.render_region_display(middel, region)
             st.markdown("""
                     <style>
@@ -412,7 +488,11 @@ class Visualization:
             motif_names = [motif_names]
 
         gt = rec.samples[0]['GT']
-        supporting_reads = rec.samples[0]['DP']
+        try:
+            supporting_reads = rec.samples[0]['DP']
+        except:
+            st.error(f"Input VCF file is not reads-based VCF files, please use assembly VCF files instead")
+            st.stop()
         gt = '/'.join([str(i) for i in gt])
         if isinstance(supporting_reads, tuple):
             supporting_reads_h1 = supporting_reads[0]
@@ -438,7 +518,8 @@ class Visualization:
             'alt_allele2': alt_allele2,
             'gt': gt,
             'supported_reads_h1': supporting_reads_h1,
-            'supported_reads_h2': supporting_reads_h2
+            'supported_reads_h2': supporting_reads_h2,
+            'id': rec.id,
         }
         # For debugging/inspection purposes
         return record
@@ -570,17 +651,68 @@ class Visualization:
         display_option = st.sidebar.radio("Select Display Type", 
                                             ("Sequence with Highlighted Motifs", "Bars"))
 
-        col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")  
-        REF, CN1_col, CN2_col = st.columns([1, 1, 1])
-        with col1:
-            if st.button("Previous region"):
+        # Beautiful navigation buttons in sidebar
+        st.sidebar.markdown("### 🧭 Navigation")
+        nav_col1, nav_col2 = st.sidebar.columns(2, gap="small")
+        with nav_col1:
+            if st.button("◀ Previous", use_container_width=True, key="prev_individual"):
                 region = None
                 st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
 
-        with col2:
-            if st.button("Next region"):
+        with nav_col2:
+            if st.button("Next ▶", use_container_width=True, key="next_individual"):
                 region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
+        
+        # Add beautiful styling for sidebar navigation buttons
+        st.markdown("""
+            <style>
+                /* Beautiful sidebar navigation buttons */
+                [data-testid="stSidebar"] button[kind="secondary"] {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 12px !important;
+                    font-weight: 700 !important;
+                    font-size: 15px !important;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+                }
+                [data-testid="stSidebar"] button[kind="secondary"]:hover {
+                    transform: translateY(-2px) scale(1.05) !important;
+                    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+                    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+                }
+            </style>
+            <script>
+            (function() {
+                function styleNavButtons() {
+                    const sidebarButtons = document.querySelectorAll('[data-testid="stSidebar"] button');
+                    sidebarButtons.forEach(btn => {
+                        const text = btn.textContent || btn.innerText || '';
+                        if (text.includes('◀ Previous') || text.includes('Next ▶')) {
+                            btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                            btn.style.color = 'white';
+                            btn.style.border = 'none';
+                            btn.style.borderRadius = '12px';
+                            btn.style.fontWeight = '700';
+                            btn.style.fontSize = '15px';
+                            btn.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                            btn.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                        }
+                    });
+                }
+                styleNavButtons();
+                setTimeout(styleNavButtons, 100);
+                setTimeout(styleNavButtons, 500);
+                const observer = new MutationObserver(styleNavButtons);
+                observer.observe(document.body, { childList: true, subtree: true });
+            })();
+            </script>
+        """, unsafe_allow_html=True)
+        
+        middel, spacer = st.columns([1, 0.1], gap="small")
+        REF, CN1_col, CN2_col = st.columns([1, 1, 1])
         if region and region != st.session_state.get('previous_region', None):
             try:
                 chr_input, start_end_input = region.split(':')
@@ -1261,9 +1393,6 @@ class Visualization:
                 fontWeight='bold',
                 color='#1F2937'
             )
-        ).configure_view(
-            strokeWidth=0,
-            fill='rgba(255,255,255,0.9)'
         )
 
         if region in st.session_state.pathogenic_TRs['region'].unique():
@@ -1279,7 +1408,15 @@ class Visualization:
                 text='🚨 Pathogenic Threshold', align='left', dx=5, dy=-10, fontSize=11, color='#DC2626', fontWeight='bold'
             ).encode(y='Total Copy Number:Q')
             
-            bar_chart = alt.layer(bar_chart, threshold_line, threshold_pointer)
+            bar_chart = alt.layer(bar_chart, threshold_line, threshold_pointer).configure_view(
+                strokeWidth=0,
+                fill='rgba(255,255,255,0.9)'
+            )
+        else:
+            bar_chart = bar_chart.configure_view(
+                strokeWidth=0,
+                fill='rgba(255,255,255,0.9)'
+            )
 
         st.altair_chart(bar_chart, use_container_width=True)
 
@@ -1402,10 +1539,12 @@ class Visualization:
         motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
         
         region = record['chr'] + ":" + str(record['pos'] - 1) + "-" + str(record['stop'] - 1)
-        start = record['pos'] +1
-        stop = record['stop'] -3
+        start = record['pos'] -1#+1
+        stop = record['stop'] -1
         chrom = record['chr']
-        updated_region = chrom + ":" + str(start) + "-" + str(stop)
+        updated_region = record['id']
+        #st.write(updated_region)
+        #updated_region = chrom + ":" + str(start) + "-" + str(stop)
         df = self.create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
         if df.empty:
             return motif_colors, df
@@ -1445,12 +1584,10 @@ class Visualization:
         inheritance = None
         disease = None
         above_threshold_samples = None
-
         if updated_region in st.session_state.pathogenic_TRs['region'].unique():
             pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
                 (st.session_state.pathogenic_TRs['region'] == updated_region)
             ]['pathogenic_min'].values[0]
-
             if pathogenic_threshold is None:
                 pathogenic_threshold = 0
             gene_name = st.session_state.pathogenic_TRs.loc[
@@ -1624,7 +1761,7 @@ class Visualization:
             above_threshold_samples = above_threshold_samples[above_threshold_samples['Length'] > pathogenic_threshold_length]
         else:
             above_threshold_samples = above_threshold_samples.iloc[0:0]  # Empty DataFrame with same structure
-        
+
         if pathogenic_threshold > 0 and df.groupby('Sample')['Length'].sum().max() > pathogenic_threshold_length:
             # Add threshold line
             rule = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length]})).mark_rule(
