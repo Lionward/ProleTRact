@@ -1420,55 +1420,6 @@ class Visualization:
 
         st.altair_chart(bar_chart, use_container_width=True)
 
-
-    def plot_heatmap(self, combined_data, sort_by="Value"):
-        combined_data = combined_data[combined_data['Motif'] != 'Interruption']
-        
-        if sort_by == "Value":
-            x_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
-            y_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
-        else:
-            x_sort = alt.SortField(field='Sample', order='ascending')
-            y_sort = alt.SortField(field='Motif', order='ascending')
-
-        heatmap = alt.Chart(combined_data).mark_rect(
-            cornerRadius=4
-        ).encode(
-            x=alt.X('Sample:N', title='Sample', sort=x_sort, axis=alt.Axis(
-                labelFontWeight='bold', 
-                labelColor='#4B5563', 
-                titleFontWeight='bold', 
-                titleColor='#374151',
-                labelAngle=45
-            )),
-            y=alt.Y('Motif:N', title='Motif', sort=y_sort, axis=alt.Axis(
-                labelFontWeight='bold', 
-                labelColor='#4B5563', 
-                titleFontWeight='bold', 
-                titleColor='#374151'
-            )),
-            color=alt.Color('Count:Q', scale=alt.Scale(scheme='redpurple'), title='Count'),
-            tooltip=['Sample', 'Motif', 'Count'],
-            stroke=alt.value('white'),
-            strokeWidth=alt.value(1)
-        ).properties(
-            width=400,
-            height=400,
-            title=alt.TitleParams(
-                text='',
-                fontSize=16,
-                fontWeight='bold', 
-                color='#1F2937'
-            )
-        ).configure_view(
-            strokeWidth=0,
-            fill='rgba(255,255,255,0.9)'
-        )
-
-        st.altair_chart(heatmap, use_container_width=True)
-
-
-
     
     def create_motif_dataframe(self,sequences, motif_colors, motif_ids, spans_list, motif_names):
         data = []
@@ -1632,6 +1583,14 @@ class Visualization:
         df['Sequence_length'] = df.groupby('Sample')['Length'].transform('sum')
 
         # Create heatmap with consistent sorting
+        # Dynamically set the width of the heatmap based on the number of motifs
+        motif_count = len(heatmap_data['Motif'].unique())
+        # Base width per motif (adjust as needed, e.g., 50)
+        width_per_motif = 40
+        min_width = 40
+        max_width = 480
+        dynamic_width = max(min_width, min(width_per_motif * motif_count, max_width))
+
         heatmap = alt.Chart(heatmap_data).mark_rect(
             cornerRadius=4,
             stroke='white',
@@ -1648,12 +1607,12 @@ class Visualization:
                     titleColor='#374151',
                     labelLimit=0,
                     ticks=False,
-                    tickSize=10,
-                    tickOffset=-5, # Move the ticks higher (toward the top of the heatmap)
-                    # distance to the left of the chart
+                    tickSize=20,
+                    tickOffset=-2,
                     labelPadding=10,
-
-                )),
+                    labelOverlap=False,
+                ),
+                scale=alt.Scale(paddingInner=0, paddingOuter=0.1)),
             x=alt.X('Motif:N', 
                 title='', 
                 sort=alt.EncodingSortField(field='Count', op='sum', order='descending'),
@@ -1683,7 +1642,7 @@ class Visualization:
             ),
             tooltip=['Sample', 'Motif', 'Count']
         ).properties(
-            width=200,
+            width=dynamic_width,
             height=chart_height,
             title=''
         )
@@ -1700,14 +1659,15 @@ class Visualization:
                     labelOverlap=False, 
                     ticks=False, 
                     labelColor='#4B5563', 
-                    labelFontSize=20, 
+                    labelFontSize=0, 
                     labelFontWeight='bold',
                     titleColor='#374151',
                     titleFontSize=28,
-                    labels = False,
                     labelPadding = 1000,
+                    labels = False,
+                    labelLimit = 0,
                 ),
-                scale=alt.Scale(paddingInner=0)
+                scale=alt.Scale(paddingInner=0, paddingOuter=0.6)
             ),
             x=alt.X('Length', 
                 title='Sequence Length', 
@@ -1838,13 +1798,39 @@ class Visualization:
             if updated_region:
                 gene_info_parts.append(f"Region: {updated_region}")
             subtitle_text = " • ".join(gene_info_parts)
-        # Combine charts
+
+        # Wrap the heatmap in a chart with a fixed width background if width is very small.
+        min_heatmap_display_width = 120  # Adjust as desired for visual effect
+
+        # If the calculated dynamic_width is exactly 40 (the minimum), pad the heatmap with a blank chart.
+        if dynamic_width == 40:
+            # Create a transparent dummy chart to the left of the heatmap to push it flush to the stack plot
+            padding_width = min_heatmap_display_width - dynamic_width
+
+            blank_left = alt.Chart(
+                pd.DataFrame({"dummy": [0]})
+            ).mark_rect(opacity=0).encode(
+                x=alt.value(0),
+                y=alt.value(0)
+            ).properties(
+                width=padding_width,
+                height=chart_height
+            )
+
+            heatmap_display = alt.hconcat(
+                blank_left,
+                heatmap.properties(width=dynamic_width),
+                spacing=0
+            )
+        else:
+            heatmap_display = heatmap
+
         combined_chart = alt.hconcat(
-            heatmap, 
+            heatmap_display, 
             final_stack_chart,
-            spacing=-5  # Set gap between plots to 0
+            spacing=0  # Set gap between plots to 0 to keep them flush
         ).resolve_scale(
-            y='shared'  # This ensures both charts use the same Y-axis scale and ordering
+            y='shared'
         ).properties(
             title=alt.TitleParams(
                 text=chart_title,
@@ -1861,17 +1847,17 @@ class Visualization:
         ).configure_view(
             strokeWidth=0
         ).configure_scale(
-            bandPaddingInner=0.0
+            bandPaddingInner=0
         ).configure_axis(
-            labelLimit=1000,          # Allow Altair to use a large label limit for y-axis
-            tickCount=len(df['Sample'].unique()),  # force ticks for all samples
+            labelLimit=1000,
+            tickCount=len(df['Sample'].unique()),
             labelOverlap=False,
-            tickMinStep= max(200, int(df['Sequence_length'].max() * 0.1)),  # 30% of max length, minimum 50
+            tickMinStep=max(200, int(df['Sequence_length'].max() * 0.1)),
         ).configure_axisY(
             labelFontSize=12,
-            labelLimit=1000,          # Allow enough space for all labels
-            tickCount=len(df['Sample'].unique()),  # one tick per sample
-            labelOverlap=False
+            labelLimit=1000,
+            tickCount=len(df['Sample'].unique()),
+            labelOverlap=False,            
         )
         # Adjust for large number of samples
         if chart_height > default_height:
