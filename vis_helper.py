@@ -188,37 +188,180 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
     max_size = max(motif_sizes) if motif_sizes else 0
     min_size = min(motif_sizes) if motif_sizes else 0
     
-    st.html(f"""
-        <div class="motif-legend-container">
-            <div class="motif-legend-header">
-                <span>🧬 Motifs in Region</span>
-                <span class="motif-count">{total_motifs} motif{'' if total_motifs == 1 else 's'}</span>
+    # Create compact view for many motifs
+    if total_motifs > 8:
+        # Compact horizontal layout for many motifs
+        compact_legend_html = ""
+        for motif_data in motif_display_data[:12]:  # Show max 12 motifs
+            motif_name = motif_data['name']
+            display_name = f"{motif_name[:8]}..." if len(motif_name) > 8 else motif_name
+            compact_legend_html += f"""
+            <div class="compact-motif-item" data-motif="{motif_data['id']}" title="{motif_name} - {len(motif_name)} bases">
+                <span class="compact-motif-color" style="background-color:{motif_data['color']};"></span>
+                <span class="compact-motif-text">{display_name}</span>
             </div>
-            
-            <div class="legend-stats">
-                <div class="stat-item">
-                    <span>Size Range:</span>
-                    <span class="stat-value">{min_size}-{max_size}bp</span>
-                </div>
-                <div class="stat-item">
-                    <span>Average:</span>
-                    <span class="stat-value">{avg_size:.1f}bp</span>
-                </div>
-                <div class="stat-item">
-                    <span>Total:</span>
-                    <span class="stat-value">{total_motifs}</span>
-                </div>
+            """
+        
+        if total_motifs > 12:
+            compact_legend_html += f"""
+            <div class="compact-motif-item more-motifs">
+                <span class="compact-motif-text">+{total_motifs - 12} more</span>
             </div>
-            
-            <div class="motif-legend-content">
-                <div class="motif-legend-grid">
-                    {legend_html}
-                </div>
-            </div>
-        </div>
-    """)
+            """
 
-def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, motif_ids, spans, motif_colors, motif_names):
+        
+        st.html(f"""
+            <style>
+                .motif-legend-container {{
+                    margin: 16px 0;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+                    overflow: hidden;
+                    border: 1px solid #e2e8f0;
+                }}
+                .motif-legend-header {{
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 8px 12px;
+                    font-weight: 700;
+                    font-size: 14px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }}
+                .motif-count {{
+                    background: rgba(255,255,255,0.2);
+                    padding: 2px 8px;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }}
+                .compact-motifs-container {{
+                    padding: 12px;
+                    max-height: 80px;
+                    overflow-y: auto;
+                }}
+                .compact-motifs-grid {{
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                }}
+                .compact-motif-item {{
+                    display: flex;
+                    align-items: center;
+                    padding: 4px 8px;
+                    background: #f8fafc;
+                    border-radius: 6px;
+                    border: 1px solid #e2e8f0;
+                    transition: all 0.2s ease;
+                    cursor: pointer;
+                    font-size: 11px;
+                }}
+                .compact-motif-item:hover {{
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    border-color: #667eea;
+                }}
+                .compact-motif-color {{
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 3px;
+                    margin-right: 6px;
+                    border: 1px solid white;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }}
+                .compact-motif-text {{
+                    font-weight: 600;
+                    color: #374151;
+                    white-space: nowrap;
+                }}
+                .more-motifs {{
+                    background: #e5e7eb;
+                    color: #6b7280;
+                    font-style: italic;
+                }}
+                .legend-stats-compact {{
+                    display: flex;
+                    gap: 12px;
+                    padding: 8px 12px;
+                    background: #f0f4ff;
+                    border-top: 1px solid #e2e8f0;
+                    font-size: 11px;
+                    color: #4b5563;
+                }}
+                .stat-item-compact {{
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }}
+                .stat-value-compact {{
+                    background: white;
+                    padding: 1px 6px;
+                    border-radius: 4px;
+                    border: 1px solid #d1d5db;
+                    font-weight: 600;
+                    color: #1f2937;
+                }}
+            </style>
+            
+            <div class="motif-legend-container">
+                <div class="motif-legend-header">
+                    <span>Motifs in Region</span>
+                    <span class="motif-count">{total_motifs} motif{'' if total_motifs == 1 else 's'}</span>
+                </div>
+                
+                <div class="compact-motifs-container">
+                    <div class="compact-motifs-grid">
+                        {compact_legend_html}
+                    </div>
+                </div>
+                
+                <div class="legend-stats-compact">
+                    <div class="stat-item-compact">
+                        <span>Range:</span>
+                        <span class="stat-value-compact">{min_size}-{max_size}bp</span>
+                    </div>
+                    <div class="stat-item-compact">
+                        <span>Avg:</span>
+                        <span class="stat-value-compact">{avg_size:.1f}bp</span>
+                    </div>
+                </div>
+            </div>
+        """)
+    else:
+        # Original detailed view for few motifs
+        st.html(f"""
+            <div class="motif-legend-container">
+                <div class="motif-legend-header">
+                    <span>Motifs in Region</span>
+                    <span class="motif-count">{total_motifs} motif{'' if total_motifs == 1 else 's'}</span>
+                </div>
+                
+                <div class="legend-stats">
+                    <div class="stat-item">
+                        <span>Size Range:</span>
+                        <span class="stat-value">{min_size}-{max_size}bp</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Average:</span>
+                        <span class="stat-value">{avg_size:.1f}bp</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Total:</span>
+                        <span class="stat-value">{total_motifs}</span>
+                    </div>
+                </div>
+                
+                <div class="motif-legend-content">
+                    <div class="motif-legend-grid">
+                        {legend_html}
+                    </div>
+                </div>
+            </div>
+        """)
+
+def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, motif_ids, spans, motif_colors, motif_names, supporting_reads=None):
     # Handle the situations where motifs are not available or sequence is just one base
     if (motif_ids == ["."]) or (isinstance(sequence, str) and len(sequence) <= 1):
         if sequence_name == "Ref":
@@ -409,8 +552,22 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
     motif_sizes_display = ", ".join([f"{size} bp" for size in ordered_unique_sizes])
     total_motifs = len(motif_ids)
     coverage = sum([end - start + 1 for start, end in ranges]) / len(sequence) * 100
- 
-    st.markdown(f"""
+
+    # Prepare supporting reads count html, show if supporting_reads is not None and is a number
+    supporting_reads_html = ""
+    if supporting_reads is not None:
+        try:
+            supporting_reads_val = int(supporting_reads)
+            supporting_reads_html = (
+                f"<div class='stat-item'>"
+                f"    <span>Supporting reads:</span>"
+                f"    <span class='stat-value'>{supporting_reads_val}</span>"
+                f"</div>"
+            )
+        except Exception:
+            supporting_reads_html = ""
+
+    st.html(f"""
         <style>
             /* Keep all your existing CSS styles */
             .sequence-dashboard {{
@@ -553,6 +710,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                         <span>Coverage:</span>
                         <span class="stat-value">{coverage:.1f}%</span>
                     </div>
+                    {supporting_reads_html}
                 </div>
                 <div class="sequence-content" id="sequence-content-{sequence_name}">
                     {highlighted_sequence}
@@ -624,10 +782,10 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                 initSequenceTooltips('sequence-content-{sequence_name}');
             }}, 100);
         </script>
-    """, unsafe_allow_html=True)
+    """)
 
 
-def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequence, motif_names):
+def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequence, motif_names, supporting_reads=None):
     """
     This function draws motif bars for each motif in the sequence. 
     Motif information (name, count, coverage, sequence) is shown in a stylish tooltip on hover, not on the bar itself.
@@ -715,6 +873,20 @@ def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequen
             f"<div class='bar-pattern'></div>"
             f"</div>"
         )
+
+    # Prepare supporting reads count html, show if supporting_reads is not None and is a number
+    supporting_reads_html = ""
+    if supporting_reads is not None:
+        try:
+            supporting_reads_val = int(supporting_reads)
+            supporting_reads_html = (
+                f"<div class='stat-item'>"
+                f"    <span>Supporting reads:</span>"
+                f"    <span class='stat-value'>{supporting_reads_val}</span>"
+                f"</div>"
+            )
+        except Exception:
+            supporting_reads_html = ""
 
     bar_container = f"""
     <div class="bar-visualization">
@@ -957,6 +1129,7 @@ def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequen
                         <span>Coverage:</span>
                         <span class="stat-value">{overall_coverage:.1f}%</span>
                     </div>
+                    {supporting_reads_html}
                 </div>
                 {bar_container}
             </div>
@@ -1088,6 +1261,365 @@ def plot_motif_bar(motif_count, motif_names, motif_colors=None, sequence_name=""
     # plot (fix label rotation on motif x-axis) and remove legend
     bar_chart = bar_chart.configure_axisX(labelAngle=0).configure_legend(disable=True)
     st.altair_chart(bar_chart, use_container_width=True)
+
+def interpret_genotype(gt):
+    """
+    Interpret genotype string and return meaningful description.
+    
+    Args:
+        gt (str): Genotype string like "0/0", "0/1", "1/2", "0", "1", etc.
+    
+    Returns:
+        dict: Interpretation with description, colors, and icons
+    """
+    if not gt or gt in ["./.", ".", ""]:
+        return {
+            'description': 'No genotype called',
+            'interpretation': 'Missing data',
+            'color': '#9CA3AF',
+            'bg_color': '#F3F4F6',
+            'icon': '❓',
+            'status': 'unknown'
+        }
+    
+    # Clean and normalize input
+    gt_str = str(gt).strip()
+    # For assembly mode, genotype may be a single allele ("0", "1") or a tuple/list
+    if st.session_state.get("cohort_mode", "") == "assembly":
+        if isinstance(gt, (list, tuple)):
+            alleles = [str(a) for a in gt]
+        else:
+            # handle "0" or "1", or "0/1" (assembly data may sometimes use slash too)
+            if "/" in gt_str:
+                alleles = gt_str.split("/")
+            elif "|" in gt_str:
+                alleles = gt_str.split("|")
+            else:
+                alleles = [gt_str]
+    else:
+        # Default - try splitting with slash or pipe; else treat as single allele
+        if "/" in gt_str:
+            alleles = gt_str.split("/")
+        elif "|" in gt_str:
+            alleles = gt_str.split("|")
+        else:
+            alleles = [gt_str]
+
+    # Remove empty alleles (shouldn't happen with good VCFs)
+    alleles = [a for a in alleles if a not in [".", ""]]
+
+    # Accept single-haplotype genotypes as well (chrX, chrY, assemblies)
+    if len(alleles) == 1:
+        allele = alleles[0]
+        if allele == "0":
+            return {
+                'description': 'Hemizygous Reference (0)',
+                'interpretation': 'Only one haplotype; matches reference',
+                'color': '#10B981',
+                'bg_color': '#D1FAE5',
+                'icon': '🟢',
+                'status': 'hemizygous_ref'
+            }
+        else:
+            return {
+                'description': f'Hemizygous Alternative ({allele})',
+                'interpretation': f'Only one haplotype; differs from reference (allele {allele})',
+                'color': '#F59E0B',
+                'bg_color': '#FEF3C7',
+                'icon': '🟡',
+                'status': 'hemizygous_alt'
+            }
+    elif len(alleles) != 2:
+        return {
+            'description': f'Invalid genotype: {gt}',
+            'interpretation': 'Malformed',
+            'color': '#EF4444',
+            'bg_color': '#FEE2E2',
+            'icon': '⚠️',
+            'status': 'error'
+        }
+
+    allele1, allele2 = alleles
+    
+    # Handle different genotype patterns
+    if allele1 == allele2:
+        if allele1 == "0":
+            return {
+                'description': 'Homozygous Reference (0/0)',
+                'interpretation': 'Both haplotypes identical to reference',
+                'color': '#10B981',
+                'bg_color': '#D1FAE5',
+                'icon': '🟢',
+                'status': 'homozygous_ref'
+            }
+        else:
+            return {
+                'description': f'Homozygous Alternative ({allele1}/{allele2})',
+                'interpretation': f'Both haplotypes different from reference (allele {allele1})',
+                'color': '#F59E0B',
+                'bg_color': '#FEF3C7',
+                'icon': '🟡',
+                'status': 'homozygous_alt'
+            }
+    else:
+        if allele1 == "0" or allele2 == "0":
+            return {
+                'description': f'Heterozygous Reference/Alternative ({allele1}/{allele2})',
+                'interpretation': 'One haplotype like reference, one different',
+                'color': '#3B82F6',
+                'bg_color': '#DBEAFE',
+                'icon': '🔵',
+                'status': 'heterozygous_ref_alt'
+            }
+        else:
+            return {
+                'description': f'Heterozygous Alternative ({allele1}/{allele2})',
+                'interpretation': f'Both haplotypes different from reference (alleles {allele1} and {allele2})',
+                'color': '#8B5CF6',
+                'bg_color': '#EDE9FE',
+                'icon': '🟣',
+                'status': 'heterozygous_alt_alt'
+            }
+
+
+def display_genotype_card(gt, sample_name="Sample", show_details=True):
+    """
+    Display genotype information in a creative card format
+    
+    Args:
+        gt (str): Genotype string
+        sample_name (str): Name of the sample
+        show_details (bool): Whether to show detailed interpretation
+    """
+    interpretation = interpret_genotype(gt)
+    
+    st.html(f"""
+        <style>
+            .genotype-card {{
+                background: linear-gradient(135deg, {interpretation['bg_color']} 0%, rgba(255,255,255,0.9) 100%);
+                border: 1px solid {interpretation['color']};
+                border-radius: 8px;
+                padding: 8px 12px;
+                margin: 8px 0;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                transition: all 0.2s ease;
+                position: relative;
+                overflow: hidden;
+            }}
+            .genotype-card:hover {{
+                transform: translateY(-1px);
+                box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+            }}
+            .genotype-content {{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }}
+            .genotype-icon {{
+                font-size: 16px;
+            }}
+            .genotype-title {{
+                font-size: 12px;
+                font-weight: 700;
+                color: {interpretation['color']};
+                margin: 0;
+            }}
+            .genotype-value {{
+                background: {interpretation['color']};
+                color: white;
+                padding: 2px 6px;
+                border-radius: 8px;
+                font-size: 11px;
+                font-weight: 800;
+                font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+                letter-spacing: 0.3px;
+            }}
+            .genotype-description {{
+                font-size: 11px;
+                font-weight: 600;
+                color: #374151;
+                margin: 0;
+            }}
+            .genotype-stats {{
+                display: flex;
+                gap: 8px;
+                margin-left: auto;
+            }}
+            .stat-item {{
+                font-size: 9px;
+                color: #6B7280;
+                font-weight: 500;
+            }}
+            .stat-value {{
+                color: {interpretation['color']};
+                font-weight: 700;
+            }}
+        </style>
+        
+        <div class="genotype-card">
+            <div class="genotype-content">
+                <span class="genotype-icon">{interpretation['icon']}</span>
+                <span class="genotype-title">{sample_name}:</span>
+                <span class="genotype-value">{gt}</span>
+                <span class="genotype-description">{interpretation['description']}</span>
+                <div class="genotype-stats">
+                    <span class="stat-item"><span class="stat-value">{interpretation['status'].replace('_', ' ').title()}</span></span>
+                    <span class="stat-item">•</span>
+                    <span class="stat-item"><span class="stat-value">{'Diploid' if '/' in gt else 'Unknown'}</span></span>
+                </div>
+            </div>
+        </div>
+    """)
+
+
+def display_genotype_badge(gt, size="medium"):
+    """
+    Display genotype as a compact badge
+    
+    Args:
+        gt (str): Genotype string
+        size (str): Size of badge ("small", "medium", "large")
+    """
+    interpretation = interpret_genotype(gt)
+    
+    size_classes = {
+        "small": "padding: 4px 8px; font-size: 12px; border-radius: 8px;",
+        "medium": "padding: 6px 12px; font-size: 14px; border-radius: 10px;",
+        "large": "padding: 8px 16px; font-size: 16px; border-radius: 12px;"
+    }
+    
+    st.html(f"""
+        <style>
+            .genotype-badge {{
+                display: inline-block;
+                background: {interpretation['bg_color']};
+                color: {interpretation['color']};
+                border: 2px solid {interpretation['color']};
+                font-weight: 700;
+                font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+                letter-spacing: 0.5px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                transition: all 0.2s ease;
+                cursor: pointer;
+                {size_classes[size]}
+            }}
+            .genotype-badge:hover {{
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }}
+        </style>
+        
+        <span class="genotype-badge" title="{interpretation['description']}: {interpretation['interpretation']}">
+            {interpretation['icon']} {gt}
+        </span>
+    """)
+
+
+def create_genotype_comparison_matrix(genotypes_dict):
+    """
+    Create a visual comparison matrix of genotypes across samples, hidden behind an expander
+    Args:
+        genotypes_dict (dict): Dictionary with sample names as keys and genotypes as values
+    """
+
+
+    st.markdown("### 🧬 Genotype Comparison Matrix")
+
+    # Create comparison data
+    samples = list(genotypes_dict.keys())
+    unique_genotypes = list(set(genotypes_dict.values()))
+
+    # Color mapping for different genotypes
+    genotype_colors = {}
+    for i, gt in enumerate(unique_genotypes):
+        interpretation = interpret_genotype(gt)
+        genotype_colors[gt] = interpretation['color']
+
+    # Adjusted/Smaller matrix CSS
+    matrix_html = """
+        <style>
+            .genotype-matrix {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                gap: 8px;
+                margin: 14px 0;
+            }
+            .matrix-cell {
+                background: white;
+                border: 1.5px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 7px 5px 9px 5px;
+                text-align: center;
+                transition: all 0.22s ease;
+                position: relative;
+                overflow: hidden;
+                min-width: 0;
+                min-height: 0;
+            }
+            .matrix-cell:hover {
+                transform: translateY(-1px) scale(1.02);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+            }
+            .sample-name {
+                font-size: 11.5px;
+                font-weight: 600;
+                color: #374151;
+                margin-bottom: 3px;
+                white-space: pre-line;
+                overflow-wrap: anywhere;
+                word-break: break-all;
+            }
+            .genotype-display {
+                font-size: 13px;
+                font-weight: 800;
+                font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+                letter-spacing: 0.6px;
+                margin-bottom: 2px;
+                line-height: 1.1;
+            }
+            .genotype-type {
+                font-size: 9.5px;
+                color: #6B7280;
+                text-transform: uppercase;
+                letter-spacing: 0.28px;
+            }
+        </style>
+        <div class="genotype-matrix">
+    """
+
+    for sample, gt in genotypes_dict.items():
+        interpretation = interpret_genotype(gt)
+        matrix_html += f"""
+            <div class="matrix-cell" style="border-color: {interpretation['color']}; background: {interpretation['bg_color']};">
+                <div class="sample-name">{sample}</div>
+                <div class="genotype-display" style="color: {interpretation['color']};">{interpretation['icon']} {gt}</div>
+                <div class="genotype-type">{interpretation['status'].replace('_', ' ').title()}</div>
+            </div>
+        """
+
+    matrix_html += "</div>"
+
+    st.html(matrix_html)
+
+    # Add summary statistics
+    st.markdown("#### 📊 Genotype Summary")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric("Total Samples", len(samples))
+
+    with col2:
+        st.metric("Unique Genotypes", len(unique_genotypes))
+
+    with col3:
+        homozygous_count = sum(1 for gt in genotypes_dict.values() if interpret_genotype(gt)['status'].startswith('homozygous'))
+        st.metric("Homozygous", homozygous_count)
+
+    with col4:
+        heterozygous_count = sum(1 for gt in genotypes_dict.values() if interpret_genotype(gt)['status'].startswith('heterozygous'))
+        st.metric("Heterozygous", heterozygous_count)
 
 def display_motifs_as_bars_with_occurrences(sequence_name, motif_colors, motif_ids, spans, sequence, motif_names):
     # First calculate motif occurrences

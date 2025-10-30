@@ -12,6 +12,10 @@ display_dynamic_sequence_with_highlighted_motifs = importlib.reload(__import__("
 display_motifs_as_bars = importlib.reload(__import__("vis_helper")).display_motifs_as_bars
 motif_legend_html = importlib.reload(__import__("vis_helper")).motif_legend_html
 plot_motif_bar = importlib.reload(__import__("vis_helper")).plot_motif_bar
+interpret_genotype = importlib.reload(__import__("vis_helper")).interpret_genotype
+display_genotype_card = importlib.reload(__import__("vis_helper")).display_genotype_card
+display_genotype_badge = importlib.reload(__import__("vis_helper")).display_genotype_badge
+create_genotype_comparison_matrix = importlib.reload(__import__("vis_helper")).create_genotype_comparison_matrix
 
 
 class Visualization:
@@ -29,7 +33,10 @@ class Visualization:
 
         for i in range(len(files)):
             sample_name = file_paths[i].split(".")[0]
-            record = self.parse_record(files[i], region)
+            if st.session_state.cohort_mode == "assembly":
+                record = self.parse_record_assembly(files[i], region)
+            else:
+                record = self.parse_record(files[i], region)
             samples_results[sample_name] = record
         return samples_results
     
@@ -76,6 +83,8 @@ class Visualization:
                 'spans': [],
                 'ref_allele': '',
                 'alt_allele': '',
+                'gt': '',
+                'id': '',
             }
             return record
         # Extract motif ids for the ALT allele (usually in sample field)
@@ -118,6 +127,8 @@ class Visualization:
             'spans': spans,
             'ref_allele': rec.ref,
             'alt_allele': alt_allele,
+            'gt': str(rec.samples[0]['GT'][0]),
+            'id': rec.id,
         }
 
         return record
@@ -168,7 +179,6 @@ class Visualization:
         markdown_placeholder.html(html)
 
     def visulize_cohort(self):
-        col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")
         if 'cohorts_records_map' in st.session_state:
             region_options = list(st.session_state.cohorts_records_map.values())
             
@@ -263,15 +273,89 @@ class Visualization:
 
             if 'regions_idx' not in st.session_state:
                 st.session_state.regions_idx = 0
-            with col1:
-                if st.button("Previous region"):
+            
+            # Beautiful navigation buttons in sidebar
+            st.sidebar.markdown("""
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    background: linear-gradient(92deg, #667eea 0%, #a084e8 100%);
+                    padding: 10px 18px;
+                    border-radius: 14px;
+                    box-shadow: 0 2px 14px rgba(102, 126, 234, 0.10);
+                    margin-bottom: 8px;
+                    ">
+                    <span style="
+                        font-size: 28px;
+                        color: #4338ca;
+                        margin-right: 6px;
+                        filter: drop-shadow(0 2px 6px rgba(65,0,140,0.18));
+                        ">🧭</span>
+                    <span style="
+                        font-size: 1.25rem; 
+                        font-weight: 700; 
+                        letter-spacing: 0.03em; 
+                        color: #312e81;
+                        ">Region Navigation</span>
+                </div>
+            """, unsafe_allow_html=True)
+            nav_col1, nav_col2 = st.sidebar.columns(2, gap="small")
+            with nav_col1:
+                if st.button("◀ Previous", use_container_width=True, key="prev_region"):
                     region = None
                     st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
-
-            with col2:
-                if st.button("Next region"):
+            with nav_col2:
+                if st.button("Next ▶", use_container_width=True, key="next_region"):
                     region = None
                     st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len( st.session_state.cohorts_records_map )-1)
+            
+            # Add beautiful styling for sidebar navigation buttons
+            st.markdown("""
+                <style>
+                    /* Beautiful sidebar navigation buttons */
+                    [data-testid="stSidebar"] button[kind="secondary"] {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                        color: white !important;
+                        border: none !important;
+                        border-radius: 12px !important;
+                        font-weight: 700 !important;
+                        font-size: 15px !important;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+                    }
+                    [data-testid="stSidebar"] button[kind="secondary"]:hover {
+                        transform: translateY(-2px) scale(1.05) !important;
+                        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+                        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+                    }
+                </style>
+                <script>
+                (function() {
+                    function styleNavButtons() {
+                        const sidebarButtons = document.querySelectorAll('[data-testid="stSidebar"] button');
+                        sidebarButtons.forEach(btn => {
+                            const text = btn.textContent || btn.innerText || '';
+                            if (text.includes('◀ Previous') || text.includes('Next ▶')) {
+                                btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                                btn.style.color = 'white';
+                                btn.style.border = 'none';
+                                btn.style.borderRadius = '12px';
+                                btn.style.fontWeight = '700';
+                                btn.style.fontSize = '15px';
+                                btn.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                                btn.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                            }
+                        });
+                    }
+                    styleNavButtons();
+                    setTimeout(styleNavButtons, 100);
+                    setTimeout(styleNavButtons, 500);
+                    const observer = new MutationObserver(styleNavButtons);
+                    observer.observe(document.body, { childList: true, subtree: true });
+                })();
+                </script>
+            """, unsafe_allow_html=True)
             if region and region != st.session_state.get('previous_region', None):
                 try:
                     chr_input, start_end_input = region.split(':')
@@ -294,7 +378,8 @@ class Visualization:
                 region = st.session_state.cohorts_records_map[st.session_state.regions_idx]
             mode_placeholder = st.empty()
             
-
+            # Create container for region display
+            middel, _ = st.columns([1, 0.1], gap="small")
             self.render_region_display(middel, region)
             st.markdown("""
                     <style>
@@ -402,6 +487,19 @@ class Visualization:
         elif not isinstance(motif_names, list):
             motif_names = [motif_names]
 
+        gt = rec.samples[0]['GT']
+        try:
+            supporting_reads = rec.samples[0]['DP']
+        except:
+            st.error(f"Input VCF file is not reads-based VCF files, please use assembly VCF files instead")
+            st.stop()
+        gt = '/'.join([str(i) for i in gt])
+        if isinstance(supporting_reads, tuple):
+            supporting_reads_h1 = supporting_reads[0]
+            supporting_reads_h2 = supporting_reads[1]
+        else:
+            supporting_reads_h1 = supporting_reads
+            supporting_reads_h2 = supporting_reads
         # Final record dictionary
         record = {
             'chr': rec.chrom,
@@ -417,7 +515,11 @@ class Visualization:
             'spans': spans,
             'ref_allele': ref_allele,
             'alt_allele1': alt_allele1,
-            'alt_allele2': alt_allele2
+            'alt_allele2': alt_allele2,
+            'gt': gt,
+            'supported_reads_h1': supporting_reads_h1,
+            'supported_reads_h2': supporting_reads_h2,
+            'id': rec.id,
         }
         # For debugging/inspection purposes
         return record
@@ -549,17 +651,68 @@ class Visualization:
         display_option = st.sidebar.radio("Select Display Type", 
                                             ("Sequence with Highlighted Motifs", "Bars"))
 
-        col1, middel, spacer,col2 = st.columns([1, 1, 0.8, 0.3], gap="small")  
-        REF, CN1_col, CN2_col = st.columns([1, 1, 1])
-        with col1:
-            if st.button("Previous region"):
+        # Beautiful navigation buttons in sidebar
+        st.sidebar.markdown("### 🧭 Navigation")
+        nav_col1, nav_col2 = st.sidebar.columns(2, gap="small")
+        with nav_col1:
+            if st.button("◀ Previous", use_container_width=True, key="prev_individual"):
                 region = None
                 st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
 
-        with col2:
-            if st.button("Next region"):
+        with nav_col2:
+            if st.button("Next ▶", use_container_width=True, key="next_individual"):
                 region = None
                 st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
+        
+        # Add beautiful styling for sidebar navigation buttons
+        st.markdown("""
+            <style>
+                /* Beautiful sidebar navigation buttons */
+                [data-testid="stSidebar"] button[kind="secondary"] {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 12px !important;
+                    font-weight: 700 !important;
+                    font-size: 15px !important;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+                }
+                [data-testid="stSidebar"] button[kind="secondary"]:hover {
+                    transform: translateY(-2px) scale(1.05) !important;
+                    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+                    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+                }
+            </style>
+            <script>
+            (function() {
+                function styleNavButtons() {
+                    const sidebarButtons = document.querySelectorAll('[data-testid="stSidebar"] button');
+                    sidebarButtons.forEach(btn => {
+                        const text = btn.textContent || btn.innerText || '';
+                        if (text.includes('◀ Previous') || text.includes('Next ▶')) {
+                            btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                            btn.style.color = 'white';
+                            btn.style.border = 'none';
+                            btn.style.borderRadius = '12px';
+                            btn.style.fontWeight = '700';
+                            btn.style.fontSize = '15px';
+                            btn.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                            btn.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                        }
+                    });
+                }
+                styleNavButtons();
+                setTimeout(styleNavButtons, 100);
+                setTimeout(styleNavButtons, 500);
+                const observer = new MutationObserver(styleNavButtons);
+                observer.observe(document.body, { childList: true, subtree: true });
+            })();
+            </script>
+        """, unsafe_allow_html=True)
+        
+        middel, spacer = st.columns([1, 0.1], gap="small")
+        REF, CN1_col, CN2_col = st.columns([1, 1, 1])
         if region and region != st.session_state.get('previous_region', None):
             try:
                 chr_input, start_end_input = region.split(':')
@@ -722,15 +875,29 @@ class Visualization:
                 "<style>.tab-content {font-size: 20px;}</style>",
                 unsafe_allow_html=True,
             )
+
+
             with tab2:
                 motif_legend_html(record['motif_ids_ref'], motif_colors, motif_names)
-                display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names)
-                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+                
+                # Add genotype visualization under motifs in region
+                st.markdown("### Genotype Information")
+                display_genotype_card(record['gt'], "Current Sample", show_details=True)
+                st.markdown("---")
+                
+                display_motifs_as_bars("Ref", motif_colors, record['motif_ids_ref'], record['spans'][0], record['ref_allele'], motif_names, None)
+                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names, record['supported_reads_h1'])
                 if record['alt_allele2'] != '':
-                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names)
+                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names, record['supported_reads_h2'])
             with tab1:
                 motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
-                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names)
+                
+                # Add genotype visualization under motifs in region
+                st.markdown("###  Genotype Information")
+                display_genotype_card(record['gt'], "Current Sample", show_details=True)
+                st.markdown("---")
+                
+                display_motifs_as_bars("Allel1",motif_colors, record['motif_ids_h1'], record['spans'][1], record['alt_allele1'], motif_names, record['supported_reads_h1'])
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
                     if show_comparison == False:
@@ -738,7 +905,7 @@ class Visualization:
                             plot_motif_bar(motif_count_h1, motif_names, motif_colors)
                 
                 if record['alt_allele2'] != '':
-                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names,)
+                    display_motifs_as_bars("Allel2",motif_colors, record['motif_ids_h2'], record['spans'][2], record['alt_allele2'], motif_names, record['supported_reads_h2'])
                     plot_container_h2 = st.empty()
 
                     with plot_container_h2:
@@ -748,6 +915,17 @@ class Visualization:
 
             with tab3:
                 if hgsvc_records:
+                    # Add genotype comparison for population data
+                    st.markdown("### 🧬 Population Genotype Comparison")
+                    population_genotypes = {"Current Sample": record['gt']}
+                    for sample_name, sample_record in hgsvc_records.items():
+                        if 'gt' in sample_record:
+                            population_genotypes[sample_name] = sample_record['gt']
+                    
+                    if len(population_genotypes) > 1:
+                        create_genotype_comparison_matrix(population_genotypes)
+                        st.markdown("---")
+                    
                     self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
                 else:
                     st.info("no population data found")
@@ -762,18 +940,34 @@ class Visualization:
         motif_ids_list = []
         # make space between the last print 
         sort_by = st.radio("Sort by:", ("Value", "Sample Name"), horizontal=True, key="sort_by_cohort")
+        
+        # Extract genotype information for comparison
+        genotypes_dict = {}
         for key in cohort_records.keys():
-            sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
-            span_list.append(cohort_records[key]['spans'][1])
-            motif_ids_list.append(cohort_records[key]['motif_ids_h1'])
-            if cohort_records[key]['alt_allele2'] != '':
-                sequences.append({'name': f'{key}_alle2', 'sequence': cohort_records[key]['alt_allele2']})
-                span_list.append(cohort_records[key]['spans'][2])
-                motif_ids_list.append(cohort_records[key]['motif_ids_h2'])
-            else :
-                sequences.append({'name': f'{key}_alle2', 'sequence': ""})
-                span_list.append("")
-                motif_ids_list.append([0])
+            genotypes_dict[key] = cohort_records[key]['gt']
+        
+        # Display genotype comparison matrix
+        st.markdown("---")
+        create_genotype_comparison_matrix(genotypes_dict)
+        st.markdown("---")
+        if st.session_state.cohort_mode == "assembly":
+            for key in cohort_records.keys():
+                sequences.append({'name': f'{key}', 'sequence': cohort_records[key]['alt_allele']})
+                span_list.append(cohort_records[key]['spans'])
+                motif_ids_list.append(cohort_records[key]['motif_ids_h'])
+        else:
+            for key in cohort_records.keys():
+                sequences.append({'name': f'{key}_alle1', 'sequence': cohort_records[key]['alt_allele1']})
+                span_list.append(cohort_records[key]['spans'][1])
+                motif_ids_list.append(cohort_records[key]['motif_ids_h1'])
+                if cohort_records[key]['alt_allele2'] != '':
+                    sequences.append({'name': f'{key}_alle2', 'sequence': cohort_records[key]['alt_allele2']})
+                    span_list.append(cohort_records[key]['spans'][2])
+                    motif_ids_list.append(cohort_records[key]['motif_ids_h2'])
+                else :
+                    sequences.append({'name': f'{key}_alle2', 'sequence': ""})
+                    span_list.append("")
+                    motif_ids_list.append([0])
 
         motif_names = cohort_records[list(cohort_records.keys())[0]]['motifs']
         record = cohort_records[list(cohort_records.keys())[0]]
@@ -1199,9 +1393,6 @@ class Visualization:
                 fontWeight='bold',
                 color='#1F2937'
             )
-        ).configure_view(
-            strokeWidth=0,
-            fill='rgba(255,255,255,0.9)'
         )
 
         if region in st.session_state.pathogenic_TRs['region'].unique():
@@ -1217,58 +1408,17 @@ class Visualization:
                 text='🚨 Pathogenic Threshold', align='left', dx=5, dy=-10, fontSize=11, color='#DC2626', fontWeight='bold'
             ).encode(y='Total Copy Number:Q')
             
-            bar_chart = alt.layer(bar_chart, threshold_line, threshold_pointer)
+            bar_chart = alt.layer(bar_chart, threshold_line, threshold_pointer).configure_view(
+                strokeWidth=0,
+                fill='rgba(255,255,255,0.9)'
+            )
+        else:
+            bar_chart = bar_chart.configure_view(
+                strokeWidth=0,
+                fill='rgba(255,255,255,0.9)'
+            )
 
         st.altair_chart(bar_chart, use_container_width=True)
-
-
-    def plot_heatmap(self, combined_data, sort_by="Value"):
-        combined_data = combined_data[combined_data['Motif'] != 'Interruption']
-        
-        if sort_by == "Value":
-            x_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
-            y_sort = alt.EncodingSortField(field='Count', op='sum', order='descending')
-        else:
-            x_sort = alt.SortField(field='Sample', order='ascending')
-            y_sort = alt.SortField(field='Motif', order='ascending')
-
-        heatmap = alt.Chart(combined_data).mark_rect(
-            cornerRadius=4
-        ).encode(
-            x=alt.X('Sample:N', title='Sample', sort=x_sort, axis=alt.Axis(
-                labelFontWeight='bold', 
-                labelColor='#4B5563', 
-                titleFontWeight='bold', 
-                titleColor='#374151',
-                labelAngle=45
-            )),
-            y=alt.Y('Motif:N', title='Motif', sort=y_sort, axis=alt.Axis(
-                labelFontWeight='bold', 
-                labelColor='#4B5563', 
-                titleFontWeight='bold', 
-                titleColor='#374151'
-            )),
-            color=alt.Color('Count:Q', scale=alt.Scale(scheme='redpurple'), title='Count'),
-            tooltip=['Sample', 'Motif', 'Count'],
-            stroke=alt.value('white'),
-            strokeWidth=alt.value(1)
-        ).properties(
-            width=400,
-            height=400,
-            title=alt.TitleParams(
-                text='',
-                fontSize=16,
-                fontWeight='bold', 
-                color='#1F2937'
-            )
-        ).configure_view(
-            strokeWidth=0,
-            fill='rgba(255,255,255,0.9)'
-        )
-
-        st.altair_chart(heatmap, use_container_width=True)
-
-
 
     
     def create_motif_dataframe(self,sequences, motif_colors, motif_ids, spans_list, motif_names):
@@ -1340,10 +1490,12 @@ class Visualization:
         motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
         
         region = record['chr'] + ":" + str(record['pos'] - 1) + "-" + str(record['stop'] - 1)
-        start = record['pos'] +1
-        stop = record['stop'] -3
+        start = record['pos'] -1#+1
+        stop = record['stop'] -1
         chrom = record['chr']
-        updated_region = chrom + ":" + str(start) + "-" + str(stop)
+        updated_region = record['id']
+        #st.write(updated_region)
+        #updated_region = chrom + ":" + str(start) + "-" + str(stop)
         df = self.create_motif_dataframe(sequences, motif_colors, motif_ids_list, span_list, motif_names)
         if df.empty:
             return motif_colors, df
@@ -1383,12 +1535,10 @@ class Visualization:
         inheritance = None
         disease = None
         above_threshold_samples = None
-
         if updated_region in st.session_state.pathogenic_TRs['region'].unique():
             pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
                 (st.session_state.pathogenic_TRs['region'] == updated_region)
             ]['pathogenic_min'].values[0]
-
             if pathogenic_threshold is None:
                 pathogenic_threshold = 0
             gene_name = st.session_state.pathogenic_TRs.loc[
@@ -1433,6 +1583,14 @@ class Visualization:
         df['Sequence_length'] = df.groupby('Sample')['Length'].transform('sum')
 
         # Create heatmap with consistent sorting
+        # Dynamically set the width of the heatmap based on the number of motifs
+        motif_count = len(heatmap_data['Motif'].unique())
+        # Base width per motif (adjust as needed, e.g., 50)
+        width_per_motif = 40
+        min_width = 40
+        max_width = 480
+        dynamic_width = max(min_width, min(width_per_motif * motif_count, max_width))
+
         heatmap = alt.Chart(heatmap_data).mark_rect(
             cornerRadius=4,
             stroke='white',
@@ -1449,12 +1607,12 @@ class Visualization:
                     titleColor='#374151',
                     labelLimit=0,
                     ticks=False,
-                    tickSize=10,
-                    tickOffset=-5, # Move the ticks higher (toward the top of the heatmap)
-                    # distance to the left of the chart
+                    tickSize=20,
+                    tickOffset=-2,
                     labelPadding=10,
-
-                )),
+                    labelOverlap=False,
+                ),
+                scale=alt.Scale(paddingInner=0, paddingOuter=0.1)),
             x=alt.X('Motif:N', 
                 title='', 
                 sort=alt.EncodingSortField(field='Count', op='sum', order='descending'),
@@ -1484,7 +1642,7 @@ class Visualization:
             ),
             tooltip=['Sample', 'Motif', 'Count']
         ).properties(
-            width=200,
+            width=dynamic_width,
             height=chart_height,
             title=''
         )
@@ -1501,14 +1659,15 @@ class Visualization:
                     labelOverlap=False, 
                     ticks=False, 
                     labelColor='#4B5563', 
-                    labelFontSize=20, 
+                    labelFontSize=0, 
                     labelFontWeight='bold',
                     titleColor='#374151',
                     titleFontSize=28,
-                    labels = False,
                     labelPadding = 1000,
+                    labels = False,
+                    labelLimit = 0,
                 ),
-                scale=alt.Scale(paddingInner=0)
+                scale=alt.Scale(paddingInner=0, paddingOuter=0.6)
             ),
             x=alt.X('Length', 
                 title='Sequence Length', 
@@ -1562,7 +1721,7 @@ class Visualization:
             above_threshold_samples = above_threshold_samples[above_threshold_samples['Length'] > pathogenic_threshold_length]
         else:
             above_threshold_samples = above_threshold_samples.iloc[0:0]  # Empty DataFrame with same structure
-        
+
         if pathogenic_threshold > 0 and df.groupby('Sample')['Length'].sum().max() > pathogenic_threshold_length:
             # Add threshold line
             rule = alt.Chart(pd.DataFrame({'x': [pathogenic_threshold_length]})).mark_rule(
@@ -1639,13 +1798,39 @@ class Visualization:
             if updated_region:
                 gene_info_parts.append(f"Region: {updated_region}")
             subtitle_text = " • ".join(gene_info_parts)
-        # Combine charts
+
+        # Wrap the heatmap in a chart with a fixed width background if width is very small.
+        min_heatmap_display_width = 120  # Adjust as desired for visual effect
+
+        # If the calculated dynamic_width is exactly 40 (the minimum), pad the heatmap with a blank chart.
+        if dynamic_width == 40:
+            # Create a transparent dummy chart to the left of the heatmap to push it flush to the stack plot
+            padding_width = min_heatmap_display_width - dynamic_width
+
+            blank_left = alt.Chart(
+                pd.DataFrame({"dummy": [0]})
+            ).mark_rect(opacity=0).encode(
+                x=alt.value(0),
+                y=alt.value(0)
+            ).properties(
+                width=padding_width,
+                height=chart_height
+            )
+
+            heatmap_display = alt.hconcat(
+                blank_left,
+                heatmap.properties(width=dynamic_width),
+                spacing=0
+            )
+        else:
+            heatmap_display = heatmap
+
         combined_chart = alt.hconcat(
-            heatmap, 
+            heatmap_display, 
             final_stack_chart,
-            spacing=-5  # Set gap between plots to 0
+            spacing=0  # Set gap between plots to 0 to keep them flush
         ).resolve_scale(
-            y='shared'  # This ensures both charts use the same Y-axis scale and ordering
+            y='shared'
         ).properties(
             title=alt.TitleParams(
                 text=chart_title,
@@ -1662,17 +1847,17 @@ class Visualization:
         ).configure_view(
             strokeWidth=0
         ).configure_scale(
-            bandPaddingInner=0.0
+            bandPaddingInner=0
         ).configure_axis(
-            labelLimit=1000,          # Allow Altair to use a large label limit for y-axis
-            tickCount=len(df['Sample'].unique()),  # force ticks for all samples
+            labelLimit=1000,
+            tickCount=len(df['Sample'].unique()),
             labelOverlap=False,
-            tickMinStep= max(200, int(df['Sequence_length'].max() * 0.1)),  # 30% of max length, minimum 50
+            tickMinStep=max(200, int(df['Sequence_length'].max() * 0.1)),
         ).configure_axisY(
             labelFontSize=12,
-            labelLimit=1000,          # Allow enough space for all labels
-            tickCount=len(df['Sample'].unique()),  # one tick per sample
-            labelOverlap=False
+            labelLimit=1000,
+            tickCount=len(df['Sample'].unique()),
+            labelOverlap=False,            
         )
         # Adjust for large number of samples
         if chart_height > default_height:
@@ -1780,18 +1965,30 @@ class Visualization:
                 st.html('<div class="tab-content">')
                 # Your tab1 content here
                 motif_legend_html(record['motif_ids_ref'], motif_colors, motif_names)
+                
+                # Add genotype visualization under motifs in region
+                st.markdown("###  Genotype Information")
+                display_genotype_card(record['gt'], "Current Sample", show_details=True)
+                st.markdown("---")
+                
                 display_dynamic_sequence_with_highlighted_motifs("Ref", record['ref_allele'], record['motif_ids_ref'], record['spans'][0], motif_colors, motif_names)
                 alt_allele1 = record['alt_allele1']
-                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names, record['supported_reads_h1'])
                 if record['alt_allele2'] != '':
                     alt_allele2 = record['alt_allele2'] 
-                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names, record['supported_reads_h2'])
                 st.html('</div>')
             with tab1:
                 motif_legend_html(record['motif_ids_h1'], motif_colors, motif_names)
+                
+                # Add genotype visualization under motifs in region
+                st.markdown("###  Genotype Information")
+                display_genotype_card(record['gt'], "Current Sample", show_details=True)
+                st.markdown("---")
+                
                 st.html('<div class="tab-content">')
                 alt_allele1 = record['alt_allele1']
-                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names)
+                display_dynamic_sequence_with_highlighted_motifs("Allel1",alt_allele1, record['motif_ids_h1'], record['spans'][1], motif_colors, motif_names, record['supported_reads_h1'])
 
                 plot_container_h1 = st.empty()
                 with plot_container_h1:
@@ -1802,7 +1999,7 @@ class Visualization:
                 if record['alt_allele2'] != '':
 
                     alt_allele2 = record['alt_allele2'] 
-                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names)
+                    display_dynamic_sequence_with_highlighted_motifs("Allel2",alt_allele2, record['motif_ids_h2'], record['spans'][2], motif_colors, motif_names, record['supported_reads_h2'])
                     
                     plot_container_h2 = st.empty()
                     with plot_container_h2:
@@ -1811,9 +2008,18 @@ class Visualization:
                                 plot_motif_bar(motif_count_h2, motif_names, motif_colors)
                 st.html('</div>')
             with tab3:
-
-
                 if hgsvc_records:
+                    # Add genotype comparison for population data
+                    st.markdown("### 🧬 Population Genotype Comparison")
+                    population_genotypes = {"Current Sample": record['gt']}
+                    for sample_name, sample_record in hgsvc_records.items():
+                        if 'gt' in sample_record:
+                            population_genotypes[sample_name] = sample_record['gt']
+                    
+                    if len(population_genotypes) > 1:
+                        create_genotype_comparison_matrix(population_genotypes)
+                        st.markdown("---")
+                    
                     self.plot_HGSVC_VS_allele(record, hgsvc_records, motif_names)
                 else:
                     st.info("no population data found")

@@ -6,11 +6,7 @@ import pandas as pd
 import base64
 import os
 
-def get_image_base64(path):
 
-    with open(path, "rb") as f:
-        encoded_string = base64.b64encode(f.read()).decode()
-    return encoded_string
 
 def get_pathogenic_TRs():
     current_path = os.getcwd()
@@ -37,20 +33,22 @@ def main():
         
     analysis_mode = st.sidebar.radio(
         "Select the type of analysis", 
-        ("individual sample", "Cohort"), 
+        ("individual sample 👤", "Cohort 👥👥"), 
         key="analysis_mode_radio",
         label_visibility='visible',
         help="Choose the analysis workflow.",
     )
     st.markdown("""
         <style>
-            /* Make radiogroup container and background fully transparent */
+            /* Radio button container with white/light background to contrast with purple sidebar */
             [data-testid="stSidebar"] div[role="radiogroup"] {
-                background: transparent !important;
-                box-shadow: none !important;
-                border: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
+                background: rgba(255, 255, 255, 0.95) !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+                border: 1px solid rgba(255, 255, 255, 0.3) !important;
+                border-radius: 12px !important;
+                padding: 12px 10px !important;
+                margin: 10px 0 !important;
+                backdrop-filter: blur(10px);
             }
             /* Make internal radio controls and labels transparent/native and styled */
             [data-testid="stSidebar"] div[data-baseweb="radio"] {
@@ -59,8 +57,28 @@ def main():
             }
             [data-testid="stSidebar"] div[data-baseweb="radio"] label {
                 font-weight: 600 !important;
-                color: #374151 !important;
+                color: #1f2937 !important;
                 background: transparent !important;
+                padding: 8px 12px !important;
+                border-radius: 8px !important;
+                transition: all 0.2s ease !important;
+            }
+            /* Force text color to be dark */
+            [data-testid="stSidebar"] div[data-baseweb="radio"] label,
+            [data-testid="stSidebar"] div[data-baseweb="radio"] label span,
+            [data-testid="stSidebar"] div[data-baseweb="radio"] label * {
+                color: #1f2937 !important;
+            }
+            [data-testid="stSidebar"] div[data-baseweb="radio"] label:hover {
+                background: rgba(102, 126, 234, 0.1) !important;
+            }
+            [data-testid="stSidebar"] div[data-baseweb="radio"] input[type="radio"]:checked + div label {
+                background: rgba(102, 126, 234, 0.15) !important;
+            }
+            [data-testid="stSidebar"] div[data-baseweb="radio"] input[type="radio"]:checked + div label,
+            [data-testid="stSidebar"] div[data-baseweb="radio"] input[type="radio"]:checked + div label span,
+            [data-testid="stSidebar"] div[data-baseweb="radio"] input[type="radio"]:checked + div label * {
+                color: #4f46e5 !important;
             }
             [data-testid="stSidebar"] div[data-baseweb="radio"] > div {
                 margin-bottom: 10px !important;
@@ -76,7 +94,9 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
-    if analysis_mode == "individual sample":
+
+    if analysis_mode == "individual sample 👤":
+
         vcf_handler.handle_individual_sample()
         st.session_state.analysis_mode = "individual sample"
         
@@ -87,7 +107,108 @@ def main():
             st.stop()
 
 
-    elif analysis_mode == "Cohort":
+    elif analysis_mode == "Cohort 👥👥":
+        # Creative toggle-style selector for cohort mode
+        # Initialize cohort_mode if not exists
+        if 'cohort_mode' not in st.session_state:
+            st.session_state.cohort_mode = "reads"
+        
+
+        # Creative toggle-style selector using Streamlit buttons styled like cards
+        
+        reads_selected = st.session_state.cohort_mode == "reads"
+        assembly_selected = st.session_state.cohort_mode == "assembly"
+        
+        # --- Custom nicer style for toggle buttons ---
+        st.sidebar.markdown("""
+            <style>
+            .cohort-toggle-btn {
+                display: block;
+                width: 100%;
+                background: linear-gradient(93deg, #667eea 0%, #764ba2 100%);
+                color: white !important;
+                border: none;
+                border-radius: 14px;
+                padding: 18px 16px 15px 16px;
+                margin-bottom: 10px;
+                font-size: 17px !important;
+                font-weight: 800 !important;
+                box-shadow: 0 2px 14px 0 rgba(102,126,234,0.14);
+                letter-spacing: 0.01em;
+                text-align: left;
+                outline: none;
+                transition: all .2s;
+                position: relative;
+                cursor: pointer;
+                line-height: 1.22;
+            }
+            .cohort-toggle-btn.selected {
+                background: linear-gradient(99deg, #764ba2 6%, #667eea 94%);
+                color: #fff;
+                box-shadow: 0 3px 38px 0 rgba(118, 75, 162, 0.18);
+                border: 2.2px solid #fff5;
+                opacity: 1.0;
+                transform: scale(1.034);
+            }
+            .cohort-toggle-btn:hover {
+                filter: brightness(1.08);
+                transform: translateY(-2.5px) scale(1.04);
+                background: linear-gradient(99deg, #7b88ee 10%, #a38fcf 100%);
+            }
+            .cohort-toggle-btn .subtitle {
+                font-size: 13px !important;
+                font-weight: 500;
+                opacity: 0.85;
+                display: block;
+                margin-top: 0.3em;
+                letter-spacing: 0;
+                color: #f3f1ff;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+
+        # Ensure cohort_mode is initialized
+        if st.session_state.get('cohort_mode') not in ("reads", "assembly"):
+            st.session_state['cohort_mode'] = "reads"
+        
+        # Get current mode
+        current_mode = st.session_state.get('cohort_mode', 'reads')
+        reads_selected = current_mode == "reads"
+        assembly_selected = current_mode == "assembly"
+        
+        # Create buttons side by side
+        col1, col2 = st.sidebar.columns(2)
+        
+        with col1:
+            # Add indicator to reads button if active
+            reads_label = "☰ Reads-based VCF" + (" ✓" if reads_selected else "")
+            reads_btn_clicked = st.button(
+                reads_label, 
+                key="reads_btn", 
+                help="Per individual TR genotyping",
+                use_container_width=True,
+                type="primary" if reads_selected else "secondary"
+            )
+            if reads_btn_clicked:
+                st.session_state['cohort_mode'] = "reads"
+                st.rerun()
+        
+        with col2:
+            # Add indicator to assembly button if active
+            assembly_label = "━━ Assembly VCF" + (" ✓" if assembly_selected else "")
+            assembly_btn_clicked = st.button(
+                assembly_label, 
+                key="assembly_btn", 
+                help="Haplotype-resolved",
+                use_container_width=True,
+                type="primary" if assembly_selected else "secondary"
+            )
+            if assembly_btn_clicked:
+                st.session_state['cohort_mode'] = "assembly"
+                st.rerun()
+
+
         cohort_handler.handle_cohort()
         st.session_state.analysis_mode = "Cohort"
         # if the path doesn't end with a slash add it
@@ -201,55 +322,54 @@ if __name__ == "__main__":
         </style>
     """, unsafe_allow_html=True)
     
-    # Add JavaScript to make navigation buttons fixed
     components.html("""
+        <style>
+        .floating-nav-btn {
+            position: fixed !important;
+            bottom: 24px;
+            z-index: 9999 !important;
+            min-width: 92px;
+            min-height: 72px;
+            background: linear-gradient(108deg, #764ba2 6%, #667eea 94%);
+            color: #fff !important;
+            border: none !important;
+            border-radius: 22px !important;
+            box-shadow: 0 8px 36px 0 rgba(138,105,227,0.25);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 19px;
+            letter-spacing: 1.1px;
+            cursor: pointer;
+            opacity: 0.992;
+            padding: 0 24px 12px 24px;
+            gap: 3px;
+            transition: box-shadow 0.2s, background 0.2s, transform 0.14s;
+        }
+        .floating-nav-btn:hover {
+            background: linear-gradient(111deg, #667eea 8%, #764ba2 92%);
+            transform: translateY(-8px) scale(1.07) rotate(-2.5deg);
+        }
+        </style>
         <script>
         (function() {
-            function makeNavButtonsFixed() {
-                const buttons = document.querySelectorAll('button');
-                let prevButton = null;
-                let nextButton = null;
-                
-                buttons.forEach(btn => {
-                    const text = btn.textContent || btn.innerText || '';
-                    if (text.includes('Previous region') && btn.style.position !== 'fixed') {
-                        prevButton = btn;
-                    }
-                    if (text.includes('Next region') && btn.style.position !== 'fixed') {
-                        nextButton = btn;
-                    }
-                });
-                
-                if (prevButton && nextButton) {
-                    // Style the buttons to be fixed
-                    prevButton.style.position = 'fixed';
-                    prevButton.style.bottom = '20px';
-                    prevButton.style.left = 'calc(50% - 150px)';
-                    prevButton.style.zIndex = '999';
-                    
-                    nextButton.style.position = 'fixed';
-                    nextButton.style.bottom = '20px';
-                    nextButton.style.left = 'calc(50% + 50px)';
-                    nextButton.style.zIndex = '999';
-                }
-            }
-            
-            // Run immediately
-            makeNavButtonsFixed();
-            
-            // Run after a delay
-            setTimeout(makeNavButtonsFixed, 100);
-            setTimeout(makeNavButtonsFixed, 500);
-            setTimeout(makeNavButtonsFixed, 1000);
-            
-            // Use MutationObserver to watch for DOM changes
-            const observer = new MutationObserver(function(mutations) {
-                makeNavButtonsFixed();
+            const buttons = Array.from(document.querySelectorAll('button'));
+            let prevBtn, nextBtn;
+            buttons.forEach(btn => {
+                const tx = btn.textContent || btn.innerText || '';
+                if (tx.includes('Previous') && !btn.classList.contains('floating-nav-btn')) prevBtn = btn;
+                if (tx.includes('Next') && !btn.classList.contains('floating-nav-btn')) nextBtn = btn;
             });
-            
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
+            [prevBtn, nextBtn].forEach((btn, i) => {
+                if (btn) {
+                    btn.classList.add('floating-nav-btn');
+                    btn.style.left = i === 0 ? 'calc(50% - 116px)' : 'calc(50% + 44px)';
+                    btn.style.right = '';
+                    btn.style.position = 'fixed';
+                    btn.style.bottom = '26px';
+                }
             });
         })();
         </script>
@@ -269,15 +389,11 @@ if __name__ == "__main__":
         </div>
         """, unsafe_allow_html=True
     )
-    with st.sidebar.expander("✨ About ProleTRact", expanded=True):
+    with st.sidebar.expander("✨ About ProleTRact", expanded=False):
         st.info(
-            "Welcome! Explore, visualize, and compare tandem repeat data in samples and cohorts. Switch modes below to begin. 🌀",
+            "ProleTRact is a tool for exploring, visualizing, and comparing tandem repeat regions using VCF files from TandemTwister output. Switch modes below to begin.",
             icon="💡"
         )
-
-    # Path to your local logo
-    logo_path = "tandem_twister_vis_logo.png"
-    logo_base64 = get_image_base64(logo_path)
     # Custom HTML/CSS to align the logo to the left with a transparent background
     st.sidebar.markdown(
         f"""
@@ -385,6 +501,10 @@ if __name__ == "__main__":
         [data-testid="stSidebar"] * {{
             color: white;
         }}
+        /* Exception: Radio buttons in white container should have dark text */
+        [data-testid="stSidebar"] div[role="radiogroup"] * {{
+            color: #1f2937 !important;
+        }}
         /* Fix: Override text input and textarea text color for sidebar */
         [data-testid="stSidebar"] input,
         [data-testid="stSidebar"] textarea {{
@@ -395,25 +515,34 @@ if __name__ == "__main__":
         [data-testid="stSidebar"] textarea::placeholder {{
             color: #667eea99 !important;
         }}
-        /* Style the Streamlit radio widget on the sidebar to match sidebar theme */
+        /* Style the Streamlit radio widget on the sidebar - ensure text is visible on white background */
         [data-testid="stSidebar"] [data-baseweb="radio"] label {{
-            color: black !important;
+            color: #1f2937 !important;
             background: transparent;
         }}
         [data-testid="stSidebar"] [data-baseweb="radio"] .css-1aehpvj,  /* radio background */
         [data-testid="stSidebar"] [data-baseweb="radio"] .css-1e3y7mc {{
-            background: black !important;
+            background: #667eea !important;
         }}
         [data-testid="stSidebar"] [data-baseweb="radio"] span {{
-            color: white !important;
+            color: #1f2937 !important;
+        }}
+        [data-testid="stSidebar"] [data-baseweb="radio"] label span,
+        [data-testid="stSidebar"] [data-baseweb="radio"] label * {{
+            color: #1f2937 !important;
+        }}
+        [data-testid="stSidebar"] [data-baseweb="radio"] input[type="radio"]:checked + div label,
+        [data-testid="stSidebar"] [data-baseweb="radio"] input[type="radio"]:checked + div label span,
+        [data-testid="stSidebar"] [data-baseweb="radio"] input[type="radio"]:checked + div label * {{
+            color: #4f46e5 !important;
         }}
         [data-testid="stSidebar"] [data-baseweb="radio"] svg {{
-            fill: #e7e5f8 !important;
+            fill: #667eea !important;
             stroke: #fff !important;
         }}
         [data-testid="stSidebar"] [data-baseweb="radio"] input[type="radio"]:checked + div > div > svg {{
-            fill: #fff !important;
-            stroke: #764ba2 !important;
+            fill: #667eea !important;
+            stroke: #fff !important;
         }}
         </style>
 
