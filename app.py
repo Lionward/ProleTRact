@@ -36,7 +36,7 @@ def main():
         
     analysis_mode = st.sidebar.radio(
         "Select the type of analysis", 
-        ("individual sample 👤", "Cohort 👥👥", "comparison 🔄"), 
+        ("individual sample 👤", "Cohort 👥👥"), 
         key="analysis_mode_radio",
         label_visibility='visible',
         help="Choose the analysis workflow.",
@@ -215,17 +215,6 @@ def main():
         st.session_state.analysis_mode = "Cohort"
         visualization.visulize_cohort()
         # if the path doesn't end with a slash add it
-    elif analysis_mode == "comparison 🔄":
-        if 'all_files_parsed' not in st.session_state:
-            st.session_state.all_files_parsed = False
-
-        st.session_state.analysis_mode = "comparison"
-        vcf_handler.handle_comparison_samples()
-        if st.session_state.all_files_parsed:
-            visualization.compare_different_technologies()
-        else:
-            st.warning("Failed to parse the VCF files")
-            #st.stop()  
 
         
 
