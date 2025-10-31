@@ -1,4 +1,10 @@
-<h1>🧬 ProleTRact</h1>
+<br />
+<div align="center">
+ <img width="443" alt="grafik" src="ProleTRact_logo.svg">
+
+  </p>
+</div>
+<br />
 <p>This repository contains a <strong>Tandem Repeat Visualization Tool</strong> designed using Streamlit. The tool processes Variant Call Format (VCF) files, visualizing tandem repeats in an intuitive, interactive format. Users can explore motifs, compare alleles, and gain insights into the structure of tandem repeats, enhancing their ability to interpret genomic variation.</p>
 
 <h2>Features</h2>
