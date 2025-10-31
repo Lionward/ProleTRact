@@ -1,16 +1,19 @@
 import streamlit as st
 import streamlit.components.v1 as components
-from data_handling import VCFHandler, CohortHandler
-from visualization import Visualization
+from proletract.modules.io.data_handling import VCFHandler, CohortHandler
+from proletract.modules.viz.visualization import Visualization
 import pandas as pd 
 import base64
 import os
+from pathlib import Path
 
 
 
 def get_pathogenic_TRs():
-    current_path = os.getcwd()
-    pathogenic_trs = pd.read_csv(current_path+"/pathogenic_TRs.bed", sep="\t", header=None)
+    # Resolve to package data file
+    root = Path(__file__).resolve().parent
+    data_path = root / "proletract" / "data" / "pathogenic_TRs.bed"
+    pathogenic_trs = pd.read_csv(str(data_path), sep="\t", header=None)
     pathogenic_trs.columns = ["chrom",'start','end','motif','pathogenic_min','inheritance','disease','gene']
     st.session_state.pathogenic_TRs = pathogenic_trs
     pathogenic_trs['region'] = pathogenic_trs['chrom'] + ":" + pathogenic_trs['start'].astype(str) + "-" + pathogenic_trs['end'].astype(str)
@@ -33,7 +36,7 @@ def main():
         
     analysis_mode = st.sidebar.radio(
         "Select the type of analysis", 
-        ("individual sample 👤", "Cohort 👥👥"), 
+        ("individual sample 👤", "Cohort 👥👥", "comparison 🔄"), 
         key="analysis_mode_radio",
         label_visibility='visible',
         help="Choose the analysis workflow.",
@@ -208,12 +211,23 @@ def main():
                 st.session_state['cohort_mode'] = "assembly"
                 st.rerun()
 
-
         cohort_handler.handle_cohort()
         st.session_state.analysis_mode = "Cohort"
-        # if the path doesn't end with a slash add it
-
         visualization.visulize_cohort()
+        # if the path doesn't end with a slash add it
+    elif analysis_mode == "comparison 🔄":
+        if 'all_files_parsed' not in st.session_state:
+            st.session_state.all_files_parsed = False
+
+        st.session_state.analysis_mode = "comparison"
+        vcf_handler.handle_comparison_samples()
+        if st.session_state.all_files_parsed:
+            visualization.compare_different_technologies()
+        else:
+            st.warning("Failed to parse the VCF files")
+            #st.stop()  
+
+        
 
 
 if __name__ == "__main__":
