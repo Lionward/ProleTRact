@@ -362,6 +362,18 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
         """)
 
 def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, motif_ids, spans, motif_colors, motif_names, supporting_reads=None):
+    # Global override to upscale sequence visualization typography
+    st.markdown("""
+        <style>
+            .sequence-dashboard, .sequence-dashboard * { font-size: 1.05rem !important; }
+            .sequence-header { font-size: 1.08rem !important; }
+            .sequence-length { font-size: 1.02rem !important; }
+            .motif-legend-container, .motif-legend-container * { font-size: 1.05rem !important; }
+            .motif-legend-header { font-size: 1.06rem !important; }
+            .motif-count { font-size: 1.02rem !important; }
+            .legend-stats .stat-item span, .legend-stats .stat-item .stat-value { font-size: 1.02rem !important; }
+        </style>
+    """, unsafe_allow_html=True)
     # Handle the situations where motifs are not available or sequence is just one base
     if (motif_ids == ["."]) or (isinstance(sequence, str) and len(sequence) <= 1):
         if sequence_name == "Ref":
@@ -1417,10 +1429,10 @@ def display_genotype_card(gt, sample_name="Sample", show_details=True):
                 flex-wrap: wrap;
             }}
             .genotype-icon {{
-                font-size: 16px;
+                font-size: 20px;
             }}
             .genotype-title {{
-                font-size: 12px;
+                font-size: 20px;
                 font-weight: 700;
                 color: {interpretation['color']};
                 margin: 0;
@@ -1430,24 +1442,24 @@ def display_genotype_card(gt, sample_name="Sample", show_details=True):
                 color: white;
                 padding: 2px 6px;
                 border-radius: 8px;
-                font-size: 11px;
+                font-size: 20px;
                 font-weight: 800;
                 font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
                 letter-spacing: 0.3px;
             }}
             .genotype-description {{
-                font-size: 11px;
+                font-size: 20px;
                 font-weight: 600;
                 color: #374151;
                 margin: 0;
             }}
             .genotype-stats {{
                 display: flex;
-                gap: 8px;
+                gap: 20px;
                 margin-left: auto;
             }}
             .stat-item {{
-                font-size: 9px;
+                font-size: 20px;
                 color: #6B7280;
                 font-weight: 500;
             }}
@@ -1484,9 +1496,9 @@ def display_genotype_badge(gt, size="medium"):
     interpretation = interpret_genotype(gt)
     
     size_classes = {
-        "small": "padding: 4px 8px; font-size: 12px; border-radius: 8px;",
-        "medium": "padding: 6px 12px; font-size: 14px; border-radius: 10px;",
-        "large": "padding: 8px 16px; font-size: 16px; border-radius: 12px;"
+        "small": "padding: 5px 10px; font-size: 14px; border-radius: 9px;",
+        "medium": "padding: 7px 14px; font-size: 16px; border-radius: 11px;",
+        "large": "padding: 9px 18px; font-size: 18px; border-radius: 13px;"
     }
     
     st.html(f"""
@@ -1562,7 +1574,7 @@ def create_genotype_comparison_matrix(genotypes_dict):
                 box-shadow: 0 4px 12px rgba(0,0,0,0.10);
             }
             .sample-name {
-                font-size: 11.5px;
+                font-size: 14px;
                 font-weight: 600;
                 color: #374151;
                 margin-bottom: 3px;
@@ -1571,7 +1583,7 @@ def create_genotype_comparison_matrix(genotypes_dict):
                 word-break: break-all;
             }
             .genotype-display {
-                font-size: 13px;
+                font-size: 18px;
                 font-weight: 800;
                 font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
                 letter-spacing: 0.6px;
@@ -1579,7 +1591,7 @@ def create_genotype_comparison_matrix(genotypes_dict):
                 line-height: 1.1;
             }
             .genotype-type {
-                font-size: 9.5px;
+                font-size: 16px;
                 color: #6B7280;
                 text-transform: uppercase;
                 letter-spacing: 0.28px;

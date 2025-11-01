@@ -33,24 +33,64 @@ def configure_page():
 def inject_global_styles():
     st.markdown("""
         <style>
+            /* Slightly increase global font sizes */
+            html, body { font-size: 24px; }
+            [data-testid="stAppViewContainer"] h1 { font-size: 2.15rem !important; }
+            [data-testid="stAppViewContainer"] h2 { font-size: 1.7rem !important; }
+            [data-testid="stAppViewContainer"] h3 { font-size: 1.35rem !important; }
+            [data-testid="stAppViewContainer"] p, 
+            [data-testid="stAppViewContainer"] li, 
+            [data-testid="stAppViewContainer"] code, 
+            [data-testid="stAppViewContainer"] .stMarkdown, 
+            [data-testid="stAppViewContainer"] label { 
+                font-size: 1.05rem !important; 
+            }
+            /* Ensure visualization-specific components scale with global font */
+            [data-testid="stAppViewContainer"] .sequence-dashboard, 
+            [data-testid="stAppViewContainer"] .sequence-dashboard * {
+                font-size: 1rem !important;
+            }
+            [data-testid="stAppViewContainer"] .sequence-header {
+                font-size: 1.05rem !important;
+            }
+            [data-testid="stAppViewContainer"] .sequence-length {
+                font-size: 0.98rem !important;
+            }
+            [data-testid="stAppViewContainer"] .motif-legend-container,
+            [data-testid="stAppViewContainer"] .motif-legend-container * {
+                font-size: 1rem !important;
+            }
+            [data-testid="stAppViewContainer"] .legend-stats .stat-item span,
+            [data-testid="stAppViewContainer"] .legend-stats .stat-item .stat-value {
+                font-size: 1rem !important;
+            }
+            /* Dataframe/table text */
+            [data-testid="stAppViewContainer"] [data-testid="stDataFrame"] * { 
+                font-size: 0.98rem !important; 
+            }
+            /* Sidebar base font size */
+            [data-testid="stSidebar"] { font-size: 1.06rem !important; }
+            [data-testid="stSidebar"] h1 { font-size: 1.9rem !important; }
+            [data-testid="stSidebar"] h2 { font-size: 1.5rem !important; }
+            [data-testid="stSidebar"] h3 { font-size: 1.25rem !important; }
             div[data-testid="stAppViewContainer"] .stButton > button {
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 border: none;
-                padding: 4px 10px;
+                padding: 8px 14px;
                 border-radius: 10px;
                 font-weight: 700 !important;
-                font-size: 13px !important;
+                font-size: 16px !important;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
                 margin: 4px;
-                min-width: 110px;
-                min-height: 38px;
+                min-width: 130px;
+                min-height: 44px;
                 letter-spacing: 0.65px;
                 line-height: 1.15 !important;
             }
             div[data-testid="stAppViewContainer"] .stButton > button * {
-                font-size: 16px !important;
+                font-size: 18px !important;
                 font-weight: 700 !important;
                 line-height: 1.15 !important;
             }
@@ -84,20 +124,20 @@ def inject_global_styles():
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 border: none;
-                padding: 4px 12px;
+                padding: 7px 14px;
                 border-radius: 10px;
                 font-weight: 600 !important;
-                font-size: 13px !important;
+                font-size: 16px !important;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 box-shadow: 0 2px 6px rgba(102, 126, 234, 0.12);
                 margin: 3px 0;
-                min-width: 80px;
-                min-height: 28px;
+                min-width: 100px;
+                min-height: 36px;
                 letter-spacing: 0.3px;
                 line-height: 1.1 !important;
             }
             section[data-testid="stSidebar"] .stButton > button * {
-                font-size: 13px !important;
+                font-size: 16px !important;
                 font-weight: 600 !important;
                 line-height: 1.1 !important;
             }
