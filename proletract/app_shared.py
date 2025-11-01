@@ -252,8 +252,8 @@ def render_sidebar_branding():
             </style>
         """, unsafe_allow_html=True)
 
-        st.page_link("app.py", label="Home", icon="🏠")
-        st.page_link("pages/1_Individual_sample.py", label="Individual sample 👤")
-        st.page_link("pages/2_Cohort_Reads.py", label="Cohort Reads-based VCF    ☰")
-        st.page_link("pages/3_Cohort_Assembly.py", label="Cohort Assembly VCF   ━━━━") #━━━━
+        st.page_link("app.py", label="About ProleTRact", icon="🏠")
+        st.page_link("pages/1_Individual_sample.py", label="Individual Mode 👤")
+        st.page_link("pages/2_Cohort_Reads.py", label="Cohort Mode (Reads-based)    ☰")
+        st.page_link("pages/3_Cohort_Assembly.py", label="Cohort Mode (Assembly-based)   ━━━━") #━━━━
 

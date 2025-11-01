@@ -147,15 +147,13 @@ def main():
       
     with faq_tab:
         with st.expander("What input formats are supported?", expanded=False):
-            st.write("VCF files produced by TandemTwister (reads-based or assembly-based).")
+            st.info("VCF files produced by TandemTwister (reads-based or assembly-based).")
         with st.expander("How do I select a TR region?", expanded=False):
-            st.write("On the Individual page, search by gene, coordinate, or motif and then visualize.")
+            st.info("On the Individual page/cohort pages, search by coordinate and then visualize.")
         with st.expander("How do I group samples in a cohort?", expanded=False):
-            st.write("Provide a CSV with 'sample_id', 'vcf_path', and optional 'group' column.")
-        with st.expander("Performance tips", expanded=False):
-            st.write("Index your VCFs (bgzip + tabix) and keep files on fast storage for best results.")
-
-
+            st.info("Run TandemTwister on a cohort of samples and then upload the VCF files to the cohort pages by specifying the path to the VCF files.")
+        with st.expander("How do I use the pathogenic TR catalog?", expanded=False):
+            st.info("Run TandemTwister using the pathogenic TR catalog as the input file and then upload the VCF files to the cohort pages by specifying the path to the VCF files.")
 if __name__ == "__main__":
     main()
     

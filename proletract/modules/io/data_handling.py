@@ -33,6 +33,8 @@ class VCFHandler:
             # initialize the vcf file path
             st.session_state.vcf_file_path = None
         vcf_path = st.sidebar.text_input("Enter the path of your VCF file", key="vcf_file_path_input", help="Enter the path of your VCF file, the file should be zipped and indexed with tabix")
+        public_vcf_folder = st.sidebar.text_input("Enter the path of the public VCF folder", key="public_vcf_folder_input", help="Enter the path of the public VCF folder, the folder should contain the VCF files")
+ 
         _, _, middle, _ = st.sidebar.columns([1, 0.3, 2, 1])
         with st.spinner("Wait for it..."):
             button_clicked = middle.button(
@@ -56,7 +58,7 @@ class VCFHandler:
                 if 'records' not in st.session_state:
                     if st.session_state.vcf_file_path:
                         st.session_state.records, st.session_state.records_map = self.parse_vcf( st.session_state.vcf_file_path)
-                        st.session_state.hgsvc_path = "/confidential/Structural_Variation/output_maryam/pipeline/input_folder/asm_samples/assembly_results/"
+                        st.session_state.hgsvc_path = public_vcf_folder 
                         # check if the path exists
                         if os.path.exists(st.session_state.hgsvc_path):
                             st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('h1.vcf.gz') or f.endswith('h2.vcf.gz')]

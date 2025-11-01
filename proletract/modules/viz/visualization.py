@@ -1057,22 +1057,6 @@ class Visualization:
         span_list = []
         motif_ids_list = []
         
-        # Enhanced radio button styling
-        # st.markdown("""
-        #     <style>
-        #         .stRadio > div {
-        #             background: rgba(255, 255, 255, 0.9);
-        #             padding: 15px;
-        #             border-radius: 16px;
-        #             border: 1px solid rgba(102, 126, 234, 0.2);
-        #             margin-bottom: 20px;
-        #         }
-        #         .stRadio label {
-        #             font-weight: 600 !important;
-        #             color: #4a5568 !important;
-        #         }
-        #     </style>
-        # """, unsafe_allow_html=True)
         
         # Enhanced radio group display using Streamlit columns for a visually appealing "Sort by"
         st.html("""
@@ -1218,9 +1202,8 @@ class Visualization:
             if hgsvc_records[key]['alt_allele'] == '':
                 continue
             sequences.append({'name': key, 'sequence': hgsvc_records[key]['alt_allele']})
-            span_list.append(hgsvc_records[key]['spans'][1])
+            span_list.append(hgsvc_records[key]['spans'])
             motif_ids_list.append(hgsvc_records[key]['motif_ids_h'])
-
         motif_colors, df = self.stack_plot(record, motif_names, sequences, span_list, motif_ids_list,sort_by)
         region = f"{record['chr']}:{record['pos']-1}-{record['stop']-1}"
         
