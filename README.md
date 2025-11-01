@@ -22,8 +22,8 @@
 <p>Example screenshots and short walkthrough GIFs will be added here. For now, you can open <code>example.svg</code> for a preview:</p>
 <img src="proletract/assets/example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
 <ul>
-  <li><em>Planned:</em> Individual-mode walkthrough (loading one bgzipped+tabix-indexed VCF and navigating records)</li>
-  <li><em>Planned:</em> Cohort-mode walkthrough (loading a directory of VCFs and comparing across samples)</li>
+  <li><em>Planned:</em> Individual-mode walkthrough </li>
+  <li><em>Planned:</em> Cohort-mode walkthrough</li>
 </ul>
 
 <h2>Installation</h2>
