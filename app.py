@@ -78,7 +78,7 @@ def main():
             "Demo", seq, motif_ids, spans, demo_colors, demo_motif_names, supporting_reads=None
         )
         st.caption(
-            "Each colored block corresponds to a detected motif run; interruptions (white gaps) are shown between runs."
+            "Each colored block corresponds to a detected motif run; interruptions (red highlighted nucleotides) are shown between runs."
             " This mirrors the individual-sample sequence panel."
         )
 
