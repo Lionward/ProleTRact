@@ -5,10 +5,10 @@
   </p>
 </div>
 <br />
-<p>This repository contains a <strong>Tandem Repeat Visualization Tool</strong> designed using Streamlit. The tool processes Variant Call Format (VCF) files, visualizing tandem repeats in an intuitive, interactive format. Users can explore motifs, compare alleles, and gain insights into the structure of tandem repeats, enhancing their ability to interpret genomic variation.</p>
+<p>This repository contains a <strong>Tandem Repeat Visualization Tool</strong> that serves as the companion tool to <a href="https://github.com/Lionward/TandemTwister"><strong>TandemTwister</strong></a>. The tool processes Variant Call Format (VCF) files, visualizing tandem repeats in an intuitive, interactive format. Users can explore motifs, compare alleles, and gain insights into the structure of tandem repeats, enhancing their ability to interpret genomic variation.</p>
 
 <h2>Why ProleTRact?</h2>
-<p>TRs are complex: alleles can differ by motif composition, length, and interrupted blocks. ProleTRact renders TR regions with color-coded motifs, highlights interruptions, and provides intuitive navigation across variants and samples, enabling quick insight into potentially pathogenic expansions or atypical structures.</p>
+<p>TRs are complex: alleles can differ by motif composition, length, and interrupted blocks. ProleTRact visulize TR regions with color-coded motifs, highlights interruptions, and provides intuitive navigation across regions and samples, enabling quick insight into potentially pathogenic expansions or atypical structures.</p>
 
 <h2>Key Features</h2>
 <ul>
@@ -16,12 +16,11 @@
   <li><strong>Dynamic sequence visualization:</strong> Color-coded motifs, clear interruption highlighting, and side-by-side allele comparison.</li>
   <li><strong>Pathogenic TR reference overlay:</strong> Built-in <code>pathogenic_TRs.bed</code> provides context for known loci (disease, gene, thresholds).</li>
   <li><strong>Fast navigation:</strong> Move across TR records with Previous/Next controls or jump to a specific region.</li>
-  <li><strong>Streamlit-native UI:</strong> Clean controls, responsive layout, and helpful tooltips.</li>
 </ul>
 
 <h2>Demo / Examples</h2>
 <p>Example screenshots and short walkthrough GIFs will be added here. For now, you can open <code>example.svg</code> for a preview:</p>
-<img src="example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
+<img src="proletract/assets/example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
 <ul>
   <li><em>Planned:</em> Individual-mode walkthrough (loading one bgzipped+tabix-indexed VCF and navigating records)</li>
   <li><em>Planned:</em> Cohort-mode walkthrough (loading a directory of VCFs and comparing across samples)</li>
@@ -80,25 +79,12 @@ cd ProleTRact</code></pre>
   <li><strong>Optional reference:</strong> <code>proletract/data/pathogenic_TRs.bed</code> is loaded to annotate known loci with disease/gene/thresholds.</li>
 </ul>
 
-<h2>Tips</h2>
-<ul>
-  <li>Use absolute paths in the sidebar inputs.</li>
-  <li>Ensure files are bgzipped (<code>bgzip</code>) and indexed (<code>tabix</code>) before loading.</li>
-  <li>Large cohorts: keep only relevant TR VCFs in the directory you point to for faster scanning.</li>
-</ul>
-
-<h2>Roadmap</h2>
-<ul>
-  <li>Screenshots and GIF walkthroughs for both modes</li>
-  <li>Requirements file and optional Conda environment</li>
-  <li>Enhanced cohort summaries and export options</li>
-</ul>
 
 <h2>Contributing</h2>
-<p>Contributions are welcome! Please open an issue to discuss changes, or submit a PR with a clear description and minimal repro. For larger changes, propose an approach first.</p>
+<p>Contributions are welcome! Please <a href="https://github.com/Lionward/ProleTRact/issues">open an issue</a> to discuss changes.</p>
 
 <h2>License</h2>
-<p>This project is licensed under the MIT License — see <code>LICENSE</code> for details.</p>
+<p>This project is licensed under the BSD 3-Clause License — see <code>LICENSE</code> for details.</p>
 
 <h2>Citation</h2>
 <p>If you use ProleTRact in your work, please cite this repository. A formal citation entry will be added once available.</p>
