@@ -33,29 +33,14 @@ def main():
         with col2:
             st.markdown("**2) Cohort (Reads)**")
             st.caption("Aggregate read-based VCFs and compare across samples.")
-            st.page_link("pages/2_Cohort_Reads.py", label="Open Cohort Reads", icon="📄")
+            st.page_link("pages/2_Cohort_Reads.py", label="Open Cohort Mode (Reads-based) 👤👤👤")
         with col3:
             st.markdown("**3) Cohort (Assembly)**")
             st.caption("Analyze haplotype-resolved assembly VCFs.")
-            st.page_link("pages/3_Cohort_Assembly.py", label="Open Cohort Assembly", icon="🧬")
+            st.page_link("pages/3_Cohort_Assembly.py", label="Open Cohort Mode (Assembly-based) 👤👤👤")
 
         st.markdown("---")
-        st.markdown("### Templates and tips")
-        template = pd.DataFrame({
-            "sample_id": ["S1", "S2"],
-            "vcf_path": ["/path/to/S1.vcf.gz", "/path/to/S2.vcf.gz"],
-            "group": ["case", "control"],
-        })
-        buf = io.StringIO()
-        template.to_csv(buf, index=False)
-        st.download_button(
-            label="Download cohort CSV template",
-            data=buf.getvalue(),
-            file_name="cohort_template.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
-        st.caption("Use this CSV on the cohort pages to load multiple samples.")
+       
 
     with examples_tab:
 
