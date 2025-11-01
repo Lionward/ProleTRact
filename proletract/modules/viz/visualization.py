@@ -2013,7 +2013,6 @@ class Visualization:
             with tab3:
                 if hgsvc_records:
                     # Add genotype comparison for population data
-                    st.markdown("### 🧬 Population Genotype Comparison")
                     population_genotypes = {"Current Sample": record['gt']}
                     for sample_name, sample_record in hgsvc_records.items():
                         if 'gt' in sample_record:
