@@ -5,7 +5,7 @@ import numpy as np
 import altair as alt
 from proletract.app_shared import configure_page, ensure_state_initialized
 from proletract.modules.viz.visualization import Visualization
-from proletract.modules.viz.vis_helper import create_genotype_comparison_matrix, display_dynamic_sequence_with_highlighted_motifs
+from proletract.modules.viz.vis_helper import create_genotype_comparison_matrix, display_dynamic_sequence_with_highlighted_motifs, motif_legend_html
 
 
 def main():
@@ -21,7 +21,7 @@ def main():
         icon="💡",
     )
 
-    quickstart_tab, examples_tab, faq_tab = st.tabs(["Quickstart", "Examples", "FAQ"])
+    quickstart_tab, examples_tab, faq_tab, upcoming_tab = st.tabs(["Quickstart", "Examples", "FAQ", "Upcoming Features"])
 
     with quickstart_tab:
         st.markdown("### Get started in 3 steps")
@@ -56,9 +56,17 @@ def main():
         demo_colors = {i: c for i, c in enumerate(viz.get_color_palette(len(demo_motif_names)))}
         # Build a synthetic sequence with segments: CAGx10, GAAx6, TTCx8 (interruptions inserted)
         seq = "CAG" * 10 + "A" + "GAA" * 6 + "TT" + "TTC" * 8
-        # spans are 1-based inclusive pairs, matching motif_ids order below
-        spans = "(1-30),(32-49),(52-75)"
-        motif_ids = [0, 1, 2]  # indices into demo_motif_names
+        # spans are per motif occurrence: each individual motif gets its own span
+  
+        spans = "(1-3),(4-6),(7-9),(10-12),(13-15),(16-18),(19-21),(22-24),(25-27),(28-30),(32-34),(35-37),(38-40),(41-43),(44-46),(47-49),(52-54),(55-57),(58-60),(61-63),(64-66),(67-69),(70-72),(73-75)"
+        motif_ids = [0] * 10 + [1] * 6 + [2] * 8  # 10 CAG, 6 GAA, 8 TTC
+           # Show the motif legend using the same function
+        motif_legend_html(motif_ids, demo_colors, demo_motif_names)
+        st.caption(
+            "Legend explains which colors correspond to which motifs in the region. Also displays summary statistics."
+        )
+
+        st.markdown("---")
         display_dynamic_sequence_with_highlighted_motifs(
             "Demo", seq, motif_ids, spans, demo_colors, demo_motif_names, supporting_reads=None
         )
@@ -67,7 +75,8 @@ def main():
             " This mirrors the individual-sample sequence panel."
         )
 
-        st.markdown("---")
+        st.markdown("**Motif legend (used across visualizations)**")
+     
         # B) Genotype comparison matrix (as used in cohort visualizations)
         st.markdown("**B) Genotype comparison matrix**")
         demo_genotypes = {
@@ -145,6 +154,68 @@ def main():
             st.warning("Pathogenic TR catalog not loaded.")
 
       
+    with upcoming_tab:
+        st.markdown("### 🚀 Upcoming Features")
+        st.markdown("We're continuously improving ProleTRact. Here are some features planned for future releases:")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### 🔬 Read-level visualization")
+            st.info(
+                "**IGV-like read browser**: Interactive read alignment viewer showing individual reads mapped to TR regions. "
+                "Visualize read depth, support for different alleles, and identify read-level evidence for expansions/contractions. "
+                "Zoom, pan, and filter reads by quality or allele support.",
+                icon="📊"
+            )
+            
+            st.markdown("#### 🔍 Advanced filtering")
+            st.info(
+                "**Multi-criteria filtering**: Filter samples/regions by repeat count ranges, quality scores, coverage depth, "
+                "pathogenicity thresholds",
+                icon="🎯"
+            )
+            
+            
+            st.markdown("#### 🧬 Phasing & inheritance")
+            st.info(
+                "**Family pedigree visualization**: Track TR alleles through pedigrees. Visualize segregation patterns, "
+                "identify de novo expansions, and analyze inheritance modes. Support for trio and extended family analysis.",
+                icon="👨‍👩‍👧‍👦"
+            )
+            
+        
+        with col2:
+            st.markdown("#### 🌐 Population databases")
+            st.info(
+                "**Integration with gnomAD & HGSVC**: Compare sample alleles against population reference databases. "
+                "Display allele frequencies from healthy cohorts. Identify rare or novel expansions relative to population data.",
+                icon="🌍"
+            )
+        
+            
+            
+            st.markdown("#### 🧪 Quality metrics")
+            st.info(
+                "**Comprehensive QC dashboard**: Visualize per-sample and per-region quality metrics (coverage, depth, allelic balance). "
+                "Identify problematic regions or samples. Automated QC flagging and quality score filtering.",
+                icon="✅"
+            )
+            
+            st.markdown("#### 📈 Statistical analysis")
+            st.info(
+                "**Allele frequency analysis**: Calculate population allele frequencies, compare case vs control distributions, "
+                "perform statistical tests (t-test, Mann-Whitney, etc.). Generate summary statistics and effect size estimates.",
+                icon="📉"
+            )
+        st.markdown("---")
+        st.markdown("#### 💡 Have suggestions?")
+        st.markdown(
+            "We'd love to hear your ideas! Contact us or open an issue on GitHub to suggest features or report bugs. "
+            "Your feedback helps shape the future of ProleTRact."
+        )
+        
+
     with faq_tab:
         with st.expander("What input formats are supported?", expanded=False):
             st.info("VCF files produced by TandemTwister (reads-based or assembly-based).")

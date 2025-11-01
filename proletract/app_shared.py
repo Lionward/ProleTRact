@@ -124,20 +124,20 @@ def inject_global_styles():
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 border: none;
-                padding: 7px 14px;
+                padding: 12px 18px;
                 border-radius: 10px;
                 font-weight: 600 !important;
-                font-size: 16px !important;
+                font-size: 18px !important;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 box-shadow: 0 2px 6px rgba(102, 126, 234, 0.12);
                 margin: 3px 0;
-                min-width: 100px;
-                min-height: 36px;
+                min-width: 140px;
+                min-height: 48px;
                 letter-spacing: 0.3px;
                 line-height: 1.1 !important;
             }
             section[data-testid="stSidebar"] .stButton > button * {
-                font-size: 16px !important;
+                font-size: 18px !important;
                 font-weight: 600 !important;
                 line-height: 1.1 !important;
             }
@@ -145,20 +145,20 @@ def inject_global_styles():
                 transform: translateY(-1.5px) scale(1.01);
                 box-shadow: 0 3px 8px rgba(102, 126, 234, 0.15);
                 background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-                font-size: 14px !important;
+                font-size: 19px !important;
             }
             section[data-testid="stSidebar"] .stButton > button:hover * {
-                font-size: 14px !important;
+                font-size: 19px !important;
             }
             section[data-testid="stSidebar"] .stButton > button:active,
             section[data-testid="stSidebar"] .stButton > button:focus {
                 transform: scale(0.97);
                 box-shadow: 0 1px 3px rgba(102, 126, 234, 0.10);
-                font-size: 13px !important;
+                font-size: 17px !important;
             }
             section[data-testid="stSidebar"] .stButton > button:active *,
             section[data-testid="stSidebar"] .stButton > button:focus * {
-                font-size: 13px !important;
+                font-size: 17px !important;
             }
             [data-testid="stSidebar"] { background: linear-gradient(180deg, #667eea 0%, #764ba2 100%); }
             [data-testid="stSidebar"] * { color: white; }
