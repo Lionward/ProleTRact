@@ -1473,11 +1473,7 @@ class Visualization:
     def stack_plot(self, record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value"):
         motif_colors = self.get_color_palette(len(record['motifs']))
         motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
-        
-        region = record['chr'] + ":" + str(record['pos'] - 1) + "-" + str(record['stop'] - 1)
-        start = record['pos'] -1#+1
-        stop = record['stop'] -1
-        chrom = record['chr']
+
         updated_region = record['id']
         #st.write(updated_region)
         #updated_region = chrom + ":" + str(start) + "-" + str(stop)
@@ -1856,7 +1852,6 @@ class Visualization:
             st.warning(f"🚨 **Pathogenic Alert**: {len(above_threshold_samples)} sample(s) exceed the pathogenic threshold of {pathogenic_threshold} copies")
         
         return motif_colors, df
-
     def count_motifs(self, motif_ids):
         motif_count = {}
         for idx, motif in enumerate(motif_ids):
