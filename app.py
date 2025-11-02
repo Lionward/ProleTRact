@@ -11,15 +11,9 @@ from proletract.modules.viz.vis_helper import create_genotype_comparison_matrix,
 def main():
     configure_page()
     ensure_state_initialized()
-
-    st.title("🧬 ProleTRact")
-    st.subheader("Tandem Repeat Analysis Portal")
-
-    st.info(
-        "Explore, visualize, and compare tandem repeat regions from TandemTwister outputs."
-        " Use the pages on the sidebar to start with an individual sample or cohort.",
-        icon="💡",
-    )
+    st.subheader("ProleTRact: Tandem Repeat Analysis Portal")
+    # Use a magnifying glass (loop/magnifier) icon before "Explore"
+    st.info("🔍 Explore, visualize, and compare tandem repeat regions from TandemTwister outputs. Use the pages on the sidebar to start with an individual sample or cohort.")
 
     quickstart_tab, examples_tab, faq_tab, upcoming_tab = st.tabs(["Quickstart", "Examples", "FAQ", "Upcoming Features"])
 
@@ -119,8 +113,8 @@ def main():
             [1, 0],
             [2, 1, 0],
         ]
-        # Render stack plot + internal heatmap and summary stats
-        _motif_colors, df_stack = viz.stack_plot(record, demo_motif_names, sequences, span_list, motif_ids_list, sort_by="Value")
+        # Render stack plot + internal heatmap and summary stats (with reduced height and width for helper page)
+        _motif_colors, df_stack = viz.stack_plot(record, demo_motif_names, sequences, span_list, motif_ids_list, sort_by="Value", max_height=600, max_width=800)
         st.caption(
             "Stack plot: each row is a sample/allele; colored blocks represent motif runs along the sequence."
             " The heatmap on top aggregates motif occurrences by sample and motif."
@@ -149,7 +143,60 @@ def main():
         if "pathogenic_TRs" in st.session_state:
             df = st.session_state.pathogenic_TRs
             preview = df[["chrom", "start", "end", "motif", "disease", "gene"]].head(10)
-            st.dataframe(preview, use_container_width=True, hide_index=True)
+            # Create custom HTML table with larger font sizes
+            table_html = """
+            <style>
+                .pathogenic-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                    font-size: 24px !important;
+                }
+                .pathogenic-table th {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 16px 12px;
+                    text-align: left;
+                    font-size: 26px !important;
+                    font-weight: bold !important;
+                    border: 1px solid #e2e8f0;
+                }
+                .pathogenic-table td {
+                    padding: 14px 12px;
+                    border: 1px solid #e2e8f0;
+                    font-size: 24px !important;
+                    background-color: #f9fafb;
+                }
+                .pathogenic-table tr:nth-child(even) td {
+                    background-color: #ffffff;
+                }
+                .pathogenic-table tr:hover td {
+                    background-color: #f1f5f9;
+                }
+            </style>
+            <table class="pathogenic-table">
+                <thead>
+                    <tr>
+            """
+            # Add header row
+            for col in preview.columns:
+                table_html += f"<th>{col}</th>"
+            table_html += """
+                    </tr>
+                </thead>
+                <tbody>
+            """
+            # Add data rows
+            for _, row in preview.iterrows():
+                table_html += "<tr>"
+                for col in preview.columns:
+                    table_html += f"<td>{row[col]}</td>"
+                table_html += "</tr>"
+            table_html += """
+                </tbody>
+            </table>
+            """
+            st.markdown(table_html, unsafe_allow_html=True)
         else:
             st.warning("Pathogenic TR catalog not loaded.")
 
@@ -192,8 +239,6 @@ def main():
                 "Display allele frequencies from healthy cohorts. Identify rare or novel expansions relative to population data.",
                 icon="🌍"
             )
-        
-            
             
             st.markdown("#### 🧪 Quality metrics")
             st.info(

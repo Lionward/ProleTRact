@@ -1392,15 +1392,19 @@ class Visualization:
             x=alt.X('Sample', sort=x_sort, axis=alt.Axis(
                 labelFontWeight='bold', 
                 labelColor='#4B5563',
+                labelFontSize=16,
                 titleFontWeight='bold', 
                 titleColor='#374151',
+                titleFontSize=20,
                 labelAngle=45
             )),
             y=alt.Y('Total Copy Number', axis=alt.Axis(
                 labelFontWeight='bold',
-                labelColor='#4B5563', 
+                labelColor='#4B5563',
+                labelFontSize=16,
                 titleFontWeight='bold',
-                titleColor='#374151'
+                titleColor='#374151',
+                titleFontSize=20
             )),
             tooltip=['Sample', 'Total Copy Number'],
             color=alt.Color('Sample', scale=alt.Scale(
@@ -1412,7 +1416,7 @@ class Visualization:
             height=400,
             title=alt.TitleParams(
                 text='Total Copy Number per Sample',
-                fontSize=28,
+                fontSize=36,
                 fontWeight='bold',
                 color='#1F2937'
             )
@@ -1428,7 +1432,7 @@ class Visualization:
             ).encode(y='Total Copy Number:Q')
 
             threshold_pointer = alt.Chart(pd.DataFrame({'Total Copy Number': [pathogenic_threshold]})).mark_text(
-                text='🚨 Pathogenic Threshold', align='left', dx=5, dy=-10, fontSize=11, color='#DC2626', fontWeight='bold'
+                text='🚨 Pathogenic Threshold', align='left', dx=5, dy=-10, fontSize=16, color='#DC2626', fontWeight='bold'
             ).encode(y='Total Copy Number:Q')
             
             bar_chart = alt.layer(bar_chart, threshold_line, threshold_pointer).configure_view(
@@ -1508,7 +1512,7 @@ class Visualization:
 
         return pd.DataFrame(data)
 
-    def stack_plot(self, record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value"):
+    def stack_plot(self, record, motif_names, sequences, span_list, motif_ids_list, sort_by="Value", max_height=None, max_width=None):
         motif_colors = self.get_color_palette(len(record['motifs']))
         motif_colors = {idx: color for idx, color in enumerate(motif_colors)}
 
@@ -1522,6 +1526,9 @@ class Visualization:
         
         default_height = 1200 
         chart_height = max(default_height, len(sequences) * 10)
+        # Apply max_height limit if provided
+        if max_height is not None:
+            chart_height = min(chart_height, max_height)
 
         df['Sample'] = df['Sample'].apply(lambda x: x.replace("_pathogenic", ""))
         
@@ -1577,12 +1584,12 @@ class Visualization:
         title.markdown(f"""
             <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 15px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <div style="font-size: 14px; color: #64748b; font-weight: 600;">Min:</div>
-                    <div style="font-size: 16px; color: #1e293b; font-weight: 700; background: #f1f5f9; padding: 4px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">{min_copy_number}</div>
+                    <div style="font-size: 20px; color: #64748b; font-weight: 600;">Min:</div>
+                    <div style="font-size: 22px; color: #1e293b; font-weight: 700; background: #f1f5f9; padding: 6px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">{min_copy_number}</div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <div style="font-size: 14px; color: #64748b; font-weight: 600;">Max:</div>
-                    <div style="font-size: 16px; color: #1e293b; font-weight: 700; background: #f1f5f9; padding: 4px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">{max_copy_number}</div>
+                    <div style="font-size: 20px; color: #64748b; font-weight: 600;">Max:</div>
+                    <div style="font-size: 22px; color: #1e293b; font-weight: 700; background: #f1f5f9; padding: 6px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">{max_copy_number}</div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -1607,7 +1614,7 @@ class Visualization:
         # Base width per motif (adjust as needed, e.g., 50)
         width_per_motif = 40
         min_width = 40
-        max_width = 480
+        max_width = 1200
         dynamic_width = max(min_width, min(width_per_motif * motif_count, max_width))
 
         heatmap = alt.Chart(heatmap_data).mark_rect(
@@ -1621,7 +1628,7 @@ class Visualization:
                 axis=alt.Axis(
                     labelFontWeight='bold', 
                     labelColor='#4B5563',
-                    labelFontSize=20,
+                    labelFontSize=28,
                     titleFontWeight='bold',
                     titleColor='#374151',
                     labelLimit=0,
@@ -1637,7 +1644,7 @@ class Visualization:
                 sort=alt.EncodingSortField(field='Count', op='sum', order='descending'),
                 axis=alt.Axis(
                     labelFontWeight='bold',
-                    labelFontSize=20,
+                    labelFontSize=28,
                     labelColor='#4B5563',
                     titleFontWeight='bold',
                     titleColor='#374151',
@@ -1651,10 +1658,10 @@ class Visualization:
                         legend=alt.Legend(
                             title="",
                             orient="top",
-                            titleFontSize=20,
+                            titleFontSize=28,
                             titleColor='#1F2937',
                             gradientLength=120,
-                            labelFontSize=12,
+                            labelFontSize=18,
                             labelColor='#4B5563',
                             columns=1,
                             offset=-0,  # decrease offset to bring legend nearer
@@ -1682,7 +1689,7 @@ class Visualization:
                     labelFontSize=0, 
                     labelFontWeight='bold',
                     titleColor='#374151',
-                    titleFontSize=28,
+                    titleFontSize=36,
                     labelPadding = 1000,
                     labels = False,
                     labelLimit = 0,
@@ -1694,10 +1701,10 @@ class Visualization:
                 stack='zero', 
                 axis=alt.Axis(
                     labelColor='#4B5563', 
-                    labelFontSize=20, 
+                    labelFontSize=28, 
                     labelFontWeight='bold', 
                     titleColor='#374151',
-                    titleFontSize=28,
+                    titleFontSize=36,
                     labelOverlap=False,
                     labelAngle=90,  # Set labels to be 90 degrees
                     # Custom tick values: show every second number
@@ -1714,10 +1721,10 @@ class Visualization:
                     title="",
                     orient="top",
                     gradientLength=120,
-                    labelFontSize=20,
+                    labelFontSize=28,
                     labelColor='#4B5563',
-                    symbolStrokeWidth=10,
-                    symbolSize=220,
+                    symbolStrokeWidth=12,
+                    symbolSize=280,
                     symbolType="square",
                     columns=len(motif_names) + 1 if len(motif_names) + 1 <= 10 else 5,
                     # Increase padding between legend entries for more spacing
@@ -1727,7 +1734,7 @@ class Visualization:
             order=alt.Order('Order', sort='ascending'),
             tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence', 'pathogenic', 'Length', 'Sequence_length']
         ).properties(
-            width='container',
+            width=max_width if max_width is not None else 'container',
             height=chart_height,
             title='',
         )
@@ -1760,7 +1767,7 @@ class Visualization:
                     text='➔',  # Right-arrow symbol
                     align='left',
                     baseline='middle',
-                    fontSize=20,
+                    fontSize=28,
                     color='#DC2626',
                     fontWeight='bold',
                     angle=235,   # Rotate the arrow to point right-up toward the bar
@@ -1780,7 +1787,7 @@ class Visualization:
                     text=' PATHOGENIC',
                     align='left',
                     baseline='middle',
-                    fontSize=12,
+                    fontSize=18,
                     color='#DC2626',
                     fontWeight='bold',
                     dy=10,

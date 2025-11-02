@@ -74,7 +74,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
             color: white;
             padding: 10px 14px;
             font-weight: 700;
-            font-size: 17px;
+            font-size: 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -83,7 +83,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
             background: rgba(255,255,255,0.18);
             padding: 3px 10px;
             border-radius: 14px;
-            font-size: 15px;
+            font-size: 21px;
             font-weight: 600;
         }
         .motif-legend-content {
@@ -125,7 +125,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
             background: linear-gradient(135deg, #fc8181, #e53e3e) !important;
         }
         .legend-text {
-            font-size: 16px;
+            font-size: 22px;
             font-weight: 600;
             color: #374151;
             white-space: nowrap;
@@ -137,7 +137,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
             color: white;
             padding: 2px 6px;
             border-radius: 10px;
-            font-size: 17px;
+            font-size: 24px;
             font-weight: 700;
             margin-left: 7px;
         }
@@ -147,7 +147,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
             padding: 10px 10px 8px 10px;
             background: #f0f4ff;
             border-top: 1px solid #e2e8f0;
-            font-size: 13px;
+            font-size: 18px;
             color: #4b5563;
         }
         .stat-item {
@@ -1690,7 +1690,7 @@ def create_genotype_comparison_matrix(genotypes_dict):
                 box-shadow: 0 4px 12px rgba(0,0,0,0.10);
             }
             .sample-name {
-                font-size: 14px;
+                font-size: 20px;
                 font-weight: 600;
                 color: #374151;
                 margin-bottom: 3px;
@@ -1699,7 +1699,7 @@ def create_genotype_comparison_matrix(genotypes_dict):
                 word-break: break-all;
             }
             .genotype-display {
-                font-size: 18px;
+                font-size: 26px;
                 font-weight: 800;
                 font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
                 letter-spacing: 0.6px;
@@ -1707,7 +1707,7 @@ def create_genotype_comparison_matrix(genotypes_dict):
                 line-height: 1.1;
             }
             .genotype-type {
-                font-size: 16px;
+                font-size: 22px;
                 color: #6B7280;
                 text-transform: uppercase;
                 letter-spacing: 0.28px;
