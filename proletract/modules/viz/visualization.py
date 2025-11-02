@@ -146,6 +146,19 @@ class Visualization:
             samples_results[sample_name] = record
         return samples_results
     def render_region_display(self, markdown_placeholder, region):
+        # Parse region to create UCSC link
+        ucsc_url = None
+        try:
+            if ':' in region:
+                chrom, pos_range = region.split(':', 1)
+                # Ensure chromosome format is correct (add 'chr' if needed)
+                if not chrom.startswith('chr'):
+                    chrom = f'chr{chrom}'
+                # Create UCSC URL (defaulting to hg38, can be made configurable)
+                ucsc_url = f"https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg38&position={chrom}:{pos_range}"
+        except Exception:
+            pass
+        
         html = f"""
             <style>
                 .region-badge {{
@@ -160,9 +173,32 @@ class Visualization:
                     border: 1px solid #C9BEEF;
                     letter-spacing: 1px;
                 }}
+                .ucsc-link {{
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white !important;
+                    text-decoration: none;
+                    padding: 8px 16px;
+                    border-radius: 12px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    margin-left: 12px;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                }}
+                .ucsc-link:hover {{
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+                    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+                }}
+                .ucsc-link-icon {{
+                    font-size: 16px;
+                }}
             </style>
             
-            <div style="display: flex; justify-content: center; align-items: center; min-height: 80px;">
+            <div style="display: flex; justify-content: center; align-items: center; min-height: 80px; flex-wrap: wrap; gap: 10px;">
                 <div style="
                     display: flex; 
                     align-items: center; 
@@ -177,6 +213,7 @@ class Visualization:
                     <span style="width: 20px; height: 20px; background: #764ba2; border-radius: 50%; margin-right: 20px; box-shadow: 0 0 8px 2px #A184D6;"></span>
                     Region: {region}
                 </div>
+                {f'<a href="{ucsc_url}" target="_blank" class="ucsc-link"><span class="ucsc-link-icon">🌐</span> View in UCSC</a>' if ucsc_url else ''}
             </div>
         """
         markdown_placeholder.html(html)
@@ -824,41 +861,42 @@ class Visualization:
         st.markdown("""
             <style>
                 .stTabs [data-baseweb="tab-list"] {
-                    gap: 4px;
+                    gap: 6px;
                     background: #f8fafc;
-                    padding: 2px 2px;
-                    border-radius: 12px;
-                    margin-bottom: 12px;
-                    min-height: 15px;
+                    padding: 4px 4px;
+                    border-radius: 16px;
+                    margin-bottom: 18px;
+                    min-height: 22px;
                 }
                 .stTabs [data-baseweb="tab"] {
-                    height: 18px;
-                    min-height: 18px;
-                    min-width: 28px;
+                    height: 28px;
+                    min-height: 28px;
+                    min-width: 38px;
                     white-space: pre-wrap;
                     background: white;
-                    border-radius: 8px;
-                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    border: 2px solid #e2e8f0;
                     color: #64748b;
-                    font-weight: 600;
-                    font-size: 10px;
-                    padding: 0 7px;
+                    font-weight: 700;
+                    font-size: 1.13rem;
+                    padding: 0 13px;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    line-height: 1.1;
+                    line-height: 1.33;
                 }
                 .stTabs [data-baseweb="tab"]:hover {
                     background: #f1f5f9;
                     border-color: #cbd5e1;
                     color: #475569;
-                    transform: translateY(-1.6px);
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+                    transform: translateY(-1.8px) scale(1.04);
+                    box-shadow: 0 2px 12px rgba(0,0,0,0.13);
                 }
                 .stTabs [aria-selected="true"] {
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
                     color: white !important;
                     border-color: #667eea !important;
-                    box-shadow: 0 4px 14px rgba(102, 126, 234, 0.2) !important;
-                    transform: translateY(-1.6px);
+                    box-shadow: 0 5px 19px rgba(102, 126, 234, 0.23) !important;
+                    transform: translateY(-2px) scale(1.045);
+                    font-size: 1.23rem !important;
                 }
                 .stTabs [data-baseweb="tab-highlight"] {
                     background-color: transparent !important;

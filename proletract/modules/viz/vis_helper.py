@@ -444,18 +444,60 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                     font-size: 10px;
                     opacity: 0.8;
                 }}
+                .sequence-scroll-wrapper {{
+                    width: 100%;
+                    overflow-x: auto;
+                    overflow-y: visible;
+                    border-radius: 12px;
+                    scrollbar-width: thin;
+                    scrollbar-color: #cbd5e0 #f8fafc;
+                }}
+                .sequence-scroll-wrapper::-webkit-scrollbar {{
+                    height: 6px;
+                }}
+                .sequence-scroll-wrapper::-webkit-scrollbar-thumb {{
+                    background: #cbd5e0;
+                }}
+                .sequence-content-wrapper {{
+                    display: inline-block;
+                    min-width: 100%;
+                    overflow: visible;
+                }}
                 .sequence-content {{
                     padding: 10px;
-                    max-width: 100%;
                     white-space: nowrap;
-                    overflow-x: auto;
+                    overflow-x: visible;
                     overflow-y: hidden;
                     background: #f8fafc;
                     line-height: 1.6;
-                    scrollbar-width: thin;
-                    scrollbar-color: #cbd5e0 #f8fafc;
                     font-size: 14px;
                     font-weight: 500;
+                }}
+                .sequence-scale {{
+                    position: relative;
+                    height: 45px;
+                    padding: 12px 10px 18px 10px;
+                    font-size: 14px;
+                    color: #718096;
+                    font-weight: 600;
+                    background: #f8fafc;
+                    white-space: nowrap;
+                    overflow: visible;
+                    min-height: 45px;
+                }}
+                .sequence-scale .scale-marker {{
+                    position: absolute;
+                    transform: translateX(-50%);
+                    white-space: nowrap;
+                    z-index: 10;
+                }}
+                .sequence-scale .scale-marker:first-child {{ 
+                    transform: none; 
+                    left: 10px !important;
+                }}
+                .sequence-scale .scale-marker:last-child {{ 
+                    transform: none; 
+                    right: 10px !important;
                 }}
                 .sequence-content::-webkit-scrollbar {{
                     height: 6px;
@@ -482,8 +524,19 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                         <div class="no-motif-msg">No motifs detected in this region</div>
                         <div class="no-motif-desc">The sequence contains no recognizable motif patterns</div>
                     </div>
-                    <div class="sequence-content">
-                        <span style="color:#4a5568; letter-spacing:0.5px;">{sequence}</span>
+                    <div class="sequence-scroll-wrapper">
+                        <div class="sequence-content-wrapper">
+                            <div class="sequence-content">
+                                <span style="color:#4a5568; letter-spacing:0.5px;">{sequence}</span>
+                            </div>
+                            <div class="sequence-scale" id="sequence-scale-{sequence_name}">
+                                <span class="scale-marker" style="left:10px;">0 bp</span>
+                                <span class="scale-marker" style="left:25%;">{int(len(sequence) * 0.25)} bp</span>
+                                <span class="scale-marker" style="left:50%;">{int(len(sequence) * 0.5)} bp</span>
+                                <span class="scale-marker" style="left:75%;">{int(len(sequence) * 0.75)} bp</span>
+                                <span class="scale-marker" style="right:10px;">{len(sequence)} bp</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -620,18 +673,53 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                 font-size: 14px;
                 color: #4a5568;
             }}
+            .sequence-scroll-wrapper {{
+                width: 100%;
+                overflow-x: auto;
+                overflow-y: visible;
+                border-radius: 12px;
+            }}
+            .sequence-content-wrapper {{
+                display: inline-block;
+                min-width: 100%;
+                overflow: visible;
+            }}
             .sequence-content {{
                 padding: 20px;
-                max-width: 100%;
                 white-space: nowrap;
-                overflow-x: auto;
+                overflow-x: visible;
                 overflow-y: hidden;
                 background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%);
                 line-height: 1.5;
                 font-size: 13px;
                 font-weight: 500;
                 min-height: 42px;
-                border-radius: 12px;
+            }}
+            .sequence-scale {{
+                position: relative;
+                height: 45px;
+                padding: 12px 20px 18px 20px;
+                font-size: 14px;
+                color: #718096;
+                font-weight: 600;
+                background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%);
+                white-space: nowrap;
+                overflow: visible;
+                min-height: 45px;
+            }}
+            .sequence-scale .scale-marker {{
+                position: absolute;
+                transform: translateX(-50%);
+                white-space: nowrap;
+                z-index: 10;
+            }}
+            .sequence-scale .scale-marker:first-child {{ 
+                transform: none; 
+                left: 20px !important;
+            }}
+            .sequence-scale .scale-marker:last-child {{ 
+                transform: none; 
+                right: 20px !important;
             }}
             .motif-segment {{
                 display: inline-block;
@@ -724,8 +812,19 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                     </div>
                     {supporting_reads_html}
                 </div>
-                <div class="sequence-content" id="sequence-content-{sequence_name}">
-                    {highlighted_sequence}
+                <div class="sequence-scroll-wrapper">
+                    <div class="sequence-content-wrapper">
+                        <div class="sequence-content" id="sequence-content-{sequence_name}">
+                            {highlighted_sequence}
+                        </div>
+                        <div class="sequence-scale" id="sequence-scale-{sequence_name}">
+                            <span class="scale-marker" style="left:20px;">0 bp</span>
+                            <span class="scale-marker" style="left:25%;">{int(len(sequence) * 0.25)} bp</span>
+                            <span class="scale-marker" style="left:50%;">{int(len(sequence) * 0.5)} bp</span>
+                            <span class="scale-marker" style="left:75%;">{int(len(sequence) * 0.75)} bp</span>
+                            <span class="scale-marker" style="right:20px;">{len(sequence)} bp</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -784,15 +883,31 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                 }});
             }}
             
+            // Sync scale width with sequence content width
+            function syncScaleWidth() {{
+                const sequenceContent = document.getElementById('sequence-content-{sequence_name}');
+                const sequenceScale = document.getElementById('sequence-scale-{sequence_name}');
+                if (sequenceContent && sequenceScale) {{
+                    const contentWidth = sequenceContent.scrollWidth;
+                    sequenceScale.style.width = contentWidth + 'px';
+                    sequenceScale.style.minWidth = contentWidth + 'px';
+                }}
+            }}
+            
             // Initialize when page loads
             document.addEventListener('DOMContentLoaded', function() {{
                 initSequenceTooltips('sequence-content-{sequence_name}');
+                syncScaleWidth();
             }});
             
             // Also try initializing after a short delay
             setTimeout(() => {{
                 initSequenceTooltips('sequence-content-{sequence_name}');
+                syncScaleWidth();
             }}, 100);
+            
+            // Sync on window resize
+            window.addEventListener('resize', syncScaleWidth);
         </script>
     """)
 
@@ -987,10 +1102,10 @@ def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequen
             }}
             .sequence-bar-container {{
                 position: relative;
-                height: 60px;
+                height: 85px;
                 background: #f8fafc;
                 border-radius: 8px;
-                padding: 10px;
+                padding: 10px 10px 15px 10px;
                 margin: 0;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }}
@@ -1083,11 +1198,12 @@ def display_motifs_as_bars(sequence_name, motif_colors, motif_ids, spans, sequen
             }}
             .bar-scale {{
                 position: relative;
-                height: 20px;
-                margin-top: 10px;
-                font-size: 11px;
+                height: 30px;
+                margin-top: 12px;
+                padding-top: 5px;
+                font-size: 14px;
                 color: #718096;
-                font-weight: 500;
+                font-weight: 600;
             }}
             .bar-scale span {{
                 position: absolute;
@@ -1672,7 +1788,6 @@ def display_motifs_as_bars_with_occurrences(sequence_name, motif_colors, motif_i
             """, unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
-
     # Add this CSS for styling
     st.markdown("""
         <style>
