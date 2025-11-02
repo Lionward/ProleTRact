@@ -1613,14 +1613,15 @@ class Visualization:
                         legend=alt.Legend(
                             title="",
                             orient="top",
-                            titleFontSize=14,
+                            titleFontSize=20,
                             titleColor='#1F2937',
                             gradientLength=120,
                             labelFontSize=12,
                             labelColor='#4B5563',
-                            columns=4
-                        )
-            ),
+                            columns=1,
+                            offset=-0,  # decrease offset to bring legend nearer
+                            padding=10  # reduce outer padding
+                        )),
             tooltip=['Sample', 'Motif', 'Count']
         ).properties(
             width=dynamic_width,
@@ -1677,8 +1678,8 @@ class Visualization:
                     gradientLength=120,
                     labelFontSize=20,
                     labelColor='#4B5563',
-                    symbolStrokeWidth=3,
-                    symbolSize=120,
+                    symbolStrokeWidth=10,
+                    symbolSize=220,
                     symbolType="square",
                     columns=len(motif_names) + 1 if len(motif_names) + 1 <= 10 else 5,
                     # Increase padding between legend entries for more spacing
@@ -1688,7 +1689,7 @@ class Visualization:
             order=alt.Order('Order', sort='ascending'),
             tooltip=['Sample', 'Motif', 'Start', 'End', 'Sequence', 'pathogenic', 'Length', 'Sequence_length']
         ).properties(
-            width=1300,
+            width='container',
             height=chart_height,
             title='',
         )
