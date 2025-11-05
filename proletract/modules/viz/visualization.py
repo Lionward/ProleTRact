@@ -1365,8 +1365,10 @@ class Visualization:
         st.plotly_chart(figure, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-
     def bar_plot_motif_count(self, df, region, sort_by="Value"):
+        # Prevent overlap: Add vertical space before the plot
+        st.markdown("<div style='height: 180px;'></div>", unsafe_allow_html=True)
+
         df = df[df['Motif'] != "interruption"]
         
         total_copy_number = df.groupby('Sample').size().reset_index(name='Total Copy Number')
@@ -1386,25 +1388,36 @@ class Visualization:
         color_mapping = {sample: color_palette[i % len(color_palette)] for i, sample in enumerate(unique_samples)}
         color_mapping = {sample: color_mapping[sample.rsplit('_', 1)[0]] for sample in total_copy_number['Sample']}
 
+        # Make font sizes much bigger and ensure all labels are shown
+        # Make the bars a bit bigger by increasing bar size (size, or width/height)
         bar_chart = alt.Chart(total_copy_number).mark_bar(
-            cornerRadius=8
+            cornerRadius=12,  # increased for bigger corners
+            size=22           # <--- This makes the bars visually thicker/wider
         ).encode(
-            x=alt.X('Sample', sort=x_sort, axis=alt.Axis(
-                labelFontWeight='bold', 
-                labelColor='#4B5563',
-                labelFontSize=16,
-                titleFontWeight='bold', 
-                titleColor='#374151',
-                titleFontSize=20,
-                labelAngle=45
-            )),
+            x=alt.X(
+                'Sample', 
+                sort=x_sort, 
+                axis=alt.Axis(
+                    labelFontWeight='bold', 
+                    labelColor='#4B5563',
+                    labelFontSize=28,  # Bigger
+                    titleFontWeight='bold', 
+                    titleColor='#374151',
+                    titleFontSize=32,  # Bigger
+                    labelAngle=45,
+                    labelOverlap=False, # Show all names!
+                    labelLimit=0
+                ),
+                # Make the distance between the x-axis ticks a bit bigger (increase paddingInner and paddingOuter)
+                scale=alt.Scale(paddingInner=0.2, paddingOuter=0.3) # reduced inner padding so bars get fatter
+            ),
             y=alt.Y('Total Copy Number', axis=alt.Axis(
                 labelFontWeight='bold',
                 labelColor='#4B5563',
-                labelFontSize=16,
+                labelFontSize=28,   # Bigger
                 titleFontWeight='bold',
                 titleColor='#374151',
-                titleFontSize=20
+                titleFontSize=32    # Bigger
             )),
             tooltip=['Sample', 'Total Copy Number'],
             color=alt.Color('Sample', scale=alt.Scale(
@@ -1412,11 +1425,11 @@ class Visualization:
                 range=list(color_mapping.values())
             ), legend=None)
         ).properties(
-            width=400,
-            height=400,
+            width=650,    # Increased width for larger bars
+            height=560,   # Increased height for larger bars
             title=alt.TitleParams(
                 text='Total Copy Number per Sample',
-                fontSize=36,
+                fontSize=28,
                 fontWeight='bold',
                 color='#1F2937'
             )
@@ -1428,11 +1441,11 @@ class Visualization:
             ]['pathogenic_min'].values[0]
 
             threshold_line = alt.Chart(pd.DataFrame({'Total Copy Number': [pathogenic_threshold]})).mark_rule(
-                color='#EF4444', strokeDash=[5, 5], size=2
+                color='#EF4444', strokeDash=[5, 5], size=3
             ).encode(y='Total Copy Number:Q')
 
             threshold_pointer = alt.Chart(pd.DataFrame({'Total Copy Number': [pathogenic_threshold]})).mark_text(
-                text='🚨 Pathogenic Threshold', align='left', dx=5, dy=-10, fontSize=16, color='#DC2626', fontWeight='bold'
+                text='🚨 Pathogenic Threshold', align='left', dx=7, dy=-16, fontSize=24, color='#DC2626', fontWeight='bold'
             ).encode(y='Total Copy Number:Q')
             
             bar_chart = alt.layer(bar_chart, threshold_line, threshold_pointer).configure_view(
@@ -1446,8 +1459,9 @@ class Visualization:
             )
 
         st.altair_chart(bar_chart, use_container_width=True)
+        # Add a gap after the bar chart to separate from any following plots, if needed
+        st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
-    
     def create_motif_dataframe(self,sequences, motif_colors, motif_ids, spans_list, motif_names):
         data = []
         interruptions_dict = set()
@@ -1524,7 +1538,7 @@ class Visualization:
             return motif_colors, df
         df['Length'] = df['End'] - df['Start']
         
-        default_height = 1200 
+        default_height = 2000 
         chart_height = max(default_height, len(sequences) * 10)
         # Apply max_height limit if provided
         if max_height is not None:
@@ -1614,7 +1628,7 @@ class Visualization:
         # Base width per motif (adjust as needed, e.g., 50)
         width_per_motif = 40
         min_width = 40
-        max_width = 1200
+        max_width = 1900
         dynamic_width = max(min_width, min(width_per_motif * motif_count, max_width))
 
         heatmap = alt.Chart(heatmap_data).mark_rect(
