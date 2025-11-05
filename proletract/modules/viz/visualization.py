@@ -211,6 +211,16 @@ class Visualization:
                     'icon': '🔍',
                     'color': 'linear-gradient(135deg, #A8E6CF 0%, #7FCDCD 100%)'
                 }
+            
+            # TRExplorer - Tandem Repeat Explorer catalog
+            if chrom and pos_range:
+                # TRExplorer uses searchQuery parameter with chr:start-end format
+                # Format: https://trexplorer.broadinstitute.org/#searchQuery=chr1:94418422-94418444
+                urls['TRExplorer'] = {
+                    'url': f"https://trexplorer.broadinstitute.org/#sc=isPathogenic&sd=DESC&showRs=1&searchQuery={chrom}:{pos_range}&showColumns=0i1i2i3i4i7i21i17",
+                    'icon': '🔬',
+                    'color': 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
+                }
         
         html = f"""
             <style>
@@ -1034,6 +1044,64 @@ class Visualization:
 
 
 
+    def compute_diploid_genotype_assembly(self, gt_h1, gt_h2, ids_h1, ids_h2):
+        """
+        Compute diploid genotype for assembly mode based on haplotypes.
+        
+        Args:
+            gt_h1: Genotype for haplotype 1 (0 or 1, or "0/0", "0/1", etc.)
+            gt_h2: Genotype for haplotype 2 (0 or 1, or "0/0", "0/1", etc.)
+            ids_h1: Motif IDs for haplotype 1
+            ids_h2: Motif IDs for haplotype 2
+            
+        Returns:
+            str: Diploid genotype string (e.g., "0/0", "0/1", "1/1", "1/2")
+        """
+        # Extract first allele from GT string if it's formatted as "0/1", otherwise use the value directly
+        def extract_allele(gt):
+            # Handle None or empty string
+            if gt is None or gt == '':
+                return 0  # Default to 0 (reference) if missing
+            if isinstance(gt, str):
+                gt = gt.strip()  # Remove whitespace
+                if not gt or gt == '.':
+                    return 0  # Default to 0 if empty or missing
+                if '/' in gt:
+                    # Format like "0/1" or "0/0" - take first allele
+                    first_allele = gt.split('/')[0].strip()
+                    if not first_allele or first_allele == '.':
+                        return 0
+                    return int(first_allele)
+                else:
+                    # Format like "0" or "1"
+                    if gt == '.':
+                        return 0
+                    return int(gt)
+            else:
+                return int(gt) if gt is not None else 0
+        
+        gt_h1_int = extract_allele(gt_h1)
+        gt_h2_int = extract_allele(gt_h2)
+        # Both are 0 → 0/0
+
+        if gt_h1_int == 0 and gt_h2_int == 0:
+            return "0/0"
+        
+        # One is 0 and one is 1 → 0/1
+        elif (gt_h1_int == 0 and gt_h2_int == 1) or (gt_h1_int == 1 and gt_h2_int == 0):
+            return "0/1"
+        
+
+        # Both are 1 → compare IDs
+        elif gt_h1_int == 1 and gt_h2_int == 1:
+            # Compare motif IDs - if they're the same, use 1/1, otherwise 1/2
+            if ids_h1 == ids_h2:
+                return "1/1"
+            else:
+                return "1/2"
+        # Fallback - should not happen but handle edge cases
+        return f"{gt_h1_int}/{gt_h2_int}"
+
     def plot_Cohort_results(self,cohort_records):
         sequences = []
         span_list = []
@@ -1043,8 +1111,50 @@ class Visualization:
         
         # Extract genotype information for comparison
         genotypes_dict = {}
-        for key in cohort_records.keys():
-            genotypes_dict[key] = cohort_records[key]['gt']
+        if st.session_state.cohort_mode == "assembly":
+            # For assembly mode, group samples by base name and combine haplotypes
+            sample_groups = {}
+            for key in cohort_records.keys():
+                # Check if sample name ends with _h1 or _h2
+                if key.endswith('_h1'):
+                    base_name = key[:-3]  # Remove _h1 suffix
+                    if base_name not in sample_groups:
+                        sample_groups[base_name] = {}
+                    sample_groups[base_name]['h1'] = cohort_records[key]
+                elif key.endswith('_h2'):
+                    base_name = key[:-3]  # Remove _h2 suffix
+                    if base_name not in sample_groups:
+                        sample_groups[base_name] = {}
+                    sample_groups[base_name]['h2'] = cohort_records[key]
+                else:
+                    # Sample doesn't have _h1/_h2 suffix, use as is
+                    genotypes_dict[key] = cohort_records[key]['gt']
+            
+            # Compute diploid genotypes for grouped samples
+            for base_name, haplotypes in sample_groups.items():
+                if 'h1' in haplotypes and 'h2' in haplotypes:
+                    h1_record = haplotypes['h1']
+                    h2_record = haplotypes['h2']
+                    
+                    # Extract genotypes and IDs
+                    gt_h1 = h1_record['gt']
+                    gt_h2 = h2_record['gt']
+                    ids_h1 = h1_record.get('motif_ids_h', [])
+                    ids_h2 = h2_record.get('motif_ids_h', [])
+                    
+                    # Compute diploid genotype
+                    diploid_gt = self.compute_diploid_genotype_assembly(gt_h1, gt_h2, ids_h1, ids_h2)
+                    genotypes_dict[base_name] = diploid_gt
+                elif 'h1' in haplotypes:
+                    # Only h1 available
+                    genotypes_dict[base_name] = haplotypes['h1']['gt']
+                elif 'h2' in haplotypes:
+                    # Only h2 available
+                    genotypes_dict[base_name] = haplotypes['h2']['gt']
+        else:
+            # For reads mode, use genotypes as is
+            for key in cohort_records.keys():
+                genotypes_dict[key] = cohort_records[key]['gt']
         
         # Display genotype comparison matrix
         st.markdown("---")
