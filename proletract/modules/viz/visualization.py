@@ -146,18 +146,71 @@ class Visualization:
             samples_results[sample_name] = record
         return samples_results
     def render_region_display(self, markdown_placeholder, region):
-        # Parse region to create UCSC link
-        ucsc_url = None
+        # Parse region to create links to various genomic databases
+        chrom = None
+        pos_range = None
+        chrom_no_chr = None
+        start = None
+        end = None
+        
         try:
             if ':' in region:
                 chrom, pos_range = region.split(':', 1)
+                chrom_no_chr = chrom.replace('chr', '').replace('CHR', '')
+                
+                # Parse start and end positions
+                if '-' in pos_range:
+                    start, end = pos_range.split('-', 1)
+                    start = start.strip()
+                    end = end.strip()
+                
                 # Ensure chromosome format is correct (add 'chr' if needed)
                 if not chrom.startswith('chr'):
                     chrom = f'chr{chrom}'
-                # Create UCSC URL (defaulting to hg38, can be made configurable)
-                ucsc_url = f"https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg38&position={chrom}:{pos_range}"
         except Exception:
             pass
+        
+        # Generate URLs for various databases
+        urls = {}
+        if chrom and pos_range:
+            # UCSC Genome Browser
+            urls['UCSC'] = {
+                'url': f"https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg38&position={chrom}:{pos_range}",
+                'icon': '🌐',
+                'color': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+            }
+            
+            # Ensembl (for human, use GRCh38)
+            if chrom_no_chr:
+                urls['Ensembl'] = {
+                    'url': f"https://www.ensembl.org/Homo_sapiens/Location/View?r={chrom_no_chr}:{pos_range}",
+                    'icon': '🧬',
+                    'color': 'linear-gradient(135deg, #FF6B6B 0%, #EE5A6F 100%)'
+                }
+            
+            # NCBI Genome Data Viewer
+            if chrom_no_chr:
+                urls['NCBI'] = {
+                    'url': f"https://www.ncbi.nlm.nih.gov/genome/gdv/browser/?context=genome&acc=GCF_000001405.40&chr={chrom_no_chr}&from={start}&to={end}" if start and end else f"https://www.ncbi.nlm.nih.gov/genome/gdv/browser/?context=genome&acc=GCF_000001405.40&chr={chrom_no_chr}",
+                    'icon': '📊',
+                    'color': 'linear-gradient(135deg, #96CEB4 0%, #6C9A8B 100%)'
+                }
+            
+            # gnomAD (for variant frequency data)
+            if chrom_no_chr and start and end:
+                urls['gnomAD'] = {
+                    'url': f"https://gnomad.broadinstitute.org/region/{chrom_no_chr}-{start}-{end}",
+                    'icon': '📈',
+                    'color': 'linear-gradient(135deg, #FFE66D 0%, #FF6B6B 100%)'
+                }
+            
+            # DECIPHER (for pathogenic variants and phenotype data)
+            if chrom_no_chr:
+                urls['DECIPHER'] = {
+                    'url': f"https://www.deciphergenomics.org/browser#q/grch37:{chrom_no_chr}:{pos_range}",
+                    'icon': '🔍',
+                    'color': 'linear-gradient(135deg, #A8E6CF 0%, #7FCDCD 100%)'
+                }
         
         html = f"""
             <style>
@@ -173,47 +226,54 @@ class Visualization:
                     border: 1px solid #C9BEEF;
                     letter-spacing: 1px;
                 }}
-                .ucsc-link {{
+                .external-link {{
                     display: inline-flex;
                     align-items: center;
-                    gap: 6px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    gap: 10px;
                     color: white !important;
                     text-decoration: none;
-                    padding: 8px 16px;
-                    border-radius: 12px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    margin-left: 12px;
+                    padding: 18px 28px;
+                    border-radius: 16px;
+                    font-size: 20px;
+                    font-weight: 700;
                     transition: all 0.3s ease;
-                    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
                 }}
-                .ucsc-link:hover {{
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-                    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+                .external-link:hover {{
+                    transform: translateY(-4px) scale(1.04);
+                    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.32);
                 }}
-                .ucsc-link-icon {{
-                    font-size: 16px;
+                .external-link-icon {{
+                    font-size: 28px;
+                }}
+                .links-container {{
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 18px;
+                    justify-content: center;
+                    margin-top: 23px;
                 }}
             </style>
             
-            <div style="display: flex; justify-content: center; align-items: center; min-height: 80px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 80px;">
                 <div style="
                     display: flex; 
                     align-items: center; 
                     background: #ECEAFB; 
-                    padding: 9px 16px; 
-                    border-radius: 20px; 
+                    padding: 13px 24px; 
+                    border-radius: 24px; 
                     box-shadow: 0 4px 16px 2px rgba(118, 75, 162, 0.12); 
-                    font-size: 1.5rem; 
+                    font-size: 2rem; 
                     font-weight: 700;
                     border: 1px solid #C9BEEF;
+                    margin-bottom: 15px;
                     ">
-                    <span style="width: 20px; height: 20px; background: #764ba2; border-radius: 50%; margin-right: 20px; box-shadow: 0 0 8px 2px #A184D6;"></span>
+                    <span style="width: 26px; height: 26px; background: #764ba2; border-radius: 50%; margin-right: 28px; box-shadow: 0 0 12px 2px #A184D6;"></span>
                     Region: {region}
                 </div>
-                {f'<a href="{ucsc_url}" target="_blank" class="ucsc-link"><span class="ucsc-link-icon">🌐</span> View in UCSC</a>' if ucsc_url else ''}
+                <div class="links-container">
+                    {''.join([f'<a href="{info["url"]}" target="_blank" class="external-link" style="background: {info["color"]};"><span class="external-link-icon">{info["icon"]}</span> {name}</a>' for name, info in urls.items()])}
+                </div>
             </div>
         """
         markdown_placeholder.html(html)
@@ -1027,10 +1087,9 @@ class Visualization:
             st.stop()
         unique_samples = df['Sample'].unique()
         unique_samples = [sample for sample in unique_samples if sample != "Interruption"]
-        
+
         ref_data = []
         allele_data = []
-
 
         for sample in unique_samples:
             sample_df = df[df['Sample'] == sample]
@@ -1043,7 +1102,7 @@ class Visualization:
                     y=[len(motif_df)],
                     mode='markers',
                     name=sample,
-                    marker=dict(size=20)
+                    marker=dict(size=24)  # slightly bigger points for bigger font context
                 )
                 if sample in ["Ref", "Allel1", "Allel2"]:
                     if sample == "Ref":
@@ -1052,7 +1111,6 @@ class Visualization:
                         ref_data.append(trace)
                     else:
                         trace['marker']['symbol'] = "triangle-down"
-                        
                         allele_data.append(trace)
                 else:
                     figure.add_trace(trace)
@@ -1073,18 +1131,59 @@ class Visualization:
                 trace.showlegend = True
             else:
                 trace.showlegend = False
-        
+
+        # --- FONT SIZE BUMPS - ALL BOLD AND TITLE BIGGER ---
+        big_font_size = 36      # Make the title much bigger
+        axis_font_size = 22
+        legend_font_size = 22
+        tick_font_size = 20
+        font_family = 'Arial'
+        font_weight = 'bold'
+
         figure.update_layout(
-            title="Motif Occurrences",
-            xaxis_title="Motif",
-            yaxis_title="Count",
+            title=dict(
+                text="<b>Motif Occurrences</b>",
+                font=dict(size=big_font_size, family=font_family, color='black',),
+                x=0.5,
+                xanchor='center'
+            ),
+            xaxis_title=dict(
+                text="<b>Motif</b>",
+                font=dict(size=axis_font_size, family=font_family, color='black')
+            ),
+            yaxis_title=dict(
+                text="<b>Count</b>",
+                font=dict(size=axis_font_size, family=font_family, color='black')
+            ),
+            font=dict(
+                size=tick_font_size,
+                family=font_family,
+                color='black'
+            ),
+            legend=dict(
+                font=dict(
+                    size=legend_font_size,
+                    family=font_family,
+                    color='black'
+                )
+            )
         )
 
         xaxis_colors = {motif: motif_colors[idx] for idx, motif in enumerate(motif_names)}
-        figure.update_xaxes(tickmode='array', tickvals=list(xaxis_colors.keys()), ticktext=[
-            f'<span style="color:{xaxis_colors[motif]}">{motif}</span>' for motif in xaxis_colors.keys()
-        ], tickangle=45)
-        figure.update_yaxes(range=[0, df['Sample'].value_counts().max()])
+        figure.update_xaxes(
+            tickmode='array',
+            tickvals=list(xaxis_colors.keys()),
+            ticktext=[
+                f'<span style="color:{xaxis_colors[motif]}; font-size:{tick_font_size+4}px; font-weight:bold">{motif}</span>'
+                for motif in xaxis_colors.keys()
+            ],
+            tickangle=45,
+            tickfont=dict(size=tick_font_size, family=font_family, color="black",),
+        )
+        figure.update_yaxes(
+            range=[0, df['Sample'].value_counts().max()],
+            tickfont=dict(size=tick_font_size, family=font_family, color="black",),
+        )
 
         st.plotly_chart(figure, use_container_width=True)
 
@@ -1367,7 +1466,30 @@ class Visualization:
 
     def bar_plot_motif_count(self, df, region, sort_by="Value"):
         # Prevent overlap: Add vertical space before the plot
-        st.markdown("<div style='height: 180px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height: 500px;'></div>", unsafe_allow_html=True)
+
+        # Extract gene, inheritance, and disease information similar to stack_plot
+        updated_region = region
+        pathogenic_threshold = 0
+        gene_name = None
+        inheritance = None
+        disease = None
+        
+        if updated_region in st.session_state.pathogenic_TRs['region'].unique():
+            pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
+                (st.session_state.pathogenic_TRs['region'] == updated_region)
+            ]['pathogenic_min'].values[0]
+            if pathogenic_threshold is None:
+                pathogenic_threshold = 0
+            gene_name = st.session_state.pathogenic_TRs.loc[
+                st.session_state.pathogenic_TRs['region'] == updated_region
+            ]['gene'].values[0]
+            inheritance = st.session_state.pathogenic_TRs.loc[
+                st.session_state.pathogenic_TRs['region'] == updated_region
+            ]['inheritance'].values[0]
+            disease = st.session_state.pathogenic_TRs.loc[
+                st.session_state.pathogenic_TRs['region'] == updated_region
+            ]['disease'].values[0]
 
         df = df[df['Motif'] != "interruption"]
         
@@ -1388,6 +1510,29 @@ class Visualization:
         color_mapping = {sample: color_palette[i % len(color_palette)] for i, sample in enumerate(unique_samples)}
         color_mapping = {sample: color_mapping[sample.rsplit('_', 1)[0]] for sample in total_copy_number['Sample']}
 
+        # Prepare subtitle text for the chart title
+        subtitle_text = ""
+        if gene_name or inheritance or disease or updated_region:
+            gene_info_parts = []
+            if gene_name:
+                gene_info_parts.append(f"Gene: {gene_name}")
+            if inheritance:
+                gene_info_parts.append(f"Inheritance: {inheritance}")
+            if disease:
+                disease_display = disease
+                gene_info_parts.append(f"Disease: {disease_display}")
+            if updated_region:
+                gene_info_parts.append(f"Region: {updated_region}")
+            subtitle_text = " • ".join(gene_info_parts)
+
+        # Calculate dynamic width based on number of samples for better spacing
+        num_samples = len(total_copy_number)
+        min_width = 650
+        width_per_sample = 20  # Width per sample to ensure good spacing
+        calculated_width = max(min_width, num_samples * width_per_sample)
+        max_width = 3000  # Maximum width to prevent excessively wide charts
+        chart_width = min(calculated_width, max_width)
+
         # Make font sizes much bigger and ensure all labels are shown
         # Make the bars a bit bigger by increasing bar size (size, or width/height)
         bar_chart = alt.Chart(total_copy_number).mark_bar(
@@ -1406,10 +1551,11 @@ class Visualization:
                     titleFontSize=32,  # Bigger
                     labelAngle=45,
                     labelOverlap=False, # Show all names!
-                    labelLimit=0
+                    labelLimit=0,
+                    labelPadding=10  # Add padding between labels and axis
                 ),
-                # Make the distance between the x-axis ticks a bit bigger (increase paddingInner and paddingOuter)
-                scale=alt.Scale(paddingInner=0.2, paddingOuter=0.3) # reduced inner padding so bars get fatter
+                # Increase spacing between ticks and bars
+                scale=alt.Scale(paddingInner=0.9, paddingOuter=0.2)  # Increased padding for more spacing
             ),
             y=alt.Y('Total Copy Number', axis=alt.Axis(
                 labelFontWeight='bold',
@@ -1425,21 +1571,23 @@ class Visualization:
                 range=list(color_mapping.values())
             ), legend=None)
         ).properties(
-            width=650,    # Increased width for larger bars
+            width=chart_width,    # Dynamic width based on number of samples
             height=560,   # Increased height for larger bars
             title=alt.TitleParams(
                 text='Total Copy Number per Sample',
                 fontSize=28,
                 fontWeight='bold',
-                color='#1F2937'
+                anchor='middle',
+                color='#1F2937',
+                subtitle=subtitle_text if subtitle_text else None,
+                subtitleFontSize=20,
+                subtitleColor='#4c1d95',
+                subtitleFontWeight='bold',
+                subtitlePadding=25,
             )
         )
 
-        if region in st.session_state.pathogenic_TRs['region'].unique():
-            pathogenic_threshold = st.session_state.pathogenic_TRs.loc[
-                (st.session_state.pathogenic_TRs['region'] == region)
-            ]['pathogenic_min'].values[0]
-
+        if pathogenic_threshold > 0:
             threshold_line = alt.Chart(pd.DataFrame({'Total Copy Number': [pathogenic_threshold]})).mark_rule(
                 color='#EF4444', strokeDash=[5, 5], size=3
             ).encode(y='Total Copy Number:Q')

@@ -24,8 +24,10 @@
 cd ProleTRact</code></pre>
   </li>
   <li>Ensure you have Python 3.9+ and <code>pip</code> installed.</li>
-  <li>Install dependencies (no <code>requirements.txt</code> yet; install directly):
-    <pre><code>pip install streamlit pysam pandas matplotlib altair plotly</code></pre>
+  <li>Install dependencies:
+    <pre><code>pip install -r requirements.txt</code></pre>
+    Or install manually:
+    <pre><code>pip install streamlit>=1.28.0 pysam>=0.19.0 pandas>=1.5.0 matplotlib>=3.5.0 altair>=5.0.0 plotly>=5.0.0</code></pre>
   </li>
 </ol>
 
