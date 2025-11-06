@@ -310,32 +310,7 @@ def compute_vcf_statistics(vcf_file_path):
                     max_motif_size = max(motif_lengths_in_region)
                     motif_lengths.extend(motif_lengths_in_region)
             
-            # Categorize by max motif size
-            if max_motif_size == 0:
-                category = "Unknown"
-            elif max_motif_size == 1:
-                category = "1"
-            elif max_motif_size == 2:
-                category = "2"
-            elif max_motif_size == 3:
-                category = "3"
-            elif max_motif_size == 4:
-                category = "4"
-            elif max_motif_size == 5:
-                category = "5"
-            elif max_motif_size == 6:
-                category = "6"
-            elif max_motif_size == 7:
-                category = "7"
-            elif max_motif_size == 8:
-                category = "8"
-            elif max_motif_size == 9:
-                category = "9"
-            elif max_motif_size == 10:
-                category = "10"
-            else:
-                category = ">10"
-            
+            category = "Unknown" if max_motif_size == 0 else str(max_motif_size) if 1 <= max_motif_size <= 10 else ">10"
             motif_size_counts[category] = motif_size_counts.get(category, 0) + 1
             
             # Count by chromosome
@@ -355,6 +330,7 @@ def compute_vcf_statistics(vcf_file_path):
                         gt_str = str(gt)
                     genotype_counts[gt_str] = genotype_counts.get(gt_str, 0) + 1
         
+        vcf.close()
         return {
             'total_regions': total_regions,
             'motif_size_counts': motif_size_counts,
@@ -364,6 +340,155 @@ def compute_vcf_statistics(vcf_file_path):
         }
     except Exception as e:
         return {'error': str(e)}
+
+
+@st.cache_data
+def _create_motif_size_plot(_motif_size_counts_tuple):
+    """Create plotly chart for motif size distribution (cached)"""
+    # Convert tuple back to dict for processing
+    motif_size_counts = dict(_motif_size_counts_tuple)
+    if not motif_size_counts:
+        return None
+    category_order = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", ">10", "Unknown"]
+    sorted_counts = {k: motif_size_counts.get(k, 0) for k in category_order if k in motif_size_counts}
+    
+    df_motif = pd.DataFrame({
+        'Max Motif Size': list(sorted_counts.keys()),
+        'Number of Regions': list(sorted_counts.values())
+    })
+    
+    color_palette = get_statistics_color_palette()
+    fig_motif = px.bar(
+        df_motif, 
+        x='Max Motif Size', 
+        y='Number of Regions',
+        title='Regions by Max Motif Size',
+        color='Max Motif Size',
+        color_discrete_sequence=color_palette
+    )
+    fig_motif.update_layout(
+        xaxis_title="Max Motif Size (bp)",
+        yaxis_title="Number of Regions",
+        height=400,
+        showlegend=False,
+        title_font=dict(size=26, color='black', family='Arial Black, sans-serif'),
+        xaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
+        yaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
+        xaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif'),
+        yaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif')
+    )
+    for i, trace in enumerate(fig_motif.data):
+        trace.marker.color = color_palette[i % len(color_palette)]
+    return fig_motif
+
+
+@st.cache_data
+def _create_motif_distribution_plot(_motif_lengths_tuple):
+    """Create plotly chart for motif size distribution histogram (cached)"""
+    # Convert tuple back to list for processing
+    motif_lengths = list(_motif_lengths_tuple)
+    if not motif_lengths:
+        return None
+    df_dist = pd.DataFrame({'Motif Size (bp)': motif_lengths})
+    color_palette = get_statistics_color_palette()
+    fig_dist = px.histogram(
+        df_dist,
+        x='Motif Size (bp)',
+        nbins=20,
+        title='Distribution of Motif Sizes',
+        labels={'count': 'Frequency'},
+        color_discrete_sequence=[color_palette[0]]
+    )
+    fig_dist.update_layout(
+        height=400,
+        title_font=dict(size=26, color='black', family='Arial Black, sans-serif'),
+        xaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
+        yaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
+        xaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif'),
+        yaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif')
+    )
+    return fig_dist
+
+
+@st.cache_data
+def _create_chromosome_plot(_regions_by_chromosome_tuple):
+    """Create plotly chart for regions by chromosome (cached)"""
+    # Convert tuple back to dict for processing
+    regions_by_chromosome = dict(_regions_by_chromosome_tuple)
+    if not regions_by_chromosome:
+        return None
+    sorted_chroms = sorted(
+        regions_by_chromosome.keys(),
+        key=lambda x: (int(x[3:]) if x[3:].isdigit() else (23 if x == 'chrX' else 24 if x == 'chrY' else 99))
+    )
+    chrom_data = pd.DataFrame({
+        'Chromosome': sorted_chroms,
+        'Number of Regions': [regions_by_chromosome[ch] for ch in sorted_chroms]
+    })
+    
+    color_palette = get_statistics_color_palette()
+    fig_chrom = px.bar(
+        chrom_data,
+        x='Chromosome',
+        y='Number of Regions',
+        title='Regions by Chromosome',
+        color='Chromosome',
+        color_discrete_sequence=color_palette
+    )
+    fig_chrom.update_layout(
+        xaxis_tickangle=-45,
+        height=400,
+        showlegend=False,
+        title_font=dict(size=26, color='black', family='Arial Black, sans-serif'),
+        xaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
+        yaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
+        xaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif'),
+        yaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif')
+    )
+    for i, trace in enumerate(fig_chrom.data):
+        trace.marker.color = color_palette[i % len(color_palette)]
+    return fig_chrom
+
+
+@st.cache_data
+def _create_genotype_plot(_genotype_counts_tuple):
+    """Create plotly chart for genotype distribution (cached)"""
+    # Convert tuple back to dict for processing
+    genotype_counts = dict(_genotype_counts_tuple)
+    if not genotype_counts:
+        return None
+    sorted_genotypes = sorted(
+        genotype_counts.items(), 
+        key=lambda x: (len(x[0].split('/')), x[0])
+    )
+    df_genotype = pd.DataFrame({
+        'Genotype': [gt for gt, _ in sorted_genotypes],
+        'Count': [count for _, count in sorted_genotypes]
+    })
+    
+    color_palette = get_statistics_color_palette()
+    fig_genotype = px.bar(
+        df_genotype,
+        x='Genotype',
+        y='Count',
+        title='Genotype Distribution',
+        color='Genotype',
+        color_discrete_sequence=color_palette
+    )
+    fig_genotype.update_layout(
+        xaxis_title="Genotype",
+        yaxis_title="Number of Regions",
+        height=400,
+        showlegend=False,
+        title_font=dict(size=26, color='black', family='Arial Black, sans-serif'),
+        xaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
+        yaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
+        xaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif'),
+        yaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif')
+    )
+    for i, trace in enumerate(fig_genotype.data):
+        trace.marker.color = color_palette[i % len(color_palette)]
+    return fig_genotype
 
 
 def display_vcf_statistics(vcf_file_path, mode='individual'):
@@ -466,140 +591,35 @@ def display_vcf_statistics(vcf_file_path, mode='individual'):
                 })
                 st.dataframe(df_other_gt, use_container_width=True, hide_index=True)
     
-    # Create plots
+    # Create plots using cached functions (convert to tuples for proper caching)
     col_left, col_right = st.columns(2)
     
     with col_left:
         # Regions by max motif size
-        if motif_size_counts:
-            # Sort categories logically
-            category_order = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", ">10", "Unknown"]
-            sorted_counts = {k: motif_size_counts.get(k, 0) for k in category_order if k in motif_size_counts}
-            
-            df_motif = pd.DataFrame({
-                'Max Motif Size': list(sorted_counts.keys()),
-                'Number of Regions': list(sorted_counts.values())
-            })
-            
-            # Use distinct theme colors for each bar
-            color_palette = get_statistics_color_palette()
-            fig_motif = px.bar(
-                df_motif, 
-                x='Max Motif Size', 
-                y='Number of Regions',
-                title='Regions by Max Motif Size',
-                color='Max Motif Size',
-                color_discrete_sequence=color_palette
-            )
-            fig_motif.update_layout(
-                xaxis_title="Max Motif Size (bp)",
-                yaxis_title="Number of Regions",
-                height=400,
-                showlegend=False,
-                title_font=dict(size=26, color='black', family='Arial Black, sans-serif'),
-                xaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
-                yaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
-                xaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif'),
-                yaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif')
-            )
-            # Update bar colors to cycle through palette
-            for i, trace in enumerate(fig_motif.data):
-                trace.marker.color = color_palette[i % len(color_palette)]
+        motif_counts_tuple = tuple(sorted(motif_size_counts.items())) if motif_size_counts else tuple()
+        fig_motif = _create_motif_size_plot(motif_counts_tuple)
+        if fig_motif:
             st.plotly_chart(fig_motif, use_container_width=True)
     
     with col_right:
         # Distribution of all motif sizes
-        if motif_lengths:
-            df_dist = pd.DataFrame({'Motif Size (bp)': motif_lengths})
-            color_palette = get_statistics_color_palette()
-            fig_dist = px.histogram(
-                df_dist,
-                x='Motif Size (bp)',
-                nbins=20,
-                title='Distribution of Motif Sizes',
-                labels={'count': 'Frequency'},
-                color_discrete_sequence=[color_palette[0]]  # Use primary blue
-            )
-            fig_dist.update_layout(
-                height=400,
-                title_font=dict(size=26, color='black', family='Arial Black, sans-serif'),
-                xaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
-                yaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
-                xaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif'),
-                yaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif')
-            )
+        motif_lengths_tuple = tuple(motif_lengths) if motif_lengths else tuple()
+        fig_dist = _create_motif_distribution_plot(motif_lengths_tuple)
+        if fig_dist:
             st.plotly_chart(fig_dist, use_container_width=True)
-        else:
+        elif not motif_lengths:
             st.info("No motif size data available for distribution plot.")
     
     # Regions by chromosome
-    if regions_by_chromosome:
-        # Sort chromosomes naturally
-        sorted_chroms = sorted(
-            regions_by_chromosome.keys(),
-            key=lambda x: (int(x[3:]) if x[3:].isdigit() else (23 if x == 'chrX' else 24 if x == 'chrY' else 99))
-        )
-        chrom_data = pd.DataFrame({
-            'Chromosome': sorted_chroms,
-            'Number of Regions': [regions_by_chromosome[ch] for ch in sorted_chroms]
-        })
-        
-        color_palette = get_statistics_color_palette()
-        fig_chrom = px.bar(
-            chrom_data,
-            x='Chromosome',
-            y='Number of Regions',
-            title='Regions by Chromosome',
-            color='Chromosome',
-            color_discrete_sequence=color_palette
-        )
-        fig_chrom.update_layout(
-            xaxis_tickangle=-45,
-            height=400,
-            showlegend=False,
-            title_font=dict(size=26, color='black', family='Arial Black, sans-serif'),
-            xaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
-            yaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
-            xaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif'),
-            yaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif')
-        )
-        # Update bar colors to cycle through palette
-        for i, trace in enumerate(fig_chrom.data):
-            trace.marker.color = color_palette[i % len(color_palette)]
+    chrom_tuple = tuple(sorted(regions_by_chromosome.items())) if regions_by_chromosome else tuple()
+    fig_chrom = _create_chromosome_plot(chrom_tuple)
+    if fig_chrom:
         st.plotly_chart(fig_chrom, use_container_width=True)
     
     # Genotype distribution plot
-    if genotype_counts:
-        sorted_genotypes = sorted(genotype_counts.items(), 
-                                 key=lambda x: (len(x[0].split('/')), x[0]))
-        df_genotype = pd.DataFrame({
-            'Genotype': [gt for gt, _ in sorted_genotypes],
-            'Count': [count for _, count in sorted_genotypes]
-        })
-        
-        color_palette = get_statistics_color_palette()
-        fig_genotype = px.bar(
-            df_genotype,
-            x='Genotype',
-            y='Count',
-            title='Genotype Distribution',
-            color='Genotype',
-            color_discrete_sequence=color_palette
-        )
-        fig_genotype.update_layout(
-            xaxis_title="Genotype",
-            yaxis_title="Number of Regions",
-            height=400,
-            showlegend=False,
-            title_font=dict(size=26, color='black', family='Arial Black, sans-serif'),
-            xaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
-            yaxis_title_font=dict(size=22, color='black', family='Arial Black, sans-serif'),
-            xaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif'),
-            yaxis_tickfont=dict(size=20, color='black', family='Arial Black, sans-serif')
-        )
-        # Update bar colors to cycle through palette
-        for i, trace in enumerate(fig_genotype.data):
-            trace.marker.color = color_palette[i % len(color_palette)]
+    genotype_tuple = tuple(sorted(genotype_counts.items())) if genotype_counts else tuple()
+    fig_genotype = _create_genotype_plot(genotype_tuple)
+    if fig_genotype:
         st.plotly_chart(fig_genotype, use_container_width=True)
     
     st.markdown("---")
