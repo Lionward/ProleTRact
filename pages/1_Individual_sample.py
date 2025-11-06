@@ -33,7 +33,10 @@ def run_page():
             else:
                 st.info("Please load a VCF file to start region analysis.")
     else:
-        st.info("👈 Please load a VCF file from the sidebar to get started.")
+        st.info(
+            "👈 Please load a VCF file from the sidebar to get started.\n\n"
+            "Additionally, ensure that your cohort folder contains the same repeat catalog that was used for this sample."
+        )
         st.stop()
 
 

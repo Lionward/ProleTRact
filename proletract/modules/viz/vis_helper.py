@@ -18,7 +18,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
     """
     legend_html = ""
     unique_motifs = sorted(set(motif_ids))
-    # Calculate motif sizes and prepare display names
+    # calc motif sizes for display
     motif_display_data = []
     for motif_id in motif_colors.keys():
         color = motif_colors[int(motif_id)]
@@ -31,12 +31,12 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
             'size': motif_size
         })
     
-    # Sort by size to show larger motifs first
+    # sort by size, bigger ones first
     motif_display_data.sort(key=lambda x: x['size'], reverse=True)
     
     for motif_data in motif_display_data:
         motif_name = motif_data['name']
-        # Truncate very long motif names and show size
+        # truncate if too long
         if len(motif_name) > 20:
             display_name = f"{motif_name[:15]}... ({len(motif_name)}bp)"
         elif len(motif_name) > 10:
@@ -181,7 +181,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
         }
         </style>
     """, unsafe_allow_html=True)
-    # Calculate statistics
+    # calc stats
     total_motifs = len(unique_motifs)
     motif_sizes = [len(motif_names[int(motif_id)]) for motif_id in unique_motifs]
     avg_size = sum(motif_sizes) / len(motif_sizes) if motif_sizes else 0
@@ -190,7 +190,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
     
     # Create compact view for many motifs
     if total_motifs > 8:
-        # Compact horizontal layout for many motifs
+        # compact layout when theres lots of motifs
         compact_legend_html = ""
         for motif_data in motif_display_data[:12]:  # Show max 12 motifs
             motif_name = motif_data['name']
@@ -330,7 +330,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
             </div>
         """)
     else:
-        # Original detailed view for few motifs
+        # detailed view when theres not too many motifs
         st.html(f"""
             <div class="motif-legend-container">
                 <div class="motif-legend-header">
@@ -362,7 +362,7 @@ def motif_legend_html(motif_ids, motif_colors, motif_names):
         """)
 
 def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, motif_ids, spans, motif_colors, motif_names, supporting_reads=None):
-    # Global override to upscale sequence visualization typography
+    # make fonts bigger
     st.markdown("""
         <style>
             .sequence-dashboard, .sequence-dashboard * { font-size: 1.05rem !important; }
@@ -374,7 +374,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
             .legend-stats .stat-item span, .legend-stats .stat-item .stat-value { font-size: 1.02rem !important; }
         </style>
     """, unsafe_allow_html=True)
-    # Handle the situations where motifs are not available or sequence is just one base
+    # handle cases where motifs are missing or sequence is just one base
     if (motif_ids == ["."]) or (isinstance(sequence, str) and len(sequence) <= 1):
         if sequence_name == "Ref":
             sequence_name += "seq"
@@ -460,7 +460,6 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                 }}
                 .sequence-content-wrapper {{
                     display: inline-block;
-                    min-width: 100%;
                     overflow: visible;
                 }}
                 .sequence-content {{
@@ -526,7 +525,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                     </div>
                     <div class="sequence-scroll-wrapper">
                         <div class="sequence-content-wrapper">
-                            <div class="sequence-content">
+                            <div class="sequence-content" id="sequence-content-{sequence_name}">
                                 <span style="color:#4a5568; letter-spacing:0.5px;">{sequence}</span>
                             </div>
                             <div class="sequence-scale" id="sequence-scale-{sequence_name}">
@@ -540,6 +539,107 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                     </div>
                 </div>
             </div>
+
+        <script>
+            // sync the scale width to match sequence, also make header/stats same size
+            function syncScaleWidth_{sequence_name}() {{
+                const sequenceContent = document.getElementById('sequence-content-{sequence_name}');
+                const sequenceScale = document.getElementById('sequence-scale-{sequence_name}');
+                const contentWrapper = sequenceContent ? sequenceContent.parentElement : null;
+                
+                if (sequenceContent && sequenceScale && contentWrapper) {{
+                    sequenceContent.offsetHeight; // force reflow
+                    
+                    const contentWidth = sequenceContent.scrollWidth;
+                    
+                    const scrollWrapper = contentWrapper.parentElement;
+                    if (scrollWrapper) {{
+                        const allWrappers = scrollWrapper.querySelectorAll('.sequence-content-wrapper');
+                        let maxWidth = contentWidth;
+                        
+                        // find the biggest one so they all match
+                        allWrappers.forEach(wrapper => {{
+                            const content = wrapper.querySelector('.sequence-content');
+                            if (content) {{
+                                const width = content.scrollWidth;
+                                if (width > maxWidth) maxWidth = width;
+                            }}
+                        }});
+                        
+                        // set everything to max width
+                        allWrappers.forEach(wrapper => {{
+                            const content = wrapper.querySelector('.sequence-content');
+                            const scale = wrapper.querySelector('.sequence-scale');
+                            if (content && scale) {{
+                                wrapper.style.width = maxWidth + 'px';
+                                scale.style.width = maxWidth + 'px';
+                                scale.style.minWidth = maxWidth + 'px';
+                            }}
+                        }});
+                        
+                        // also sync header and stats bar
+                        const sequenceContainer = scrollWrapper.parentElement;
+                        if (sequenceContainer && sequenceContainer.classList.contains('sequence-container')) {{
+                            const allContainers = Array.from(document.querySelectorAll('.sequence-container'));
+                            const sameLevelContainers = allContainers.filter(container => {{
+                                return container.querySelector('.sequence-scroll-wrapper') !== null;
+                            }});
+                            
+                            sameLevelContainers.forEach(container => {{
+                                const header = container.querySelector('.sequence-header');
+                                const statsBar = container.querySelector('.stats-bar');
+                                if (header) header.style.width = maxWidth + 'px';
+                                if (statsBar) statsBar.style.width = maxWidth + 'px';
+                            }});
+                        }} else {{
+                            const parent = scrollWrapper.parentElement;
+                            if (parent) {{
+                                const header = parent.querySelector('.sequence-header');
+                                const statsBar = parent.querySelector('.stats-bar');
+                                if (header) header.style.width = maxWidth + 'px';
+                                if (statsBar) statsBar.style.width = maxWidth + 'px';
+                            }}
+                        }}
+                    }} else {{
+                        contentWrapper.style.width = contentWidth + 'px';
+                        sequenceScale.style.width = contentWidth + 'px';
+                        sequenceScale.style.minWidth = contentWidth + 'px';
+                        
+                        const sequenceContainer = sequenceContent.closest('.sequence-container');
+                        if (sequenceContainer) {{
+                            const header = sequenceContainer.querySelector('.sequence-header');
+                            const statsBar = sequenceContainer.querySelector('.stats-bar');
+                            if (header) header.style.width = contentWidth + 'px';
+                            if (statsBar) statsBar.style.width = contentWidth + 'px';
+                        }}
+                    }}
+                }}
+            }}
+            
+            document.addEventListener('DOMContentLoaded', function() {{
+                syncScaleWidth_{sequence_name}();
+            }});
+            
+            setTimeout(() => {{
+                syncScaleWidth_{sequence_name}();
+            }}, 100);
+            
+            let resizeTimeout_{sequence_name};
+            window.addEventListener('resize', function() {{
+                clearTimeout(resizeTimeout_{sequence_name});
+                resizeTimeout_{sequence_name} = setTimeout(syncScaleWidth_{sequence_name}, 50);
+            }});
+            
+            if (typeof ResizeObserver !== 'undefined') {{
+                const resizeObserver = new ResizeObserver(function() {{
+                    syncScaleWidth_{sequence_name}();
+                }});
+                const sequenceContent = document.getElementById('sequence-content-{sequence_name}');
+                if (sequenceContent) {{
+                    setTimeout(() => resizeObserver.observe(sequenceContent), 200);
+                }}
+            }}
+        </script>
         """, unsafe_allow_html=True)
         return
 
@@ -551,17 +651,17 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
     interruption_class = "interruption-segment motif-segment"
     interruption_style = "background: linear-gradient(135deg, #fc8181, #e53e3e); opacity: 0.85; border: 1px dashed rgba(255,255,255,0.5); color: #fff;"
 
-    # Build highlighted sequence with interactive elements
+    # build the highlighted sequence
     for idx, (start, end) in enumerate(ranges):
         motif = motif_ids[idx]
         color = motif_colors[int(motif)]
         motif_name = motif_names[int(motif)]
 
-        # Add interruption if any
+        # add interruption if needed
         if start > previous_end:
             interruption_sequence = sequence[previous_end:start]
-            # Use the same outer box as motif, but with different color/border
-            # Calculate 1-based positions for interruption
+            # use same box style as motif but diff color
+            # positions are 1-based for display
             int_start_pos_1based = previous_end + 1
             int_end_pos_1based = start
             highlighted_sequence += (
@@ -572,11 +672,11 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                 f"</span>"
             )
 
-        # Add motif
+        # add motif
         motif_sequence = sequence[start:end+1]
         motif_length = len(motif_sequence)
         
-        # Calculate 1-based positions for display
+        # positions are 1-based for display
         start_pos_1based = start + 1
         end_pos_1based = end + 1
         
@@ -589,10 +689,10 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
         )
         previous_end = end + 1
 
-    # Add remaining sequence as interruption
+    # add remaining sequence as interruption
     if previous_end < len(sequence):
         interruption_sequence = sequence[previous_end:]
-        # Calculate 1-based positions for final interruption
+        # final interruption positions
         final_int_start_pos_1based = previous_end + 1
         final_int_end_pos_1based = len(sequence)
         highlighted_sequence += (
@@ -606,7 +706,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
     if sequence_name == "Ref":
         sequence_name += "seq"
 
-    # Calculate motif statistics
+    # calc stats for motifs
     legend_motif_sizes = [len(name) for name in motif_names]
     seen_sizes = set()
     ordered_unique_sizes = []
@@ -618,7 +718,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
     total_motifs = len(motif_ids)
     coverage = sum([end - start + 1 for start, end in ranges]) / len(sequence) * 100
 
-    # Prepare supporting reads count html, show if supporting_reads is not None and is a number
+    # show supporting reads if available
     supporting_reads_html = ""
     if supporting_reads is not None:
         try:
@@ -681,7 +781,6 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
             }}
             .sequence-content-wrapper {{
                 display: inline-block;
-                min-width: 100%;
                 overflow: visible;
             }}
             .sequence-content {{
@@ -856,7 +955,7 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                 }}
             }}
             
-            // Initialize tooltips for this sequence
+            // Init tooltips for this sequence
             function initSequenceTooltips(sequenceId) {{
                 const container = document.getElementById(sequenceId);
                 if (!container) return;
@@ -864,16 +963,13 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                 const segments = container.querySelectorAll('[data-content]');
                 
                 segments.forEach(segment => {{
-                    // Mouse enter
                     segment.addEventListener('mouseenter', function(e) {{
                         const content = this.getAttribute('data-content');
                         showTooltip(content, e.pageX + 15, e.pageY + 15);
                     }});
                     
-                    // Mouse leave
                     segment.addEventListener('mouseleave', hideTooltip);
                     
-                    // Mouse move
                     segment.addEventListener('mousemove', function(e) {{
                         if (currentTooltip && currentTooltip.classList.contains('show')) {{
                             currentTooltip.style.left = (e.pageX + 15) + 'px';
@@ -883,31 +979,108 @@ def display_dynamic_sequence_with_highlighted_motifs(sequence_name, sequence, mo
                 }});
             }}
             
-            // Sync scale width with sequence content width
+            // Make sure the scale matches the sequence width and all sequences have same size
             function syncScaleWidth() {{
                 const sequenceContent = document.getElementById('sequence-content-{sequence_name}');
                 const sequenceScale = document.getElementById('sequence-scale-{sequence_name}');
-                if (sequenceContent && sequenceScale) {{
+                const contentWrapper = sequenceContent ? sequenceContent.parentElement : null;
+                
+                if (sequenceContent && sequenceScale && contentWrapper) {{
+                    // force reflow to get accurate measurements
+                    sequenceContent.offsetHeight;
+                    
                     const contentWidth = sequenceContent.scrollWidth;
-                    sequenceScale.style.width = contentWidth + 'px';
-                    sequenceScale.style.minWidth = contentWidth + 'px';
+                    
+                    const scrollWrapper = contentWrapper.parentElement;
+                    if (scrollWrapper) {{
+                        const allWrappers = scrollWrapper.querySelectorAll('.sequence-content-wrapper');
+                        let maxWidth = contentWidth;
+                        
+                        // find max width so all sequences have same size
+                        allWrappers.forEach(wrapper => {{
+                            const content = wrapper.querySelector('.sequence-content');
+                            if (content) {{
+                                const width = content.scrollWidth;
+                                if (width > maxWidth) maxWidth = width;
+                            }}
+                        }});
+                        
+                        // set all wrappers and scales to max width
+                        allWrappers.forEach(wrapper => {{
+                            const content = wrapper.querySelector('.sequence-content');
+                            const scale = wrapper.querySelector('.sequence-scale');
+                            if (content && scale) {{
+                                wrapper.style.width = maxWidth + 'px';
+                                scale.style.width = maxWidth + 'px';
+                                scale.style.minWidth = maxWidth + 'px';
+                            }}
+                        }});
+                        
+                        // sync header and stats bar too
+                        const sequenceContainer = scrollWrapper.parentElement;
+                        if (sequenceContainer && sequenceContainer.classList.contains('sequence-container')) {{
+                            const allContainers = Array.from(document.querySelectorAll('.sequence-container'));
+                            const sameLevelContainers = allContainers.filter(container => {{
+                                return container.querySelector('.sequence-scroll-wrapper') !== null;
+                            }});
+                            
+                            sameLevelContainers.forEach(container => {{
+                                const header = container.querySelector('.sequence-header');
+                                const statsBar = container.querySelector('.stats-bar');
+                                if (header) header.style.width = maxWidth + 'px';
+                                if (statsBar) statsBar.style.width = maxWidth + 'px';
+                            }});
+                        }} else {{
+                            const parent = scrollWrapper.parentElement;
+                            if (parent) {{
+                                const header = parent.querySelector('.sequence-header');
+                                const statsBar = parent.querySelector('.stats-bar');
+                                if (header) header.style.width = maxWidth + 'px';
+                                if (statsBar) statsBar.style.width = maxWidth + 'px';
+                            }}
+                        }}
+                    }} else {{
+                        // fallback if no parent container
+                        contentWrapper.style.width = contentWidth + 'px';
+                        sequenceScale.style.width = contentWidth + 'px';
+                        sequenceScale.style.minWidth = contentWidth + 'px';
+                        
+                        const sequenceContainer = sequenceContent.closest('.sequence-container');
+                        if (sequenceContainer) {{
+                            const header = sequenceContainer.querySelector('.sequence-header');
+                            const statsBar = sequenceContainer.querySelector('.stats-bar');
+                            if (header) header.style.width = contentWidth + 'px';
+                            if (statsBar) statsBar.style.width = contentWidth + 'px';
+                        }}
+                    }}
                 }}
             }}
             
-            // Initialize when page loads
             document.addEventListener('DOMContentLoaded', function() {{
                 initSequenceTooltips('sequence-content-{sequence_name}');
                 syncScaleWidth();
             }});
             
-            // Also try initializing after a short delay
             setTimeout(() => {{
                 initSequenceTooltips('sequence-content-{sequence_name}');
                 syncScaleWidth();
             }}, 100);
             
-            // Sync on window resize
-            window.addEventListener('resize', syncScaleWidth);
+            let resizeTimeout;
+            window.addEventListener('resize', function() {{
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(syncScaleWidth, 50);
+            }});
+            
+            if (typeof ResizeObserver !== 'undefined') {{
+                const resizeObserver = new ResizeObserver(function() {{
+                    syncScaleWidth();
+                }});
+                const sequenceContent = document.getElementById('sequence-content-{sequence_name}');
+                if (sequenceContent) {{
+                    setTimeout(() => resizeObserver.observe(sequenceContent), 200);
+                }}
+            }}
         </script>
     """)
 
@@ -1644,110 +1817,237 @@ def display_genotype_badge(gt, size="medium"):
     """)
 
 
+def _compute_genotype_cache(genotypes_dict):
+    """
+    Compute and cache all genotype-related data once.
+    Returns a dictionary with all pre-computed data.
+    """
+    samples = list(genotypes_dict.keys())
+    unique_genotypes = list(set(genotypes_dict.values()))
+
+    # Color mapping and genotype data
+    genotype_colors = {}
+    genotype_data = {}
+    for gt in unique_genotypes:
+        interpretation = interpret_genotype(gt)
+        genotype_colors[gt] = interpretation['color']
+        genotype_data[gt] = {
+            'color': interpretation['color'],
+            'bg_color': interpretation['bg_color'],
+            'icon': interpretation['icon'],
+            'status': interpretation['status'],
+            'description': interpretation['description']
+        }
+
+    # Group samples by genotype
+    genotype_groups = {}
+    for sample, gt in genotypes_dict.items():
+        if gt not in genotype_groups:
+            genotype_groups[gt] = []
+        genotype_groups[gt].append(sample)
+    
+    # Sort groups by count (descending)
+    sorted_groups = sorted(genotype_groups.items(), key=lambda x: len(x[1]), reverse=True)
+    
+    # Pre-compute sorted genotype list for filter dropdown (sorted by count descending)
+    sorted_genotypes = sorted(unique_genotypes, key=lambda x: len(genotype_groups.get(x, [])), reverse=True)
+    filter_options = ["All"] + sorted_genotypes
+    
+    # Pre-compute summary statistics
+    homozygous_count = 0
+    heterozygous_count = 0
+    missing_count = 0
+    for gt in genotypes_dict.values():
+        gt_info = genotype_data.get(gt, {})
+        status = gt_info.get('status', '')
+        if status.startswith('homozygous'):
+            homozygous_count += 1
+        elif status.startswith('heterozygous'):
+            heterozygous_count += 1
+        elif status == 'unknown':
+            missing_count += 1
+    
+    return {
+        'samples': samples,
+        'unique_genotypes': unique_genotypes,
+        'filter_options': filter_options,  # Pre-computed sorted list with "All"
+        'genotype_colors': genotype_colors,
+        'genotype_data': genotype_data,
+        'genotype_groups': genotype_groups,
+        'sorted_groups': sorted_groups,
+        'homozygous_count': homozygous_count,
+        'heterozygous_count': heterozygous_count,
+        'missing_count': missing_count
+    }
+
+
 def create_genotype_comparison_matrix(genotypes_dict):
     """
-    Create a visual comparison matrix of genotypes across samples, hidden behind an expander
+    Create a visual comparison matrix of genotypes across samples with multiple view modes
     Args:
         genotypes_dict (dict): Dictionary with sample names as keys and genotypes as values
     """
 
+    st.markdown("###  Genotype Comparison Matrix")
 
-    st.markdown("### 🧬 Genotype Comparison Matrix")
+    # Initialize or update cache in session state
+    cache_key = 'genotype_matrix_cache'
+    cached_dict_key = 'genotype_matrix_cached_dict'
+    
+    # Check if we need to recompute by comparing dictionaries directly
+    if (cache_key not in st.session_state or 
+        cached_dict_key not in st.session_state or 
+        st.session_state[cached_dict_key] != genotypes_dict):
+        # Compute and cache all data
+        st.session_state[cache_key] = _compute_genotype_cache(genotypes_dict)
+        st.session_state[cached_dict_key] = genotypes_dict.copy()
+    
+    # Get cached data
+    cache = st.session_state[cache_key]
+    samples = cache['samples']
+    unique_genotypes = cache['unique_genotypes']
+    genotype_data = cache['genotype_data']
+    genotype_groups = cache['genotype_groups']
+    sorted_groups = cache['sorted_groups']
 
-    # Create comparison data
-    samples = list(genotypes_dict.keys())
-    unique_genotypes = list(set(genotypes_dict.values()))
+    # Use tabs instead of radio - tabs only render active content, much faster!
+    tab1, tab2 = st.tabs(["👨‍👩‍👧‍👦 Grouped View", "🗂️ Grid Cards"])
+    
+    # Use all samples - no filtering
+    filtered_dict = genotypes_dict
+    
+    with tab1:
+        _display_grouped_view(filtered_dict, sorted_groups, genotype_data, genotype_groups)
+    
+    with tab2:
+        _display_grid_cards(filtered_dict, genotype_data)
 
-    # Color mapping for different genotypes
-    genotype_colors = {}
-    for i, gt in enumerate(unique_genotypes):
-        interpretation = interpret_genotype(gt)
-        genotype_colors[gt] = interpretation['color']
-
-    # Adjusted/Smaller matrix CSS
-    matrix_html = """
-        <style>
-            .genotype-matrix {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-                gap: 8px;
-                margin: 14px 0;
-            }
-            .matrix-cell {
-                background: white;
-                border: 1.5px solid #e5e7eb;
-                border-radius: 8px;
-                padding: 7px 5px 9px 5px;
-                text-align: center;
-                transition: all 0.22s ease;
-                position: relative;
-                overflow: hidden;
-                min-width: 0;
-                min-height: 0;
-            }
-            .matrix-cell:hover {
-                transform: translateY(-1px) scale(1.02);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.10);
-            }
-            .sample-name {
-                font-size: 20px;
-                font-weight: 600;
-                color: #374151;
-                margin-bottom: 3px;
-                white-space: pre-line;
-                overflow-wrap: anywhere;
-                word-break: break-all;
-            }
-            .genotype-display {
-                font-size: 26px;
-                font-weight: 800;
-                font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-                letter-spacing: 0.6px;
-                margin-bottom: 2px;
-                line-height: 1.1;
-            }
-            .genotype-type {
-                font-size: 22px;
-                color: #6B7280;
-                text-transform: uppercase;
-                letter-spacing: 0.28px;
-            }
-        </style>
-        <div class="genotype-matrix">
-    """
-
-    for sample, gt in genotypes_dict.items():
-        interpretation = interpret_genotype(gt)
-        matrix_html += f"""
-            <div class="matrix-cell" style="border-color: {interpretation['color']}; background: {interpretation['bg_color']};">
-                <div class="sample-name">{sample}</div>
-                <div class="genotype-display" style="color: {interpretation['color']};">{interpretation['icon']} {gt}</div>
-                <div class="genotype-type">{interpretation['status'].replace('_', ' ').title()}</div>
-            </div>
-        """
-
-    matrix_html += "</div>"
-
-    st.html(matrix_html)
-
-    # Add summary statistics
+    # Add summary statistics - use cached values
     st.markdown("#### 📊 Genotype Summary")
-
-    col1, col2, col3, col4 = st.columns(4)
-
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("Total Samples", len(samples))
-
     with col2:
         st.metric("Unique Genotypes", len(unique_genotypes))
-
     with col3:
-        homozygous_count = sum(1 for gt in genotypes_dict.values() if interpret_genotype(gt)['status'].startswith('homozygous'))
-        st.metric("Homozygous", homozygous_count)
-
+        st.metric("Homozygous", cache['homozygous_count'])
     with col4:
-        heterozygous_count = sum(1 for gt in genotypes_dict.values() if interpret_genotype(gt)['status'].startswith('heterozygous'))
-        st.metric("Heterozygous", heterozygous_count)
+        st.metric("Heterozygous", cache['heterozygous_count'])
+    with col5:
+        st.metric("Missing", cache['missing_count'])
+
+
+def _display_grouped_view(filtered_dict, sorted_groups, genotype_data, genotype_groups):
+    """Display genotypes grouped by genotype type with collapsible sections"""
+    
+    # Since we're not filtering, filtered_dict == genotypes_dict, so use sorted_groups directly
+    for gt, group_samples in sorted_groups:
+        if not group_samples:
+            continue
+        
+        gt_info = genotype_data[gt]  # Use cached data
+        
+        # Create expander for each genotype group
+        with st.expander(
+            f"{gt_info['icon']} **{gt}** - {gt_info['description']} ({len(group_samples)} samples)",
+            expanded=len(sorted_groups) <= 3  # Auto-expand if few groups
+        ):
+            # Display all samples in compact grid - no pagination
+            cols = st.columns(min(6, len(group_samples)))
+            for idx, sample in enumerate(group_samples):
+                with cols[idx % len(cols)]:
+                    st.markdown(f"""
+                        <div style="
+                            background: {gt_info['bg_color']};
+                            border: 2px solid {gt_info['color']};
+                            border-radius: 8px;
+                            padding: 8px;
+                            text-align: center;
+                            margin-bottom: 8px;
+                        ">
+                            <div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 4px;">
+                                {sample}
+                            </div>
+                            <div style="font-size: 20px; font-weight: 800; color: {gt_info['color']};">
+                                {gt_info['icon']} {gt}
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+
+
+
+def _display_grid_cards(filtered_dict, genotype_data):
+    """Display genotypes in a responsive grid"""
+    
+    samples_list = list(filtered_dict.items())
+    
+    # Pre-build card HTML strings using cached genotype_data
+    card_htmls = []
+    for sample, gt in samples_list:
+        gt_info = genotype_data[gt]  # Use cached data
+        card_htmls.append(f"""
+            <div class="genotype-card" style="border-color: {gt_info['color']}; background: {gt_info['bg_color']};">
+                <div class="card-sample-name">{sample}</div>
+                <div class="card-genotype" style="color: {gt_info['color']};">{gt_info['icon']} {gt}</div>
+                <div class="card-type">{gt_info['status'].replace('_', ' ').title()}</div>
+            </div>
+        """)
+    
+    # Build complete HTML in one go
+    grid_html = """
+        <style>
+            .genotype-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 10px;
+                margin: 14px 0;
+            }
+            .genotype-card {
+                background: white;
+                border: 2px solid #e5e7eb;
+                border-radius: 10px;
+                padding: 12px 8px;
+                text-align: center;
+                transition: all 0.25s ease;
+                cursor: pointer;
+                min-height: 100px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            .genotype-card:hover {
+                transform: translateY(-2px) scale(1.03);
+                box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            }
+            .card-sample-name {
+                font-size: 13px;
+                font-weight: 600;
+                color: #374151;
+                margin-bottom: 6px;
+                word-break: break-word;
+                line-height: 1.3;
+            }
+            .card-genotype {
+                font-size: 22px;
+                font-weight: 800;
+                font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
+                line-height: 1.2;
+            }
+            .card-type {
+                font-size: 11px;
+                color: #6B7280;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-weight: 500;
+            }
+        </style>
+        <div class="genotype-grid">
+    """ + "".join(card_htmls) + "</div>"
+    
+    st.html(grid_html)
 
 def display_motifs_as_bars_with_occurrences(sequence_name, motif_colors, motif_ids, spans, sequence, motif_names):
     # First calculate motif occurrences

@@ -4,8 +4,9 @@ import io
 import numpy as np
 import altair as alt
 from proletract.app_shared import configure_page, ensure_state_initialized
-from proletract.modules.viz.visualization import Visualization
 from proletract.modules.viz.vis_helper import create_genotype_comparison_matrix, display_dynamic_sequence_with_highlighted_motifs, motif_legend_html
+from proletract.modules.viz import utils
+from proletract.modules.viz import plots
 
 
 def main():
@@ -42,12 +43,11 @@ def main():
  
         st.markdown("---")
         st.markdown("### Plot gallery (same components used in the tool)")
-        viz = Visualization()
 
         # A) Sequence with highlighted motifs (same renderer as individual view)
         st.markdown("**A) Sequence with highlighted motifs**")
         demo_motif_names = ["CAG", "GAA", "TTC"]
-        demo_colors = {i: c for i, c in enumerate(viz.get_color_palette(len(demo_motif_names)))}
+        demo_colors = {i: c for i, c in enumerate(utils.get_color_palette(len(demo_motif_names)))}
         # Build a synthetic sequence with segments: CAGx10, GAAx6, TTCx8 (interruptions inserted)
         seq = "CAG" * 10 + "A" + "GAA" * 6 + "TT" + "TTC" * 8
         # spans are per motif occurrence: each individual motif gets its own span
@@ -114,7 +114,7 @@ def main():
             [2, 1, 0],
         ]
         # Render stack plot + internal heatmap and summary stats (with reduced height and width for helper page)
-        _motif_colors, df_stack = viz.stack_plot(record, demo_motif_names, sequences, span_list, motif_ids_list, sort_by="Value", max_height=600, max_width=800)
+        _motif_colors, df_stack = plots.stack_plot(record, demo_motif_names, sequences, span_list, motif_ids_list, sort_by="Value", max_height=600, max_width=800)
         st.caption(
             "Stack plot: each row is a sample/allele; colored blocks represent motif runs along the sequence."
             " The heatmap on top aggregates motif occurrences by sample and motif."
@@ -134,7 +134,7 @@ def main():
                 rows.append({"Sample": s, "Motif": rng.choice(motif_names)})
         demo_df = pd.DataFrame(rows)
         region = st.session_state.pathogenic_TRs.iloc[0]['region'] if "pathogenic_TRs" in st.session_state and not st.session_state.pathogenic_TRs.empty else "chr1:1000-2000"
-        viz.bar_plot_motif_count(demo_df, region, sort_by="Value")
+        plots.bar_plot_motif_count(demo_df, region, sort_by="Value")
         st.caption(
             "Bar chart: total motif segments per sample/allele. If the displayed region is in the pathogenic catalog, a red threshold line is shown."
         )
