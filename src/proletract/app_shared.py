@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from pathlib import Path
+from importlib import resources
 import pandas as pd
 import pysam
 import plotly.express as px
@@ -41,9 +42,9 @@ def ensure_state_initialized():
 
 
 def get_pathogenic_TRs():
-    root = Path(__file__).resolve().parent.parent
-    data_path = root / "proletract" / "data" / "pathogenic_TRs.bed"
-    pathogenic_trs = pd.read_csv(str(data_path), sep="\t", header=None)
+    data_file = resources.files("proletract.data").joinpath("pathogenic_TRs.bed")
+    with data_file.open("rt") as fh:
+        pathogenic_trs = pd.read_csv(fh, sep="\t", header=None)
     pathogenic_trs.columns = ["chrom", 'start', 'end', 'motif', 'pathogenic_min', 'inheritance', 'disease', 'gene']
     st.session_state.pathogenic_TRs = pathogenic_trs
     pathogenic_trs['region'] = pathogenic_trs['chrom'] + ":" + pathogenic_trs['start'].astype(str) + "-" + pathogenic_trs['end'].astype(str)
@@ -1063,21 +1064,18 @@ def display_cohort_statistics(cohort_files, cohort_file_paths):
 def render_sidebar_branding():
 
     try:
-        
-        logo_path = Path(__file__).resolve().parent.parent / "ProleTRact_logo.svg"
-        if logo_path.exists():
-            # Read the image as base64 for browser embedding
-            import base64
-            with open(logo_path, "rb") as image_file:
-                encoded = base64.b64encode(image_file.read()).decode("utf-8")
-            st.sidebar.markdown(
-                f"""
-                <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 2.2em;">
-                    <img src="data:image/svg+xml;base64,{encoded}" alt="ProleTRact Logo" style="max-width:250px; width:250px; display:block;" />
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+        import base64
+        logo_resource = resources.files("proletract").joinpath("ProleTRact_logo.svg")
+        with logo_resource.open("rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode("utf-8")
+        st.sidebar.markdown(
+            f"""
+            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 2.2em;">
+                <img src="data:image/svg+xml;base64,{encoded}" alt="ProleTRact Logo" style="max-width:250px; width:250px; display:block;" />
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     except FileNotFoundError:
         st.write("Logo not found")
 
