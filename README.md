@@ -17,29 +17,36 @@
   <li><strong>Fast navigation:</strong> Move across TR records with Previous/Next controls or jump to a specific region.</li>
 </ul>
 
-<h2>Installation</h2>
-<ol>
-  <li>Clone the repository:
-    <pre><code>git clone git@github.com:Lionward/ProleTRact.git
-cd ProleTRact</code></pre>
-  </li>
-  <li>Ensure you have Python 3.9+ and <code>pip</code> installed.</li>
-  <li>Install dependencies:
-    <pre><code>pip install -r requirements.txt</code></pre>
-    Or install manually:
-    <pre><code>pip install streamlit>=1.28.0 pysam>=0.19.0 pandas>=1.5.0 matplotlib>=3.5.0 altair>=5.0.0 plotly>=5.0.0</code></pre>
-  </li>
-</ol>
+<h2>Installation Options</h2>
+<p>Pick the workflow that fits your environment:</p>
+
+<h3>Option A &mdash; Install from PyPI (recommended)</h3>
+<pre><code>pip install proleTRact
+proleTRact  # launches the Streamlit app</code></pre>
+<p>The launcher opens a browser locally. On headless machines set <code>STREAMLIT_SERVER_HEADLESS=true</code> before invoking <code>proleTRact</code>.</p>
+
+<h3>Option B &mdash; Clone and run locally</h3>
+<pre><code>git clone git@github.com:Lionward/ProleTRact.git
+cd ProleTRact
+python -m venv .venv
+source .venv/bin/activate  # On Windows use .venv\Scripts\activate
+pip install -e .
+proleTRact</code></pre>
+<p>You can also launch directly with Streamlit during development:</p>
+<pre><code>streamlit run src/proletract/app.py</code></pre>
+
+<h3>Option C &mdash; Build and install from source</h3>
+<pre><code>python -m pip install build
+python -m build
+python -m pip install dist/proletract-0.1.0-py3-none-any.whl
+proleTRact</code></pre>
+<p>This produces installable wheels/sdists identical to the ones published on PyPI.</p>
 
 <h2>Quickstart</h2>
 <ol>
-  <li>Run the app from the repository root:
-    <pre><code>streamlit run app.py</code></pre>
-  </li>
-  <li>(Optional) If running on a remote machine, forward the web UI port to your laptop:
-    <pre><code>ssh -L 8501:localhost:8501 &lt;your_remote_host&gt;</code></pre>
-    then open <code>http://localhost:8501</code> in your browser.
-  </li>
+  <li>Launch the app with one of the commands above.</li>
+  <li>Open the browser tab (Streamlit prints the URL if you are headless).</li>
+  <li>Load an individual VCF or cohort folder from the sidebar and start exploring tandem repeats.</li>
 </ol>
 
 <h2>Usage</h2>
@@ -75,7 +82,7 @@ cd ProleTRact</code></pre>
 
 <h2>Demo / Examples</h2>
 <p>Example screenshots and short walkthrough GIFs will be added here. For now, you can open <code>example.svg</code> for a preview:</p>
-<img src="proletract/assets/example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
+<img src="src/proletract/assets/example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
 <ul>
   <li><em>Planned:</em> Individual-mode walkthrough </li>
   <li><em>Planned:</em> Cohort-mode walkthrough</li>
