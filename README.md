@@ -1,6 +1,6 @@
 <br />
 <div align="center">
- <img width="300" alt="grafik" src="ProleTRact_logo.svg">
+ <img width="300" alt="grafik" src="src/proletract/ProleTRact_logo.svg">
   </p>
 </div>
 <br />
