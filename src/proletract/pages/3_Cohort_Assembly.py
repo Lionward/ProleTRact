@@ -1,5 +1,32 @@
+import sys
+from pathlib import Path
+
+if __package__ is None or __package__ == "":
+    src_path = Path(__file__).resolve().parents[2]
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
 import streamlit as st
-from proletract.app_shared import configure_page, ensure_state_initialized, display_cohort_statistics
+
+try:
+    from proletract.app_shared import (
+        configure_page,
+        ensure_state_initialized,
+        display_cohort_statistics,
+    )
+except ModuleNotFoundError:  # pragma: no cover - local dev fallback
+    import sys
+    from pathlib import Path
+
+    src_path = Path(__file__).resolve().parents[2]
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
+    from proletract.app_shared import (
+        configure_page,
+        ensure_state_initialized,
+        display_cohort_statistics,
+    )
 
 
 def run_page():

@@ -3,10 +3,38 @@ import pandas as pd
 import io
 import numpy as np
 import altair as alt
-from proletract.app_shared import configure_page, ensure_state_initialized
-from proletract.modules.viz.vis_helper import create_genotype_comparison_matrix, display_dynamic_sequence_with_highlighted_motifs, motif_legend_html
-from proletract.modules.viz import utils
-from proletract.modules.viz import plots
+import sys
+from pathlib import Path
+
+try:
+    from proletract.app_shared import configure_page, ensure_state_initialized
+    from proletract.modules.viz.vis_helper import (
+        create_genotype_comparison_matrix,
+        display_dynamic_sequence_with_highlighted_motifs,
+        motif_legend_html,
+    )
+    from proletract.modules.viz import utils
+    from proletract.modules.viz import plots
+except ModuleNotFoundError:
+
+    src_path = Path(__file__).resolve().parents[1]
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
+    from proletract.app_shared import configure_page, ensure_state_initialized
+    from proletract.modules.viz.vis_helper import (
+        create_genotype_comparison_matrix,
+        display_dynamic_sequence_with_highlighted_motifs,
+        motif_legend_html,
+    )
+    from proletract.modules.viz import utils
+    from proletract.modules.viz import plots
+
+
+if __package__ is None or __package__ == "":
+    src_path = Path(__file__).resolve().parents[1]
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
 
 
 def main():
