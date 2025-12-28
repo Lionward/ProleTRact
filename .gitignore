@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyd
+
+# Cython build artifacts
+*.c
 
 # Distribution / packaging
 .Python
