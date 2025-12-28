@@ -453,6 +453,41 @@ def visulize_cohort():
     
     region_options = list(st.session_state.cohorts_records_map.values())
     
+    # Get genotype filter for cohort - cached for performance
+    region_genotypes = st.session_state.get('cohort_region_genotypes', {})
+    
+    # Genotype filter UI for cohort
+    st.sidebar.markdown("### 🧬 Filter by Genotype")
+    available_genotypes = sorted(set(region_genotypes.values())) if region_genotypes else []
+    
+    # Default to all genotypes selected
+    if 'genotype_filter_cohort' not in st.session_state:
+        st.session_state.genotype_filter_cohort = available_genotypes.copy()
+    
+    selected_genotypes = st.sidebar.multiselect(
+        "Select genotypes to show:",
+        options=available_genotypes,
+        default=st.session_state.genotype_filter_cohort if st.session_state.genotype_filter_cohort else available_genotypes,
+        key="genotype_filter_multiselect_cohort",
+        help="Filter regions by genotype. Only selected genotypes will appear in the region list."
+    )
+    st.session_state.genotype_filter_cohort = selected_genotypes
+    
+    # Filter regions by genotype
+    if selected_genotypes and region_genotypes:
+        # Filter regions that match selected genotypes
+        filtered_by_genotype = [r for r in region_options 
+                               if region_genotypes.get(r, './.') in selected_genotypes]
+        if filtered_by_genotype:
+            region_options = filtered_by_genotype
+            st.sidebar.markdown(f"<span style='font-size:11px; color:#4ade80;'>{len(filtered_by_genotype):,} regions match selected genotypes</span>", unsafe_allow_html=True)
+        else:
+            st.sidebar.warning("No regions match the selected genotypes. Showing all regions.")
+            region_options = list(st.session_state.cohorts_records_map.values())
+    elif not selected_genotypes and region_genotypes:
+        st.sidebar.info("Select at least one genotype to filter regions.")
+        region_options = list(st.session_state.cohorts_records_map.values())
+    
     regions_idx = st.session_state.get('regions_idx', 0)
     if regions_idx >= len(region_options):
         regions_idx = 0
@@ -461,7 +496,7 @@ def visulize_cohort():
     default_region = region_options[regions_idx] if region_options else ""
     
     if 'cached_region_options_cohort' not in st.session_state:
-        st.session_state.cached_region_options_cohort = region_options
+        st.session_state.cached_region_options_cohort = list(st.session_state.cohorts_records_map.values())
     
     if 'region_selected_cohort' not in st.session_state:
         st.session_state.region_selected_cohort = ""
@@ -502,7 +537,8 @@ def visulize_cohort():
 
     if search_query:
         search_lower = search_query.lower()
-        filtered = [r for r in st.session_state.cached_region_options_cohort if search_lower in r.lower()]
+        # Search within already genotype-filtered regions
+        filtered = [r for r in region_options if search_lower in r.lower()]
         filtered_regions = filtered[:10]
         total_matches = len(filtered)
         
@@ -565,7 +601,8 @@ def visulize_cohort():
     with nav_col2:
         if st.button("Next ▶", use_container_width=True, key="next_region"):
             region = None
-            st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.cohorts_records_map) - 1)
+            # Use filtered region_options length, not full cohorts_records_map
+            st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(region_options) - 1)
     
     st.markdown("""
         <style>
@@ -681,7 +718,53 @@ def visulize_region():
     if 'regions_idx' not in st.session_state:
         st.session_state.regions_idx = 0
     
-    region_options = list(st.session_state.records_map.values())
+    # Get record IDs from records_map
+    record_ids = list(st.session_state.records_map.values())
+    
+    # Get genotype filter - cached for performance
+    region_genotypes = st.session_state.get('region_genotypes', {})
+    # records maps region_str -> record_id (from parse_vcf)
+    records = st.session_state.get('records', {})
+    
+    # Genotype filter UI
+    st.sidebar.markdown("### 🧬 Filter by Genotype")
+    available_genotypes = sorted(set(region_genotypes.values())) if region_genotypes else []
+    
+    # Default to all genotypes selected
+    if 'genotype_filter_ind' not in st.session_state:
+        st.session_state.genotype_filter_ind = available_genotypes.copy()
+    
+    selected_genotypes = st.sidebar.multiselect(
+        "Select genotypes to show:",
+        options=available_genotypes,
+        default=st.session_state.genotype_filter_ind if st.session_state.genotype_filter_ind else available_genotypes,
+        key="genotype_filter_multiselect",
+        help="Filter regions by genotype. Only selected genotypes will appear in the region list."
+    )
+    st.session_state.genotype_filter_ind = selected_genotypes
+    
+    # records maps region_str -> record_id, so we need reverse lookup
+    if selected_genotypes and region_genotypes and records:
+        # Create reverse mapping: record_id -> region_str
+        record_to_region = {v: k for k, v in records.items()}
+        
+        filtered_record_ids = []
+        for record_id in record_ids:
+            region_str = record_to_region.get(record_id)
+            if region_str and region_genotypes.get(region_str, './.') in selected_genotypes:
+                filtered_record_ids.append(record_id)
+        
+        region_options = filtered_record_ids
+        if filtered_record_ids:
+            st.sidebar.markdown(f"<span style='font-size:11px; color:#4ade80;'>{len(filtered_record_ids):,} regions match selected genotypes</span>", unsafe_allow_html=True)
+        else:
+            st.sidebar.warning("No regions match the selected genotypes. Showing all regions.")
+            region_options = record_ids
+    elif not selected_genotypes and region_genotypes:
+        st.sidebar.info("Select at least one genotype to filter regions.")
+        region_options = record_ids
+    else:
+        region_options = record_ids
     
     regions_idx = st.session_state.get('regions_idx', 0)
     if regions_idx >= len(region_options):
@@ -692,7 +775,10 @@ def visulize_region():
     st.sidebar.markdown("### Select Region to Visualize")
     
     if 'cached_region_options' not in st.session_state:
-        st.session_state.cached_region_options = region_options
+        st.session_state.cached_region_options = list(st.session_state.records_map.values())
+    
+    # Store filtered region_options for later use
+    st.session_state.filtered_region_options = region_options
     
     if 'region_selected_ind' not in st.session_state:
         st.session_state.region_selected_ind = ""
@@ -707,7 +793,8 @@ def visulize_region():
     
     if search_query:
         search_lower = search_query.lower()
-        filtered = [r for r in st.session_state.cached_region_options if search_lower in r.lower()]
+        # Search within already genotype-filtered regions
+        filtered = [r for r in region_options if search_lower in r.lower()]
         filtered_regions = filtered[:10]
         total_matches = len(filtered)
         
@@ -741,12 +828,14 @@ def visulize_region():
     with nav_col1:
         if st.button("◀ Previous", use_container_width=True, key="prev_individual"):
             region = None
+            # Use filtered region_options length, not full records_map
             st.session_state.regions_idx = max(st.session_state.regions_idx - 1, 0)
 
     with nav_col2:
         if st.button("Next ▶", use_container_width=True, key="next_individual"):
             region = None
-            st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(st.session_state.records_map) - 1)
+            # Use filtered region_options length, not full records_map
+            st.session_state.regions_idx = min(st.session_state.regions_idx + 1, len(region_options) - 1)
     
     st.markdown("""
         <style>
@@ -796,25 +885,66 @@ def visulize_region():
     middel, spacer = st.columns([1, 0.1], gap="small")
     REF, CN1_col, CN2_col = st.columns([1, 1, 1])
     
+    # Get the filtered region options or fallback to all if not filtered
+    filtered_options = st.session_state.get('filtered_region_options', list(st.session_state.records_map.values()))
+    
+    # Create reverse mapping: record_id -> region_str (for looking up in records)
+    record_to_region = {v: k for k, v in st.session_state.records.items()}
+    
     if region and region != st.session_state.get('previous_region', None):
         try:
             chr_input, start_end_input = region.split(':')
             start_input, end_input = map(int, start_end_input.split('-'))
             input_region = f"{chr_input}:{start_input}-{end_input}"
-            record_key = st.session_state.records[input_region]
-            st.session_state.regions_idx = list(st.session_state.records_map.values()).index(input_region)
+            record_id = st.session_state.records.get(input_region)
+            if record_id:
+                # Find index in filtered options
+                if record_id in filtered_options:
+                    st.session_state.regions_idx = filtered_options.index(record_id)
+                else:
+                    # If not in filtered, use original mapping
+                    st.session_state.regions_idx = list(st.session_state.records_map.values()).index(record_id)
+                record_key = input_region  # record_key is the region_str for parse_record
+            else:
+                raise KeyError(f"Region {input_region} not found")
         except:
             try:
                 chr_input, start_input, end_input = re.split(r'\s+', region)
                 start_input, end_input = int(start_input), int(end_input)
                 input_region = f"{chr_input}:{start_input}-{end_input}"
-                record_key = st.session_state.records[input_region]
-                st.session_state.regions_idx = list(st.session_state.records_map.values()).index(input_region)
+                record_id = st.session_state.records.get(input_region)
+                if record_id:
+                    if record_id in filtered_options:
+                        st.session_state.regions_idx = filtered_options.index(record_id)
+                    else:
+                        st.session_state.regions_idx = list(st.session_state.records_map.values()).index(record_id)
+                    record_key = input_region
+                else:
+                    raise KeyError(f"Region {input_region} not found")
             except:
                 st.sidebar.info("Invalid region format, showing the first record")
-                record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
+                # Use filtered options if available
+                if filtered_options and st.session_state.regions_idx < len(filtered_options):
+                    record_id = filtered_options[st.session_state.regions_idx]
+                    record_key = record_to_region.get(record_id, list(st.session_state.records.keys())[0])
+                else:
+                    record_id = st.session_state.records_map[st.session_state.regions_idx]
+                    record_key = record_to_region.get(record_id, list(st.session_state.records.keys())[0])
     else:
-        record_key = st.session_state.records[st.session_state.records_map[st.session_state.regions_idx]]
+        # Use filtered options if available
+        if filtered_options and st.session_state.regions_idx < len(filtered_options):
+            record_id = filtered_options[st.session_state.regions_idx]
+            record_key = record_to_region.get(record_id)
+            if not record_key:
+                # Fallback: use first available region
+                record_key = list(st.session_state.records.keys())[0] if st.session_state.records else ""
+        else:
+            # Fallback: get record_id from records_map, then convert to region_str
+            record_id = st.session_state.records_map[st.session_state.regions_idx]
+            record_key = record_to_region.get(record_id)
+            if not record_key:
+                # Last resort: use first available region
+                record_key = list(st.session_state.records.keys())[0] if st.session_state.records else ""
     
     st.session_state.previous_region = region
     record = parsers.parse_record(st.session_state.vcf_file_path, record_key)

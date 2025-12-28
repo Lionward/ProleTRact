@@ -18,26 +18,50 @@ class VCFHandler:
         self.vcf_file_path = None
         self.records = st.session_state.get('records', None)
         self.records_map = st.session_state.get('records_map', None)
+        # Initialize region_genotypes if not exists (backward compatibility)
+        if 'region_genotypes' not in st.session_state:
+            st.session_state.region_genotypes = {}
 
     def parse_vcf(self, vcf_file):
+        """
+        Parse VCF file and extract region IDs, mapping, and genotypes.
+        Returns (records_ids, records_map, region_genotypes)
+        where region_genotypes maps region string -> genotype string
+        """
         vcf = pysam.VariantFile(vcf_file)
+        
+        # Try Cython version first (now includes genotype extraction)
         if _USE_CYTHON and _parse_vcf_record_ids_fast is not None:
             try:
-                records_ids, records_map = _parse_vcf_record_ids_fast(vcf)
-                return records_ids, records_map
+                records_ids, records_map, region_genotypes = _parse_vcf_record_ids_fast(vcf)
+                return records_ids, records_map, region_genotypes
             except Exception:
                 # Fallback to pure Python if Cython fails
                 pass
         
-        # Pure Python fallback
-        records_ids = {}
-        records_map = {}
+        # Python version with genotype extraction
+        records_ids = {}  # dict for mapping region_str -> record_id
+        records_map = {} # dict for mapping idx -> record_id
+        region_genotypes = {}  # dict for mapping region_str -> genotype
         idx = 0
         for rec in vcf.fetch():
-            records_ids[rec.id] = f"{rec.chrom}:{rec.pos}-{rec.stop}"
+            region_str = f"{rec.chrom}:{rec.pos}-{rec.stop}"
+            records_ids[region_str] = rec.id  #
             records_map[idx] = rec.id
+            
+            # Extract genotype
+            try:
+                gt = rec.samples[0]['GT']
+                if gt is not None:
+                    gt_str = '/'.join([str(i) for i in gt]) if isinstance(gt, (tuple, list)) else str(gt)
+                    region_genotypes[region_str] = gt_str
+                else:
+                    region_genotypes[region_str] = './.'
+            except (KeyError, IndexError, AttributeError):
+                region_genotypes[region_str] = './.'
+            
             idx += 1
-        return records_ids, records_map
+        return records_ids, records_map, region_genotypes
 
 
 
@@ -91,7 +115,7 @@ class VCFHandler:
                     if st.session_state.vcf_file_path:
                         # Use cached parsing with progress indicator
                         with st.spinner("Parsing VCF file... This may take a moment."):
-                            st.session_state.records, st.session_state.records_map = self.parse_vcf(st.session_state.vcf_file_path)
+                            st.session_state.records, st.session_state.records_map, st.session_state.region_genotypes = self.parse_vcf(st.session_state.vcf_file_path)
                         st.session_state.hgsvc_path = public_vcf_folder 
                         # check if the path exists
                         if os.path.exists(st.session_state.hgsvc_path):
@@ -129,13 +153,32 @@ class CohortHandler(VCFHandler):
                 st.session_state.cohort_files = [self.load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
             
             with st.spinner("Parsing cohort records..."):
-                st.session_state.cohorts_records_map = self.get_records_info(st.session_state.path_to_cohort + st.session_state.cohort_file_paths[0])
+                st.session_state.cohorts_records_map, st.session_state.cohort_region_genotypes = self.get_records_info(st.session_state.path_to_cohort + st.session_state.cohort_file_paths[0])
+    
     def get_records_info(self, vcf_file):
+        """
+        Get records mapping and genotype information for cohort.
+        Returns (cohorts_map, region_genotypes) where region_genotypes maps region_str -> genotype
+        Note: Uses record.id as key to match cohorts_map values
+        """
         vcf = pysam.VariantFile(vcf_file)
         cohorts_map = {}
+        region_genotypes = {}
         idx = 0
         for rec in vcf:
             cohorts_map[idx] = rec.id
+            
+            # Extract genotype from first sample - use rec.id as key to match cohorts_map
+            try:
+                gt = rec.samples[0]['GT']
+                if gt is not None:
+                    gt_str = '/'.join([str(i) for i in gt]) if isinstance(gt, (tuple, list)) else str(gt)
+                    region_genotypes[rec.id] = gt_str
+                else:
+                    region_genotypes[rec.id] = './.'
+            except (KeyError, IndexError, AttributeError):
+                region_genotypes[rec.id] = './.'
+            
             idx += 1
-        return cohorts_map
+        return cohorts_map, region_genotypes
 
