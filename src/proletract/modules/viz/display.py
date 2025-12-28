@@ -185,56 +185,9 @@ def display_motifs_with_bars(record, container, motif_colors, hgsvc_records):
         st.info("No motifs found in the region")
         return
     
-    st.markdown("""
-        <style>
-            /* Tab styling */
-            .stTabs [data-baseweb="tab-list"] {
-                gap: 6px;
-                background: #f8fafc;
-                padding: 4px 4px;
-                border-radius: 16px;
-                margin-bottom: 18px;
-                min-height: 22px;
-            }
-            /* Tab item styling */
-            .stTabs [data-baseweb="tab"] {
-                height: 30px;
-                min-height: 30px;
-                min-width: 46px;
-                white-space: pre-wrap;
-                background: white;
-                border-radius: 10px;
-                border: 1px solid #e2e8f0;
-                color: #475569;
-                font-weight: 600;
-                font-size: var(--pt-font-sm);
-                padding: 0 12px;
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                line-height: 1.33;
-            }
-            /* Tab item hover styling */
-            .stTabs [data-baseweb="tab"]:hover {
-                background: #f1f5f9;
-                border-color: #dbe3ef;
-                color: #1e293b;
-                transform: translateY(-1px) scale(1.02);
-                box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-            }
-            /* Selected tab item styling */
-            .stTabs [aria-selected="true"] {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-                color: white !important;
-                border-color: #667eea !important;
-                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.28) !important;
-                transform: translateY(-1px) scale(1.03);
-                font-size: var(--pt-font-md) !important;
-            }
-            /* Tab highlight styling */
-            .stTabs [data-baseweb="tab-highlight"] {
-                background-color: transparent !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+    # Use optimized CSS injection (cached, injected once)
+    from .css_utils import inject_tab_styles_once
+    inject_tab_styles_once()
 
     with container:
         
@@ -408,56 +361,8 @@ def visulize_TR_with_dynamic_sequence(record, hgsvc_records, container, motif_co
     total_copy_number_h1 = str(record['spans'][1]).count('-')
 
     with container:
-        # Tab styling
-        st.markdown("""
-            <style>
-                .stTabs [data-baseweb="tab-list"] {
-                    gap: 6px;
-                    background: #f8fafc;
-                    padding: 4px 4px;
-                    border-radius: 16px;
-                    margin-bottom: 18px;
-                    min-height: 22px;
-                }
-                /* Tab item styling */
-                .stTabs [data-baseweb="tab"] {
-                    height: 28px;
-                    min-height: 28px;
-                    min-width: 38px;
-                    white-space: pre-wrap;
-                    background: white;
-                    border-radius: 10px;
-                    border: 2px solid #e2e8f0;
-                    color: #64748b;
-                    font-weight: 700;
-                    font-size: 1.13rem;
-                    padding: 0 13px;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    line-height: 1.33;
-                }
-                /* Tab item hover styling */
-                .stTabs [data-baseweb="tab"]:hover {
-                    background: #f1f5f9;
-                    border-color: #cbd5e1;
-                    color: #475569;
-                    transform: translateY(-1.8px) scale(1.04);
-                    box-shadow: 0 2px 12px rgba(0,0,0,0.13);
-                }
-                /* Selected tab item styling */
-                .stTabs [aria-selected="true"] {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-                    color: white !important;
-                    border-color: #667eea !important;
-                    box-shadow: 0 5px 19px rgba(102, 126, 234, 0.23) !important;
-                    transform: translateY(-2px) scale(1.045);
-                    font-size: 1.23rem !important;
-                }
-                /* Tab highlight styling */
-                .stTabs [data-baseweb="tab-highlight"] {
-                    background-color: transparent !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
+        from .css_utils import inject_tab_styles_once
+        inject_tab_styles_once()
 
         tab1, tab2 = st.tabs([
             "🧬 **Alleles vs Ref**", 

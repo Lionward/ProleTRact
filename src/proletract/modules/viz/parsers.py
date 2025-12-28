@@ -6,6 +6,21 @@ import streamlit as st
 import pandas as pd
 import pysam
 
+try:
+    from ..io.fast_parsing import (
+        parse_motif_range_fast as _parse_motif_range_fast,
+        count_motifs_fast as _count_motifs_fast,
+        split_motif_ids_fast as _split_motif_ids_fast,
+        parse_region_fast as _parse_region_fast,
+    )
+    _USE_CYTHON = True
+except (ImportError, ModuleNotFoundError):
+    _USE_CYTHON = False
+    _parse_motif_range_fast = None
+    _count_motifs_fast = None
+    _split_motif_ids_fast = None
+    _parse_region_fast = None
+
 
 def parse_record_assembly(vcf, region):
     """
@@ -21,7 +36,7 @@ def parse_record_assembly(vcf, region):
     """
     if isinstance(vcf, str):
         vcf = pysam.VariantFile(vcf)
-    # Parse the chromosome and coordinates, adjust to 0-based for pysam
+        
     chrom, positions = region.split(":")
     try:
         start, end = map(int, positions.split("-"))
@@ -52,14 +67,20 @@ def parse_record_assembly(vcf, region):
     ids_h = rec.samples[0].get("MI", [])
     if ids_h:
         try:
-            ids_h = ids_h.split("_")
+            if _USE_CYTHON:
+                ids_h = _split_motif_ids_fast(ids_h, "_")
+            else:
+                ids_h = ids_h.split("_")
         except Exception as e:
             st.error(f"Input VCF file is not in the correct format. Please use Reads-based option.")
             st.stop()
     # Extract motif ids for the REF allele
     ids_ref = rec.info.get('MOTIF_IDs_REF', [])
     if ids_ref:
-        ids_ref = ids_ref.split("_")
+        if _USE_CYTHON:
+            ids_ref = _split_motif_ids_fast(ids_ref, "_")
+        else:
+            ids_ref = ids_ref.split("_")
 
     # Reference and alternative allele copy numbers
     ref_CN = rec.info.get('CN_ref', 0)
@@ -120,11 +141,19 @@ def parse_record(vcf_file, region):
     # Parse motif IDs for both haplotypes
     mi = rec.samples[0]['MI']
     if isinstance(mi, tuple):
-        ids_h1 = mi[0].split("_") if mi[0] else []
-        ids_h2 = mi[1].split("_") if len(mi) > 1 and mi[1] else []
+        if _USE_CYTHON:
+            ids_h1 = _split_motif_ids_fast(mi[0], "_") if mi[0] else []
+            ids_h2 = _split_motif_ids_fast(mi[1], "_") if len(mi) > 1 and mi[1] else []
+        else:
+            ids_h1 = mi[0].split("_") if mi[0] else []
+            ids_h2 = mi[1].split("_") if len(mi) > 1 and mi[1] else []
     else:
-        ids_h1 = mi.split("_") if mi else []
-        ids_h2 = mi.split("_") if mi else []
+        if _USE_CYTHON:
+            ids_h1 = _split_motif_ids_fast(mi, "_") if mi else []
+            ids_h2 = _split_motif_ids_fast(mi, "_") if mi else []
+        else:
+            ids_h1 = mi.split("_") if mi else []
+            ids_h2 = mi.split("_") if mi else []
 
     # Allele information
     ref_allele = rec.ref
@@ -192,7 +221,7 @@ def parse_record(vcf_file, region):
         'motifs': motif_names,
         'motif_ids_h1': ids_h1,
         'motif_ids_h2': ids_h2,
-        'motif_ids_ref': rec.info['MOTIF_IDs_REF'].split("_"),
+        'motif_ids_ref': _split_motif_ids_fast(rec.info['MOTIF_IDs_REF'], "_") if _USE_CYTHON else rec.info['MOTIF_IDs_REF'].split("_"),
         'ref_CN': rec.info.get('CN_ref', None),
         'CN_H1': CN_H1,
         'CN_H2': CN_H2,
@@ -210,6 +239,9 @@ def parse_record(vcf_file, region):
 
 def parse_motif_range(motif_range):
     """Parse motif range string into list of tuples."""
+    if _USE_CYTHON:
+        return _parse_motif_range_fast(motif_range)
+    # Fallback to pure Python
     pattern = re.compile(r'\((\d+)-(\d+)\)')
     matches = pattern.findall(motif_range)
     ranges = [(int(start)-1, int(end)-1) for start, end in matches]
@@ -218,6 +250,9 @@ def parse_motif_range(motif_range):
 
 def count_motifs(motif_ids):
     """Count occurrences of each motif ID."""
+    if _USE_CYTHON:
+        return _count_motifs_fast(motif_ids)
+    # Fallback to pure Python
     motif_count = {}
     for idx, motif in enumerate(motif_ids):
         if motif in motif_count:

@@ -3,6 +3,16 @@ import os
 import re
 import streamlit as st
 
+# Try to import Cython-optimized functions, fallback to pure Python
+try:
+    from .fast_parsing import parse_vcf_record_ids_fast as _parse_vcf_record_ids_fast
+    _USE_CYTHON = True
+    print("🚀 Cython optimizations: ENABLED (fast_parsing module loaded)")
+except (ImportError, ModuleNotFoundError):
+    _USE_CYTHON = False
+    _parse_vcf_record_ids_fast = None
+    print("⚠️  Cython optimizations: DISABLED (using pure Python fallback)")
+
 class VCFHandler:
     def __init__(self):
         self.vcf_file_path = None
@@ -10,8 +20,16 @@ class VCFHandler:
         self.records_map = st.session_state.get('records_map', None)
 
     def parse_vcf(self, vcf_file):
-
         vcf = pysam.VariantFile(vcf_file)
+        if _USE_CYTHON and _parse_vcf_record_ids_fast is not None:
+            try:
+                records_ids, records_map = _parse_vcf_record_ids_fast(vcf)
+                return records_ids, records_map
+            except Exception:
+                # Fallback to pure Python if Cython fails
+                pass
+        
+        # Pure Python fallback
         records_ids = {}
         records_map = {}
         idx = 0
@@ -71,12 +89,15 @@ class VCFHandler:
 
                 if 'records' not in st.session_state:
                     if st.session_state.vcf_file_path:
-                        st.session_state.records, st.session_state.records_map = self.parse_vcf( st.session_state.vcf_file_path)
+                        # Use cached parsing with progress indicator
+                        with st.spinner("Parsing VCF file... This may take a moment."):
+                            st.session_state.records, st.session_state.records_map = self.parse_vcf(st.session_state.vcf_file_path)
                         st.session_state.hgsvc_path = public_vcf_folder 
                         # check if the path exists
                         if os.path.exists(st.session_state.hgsvc_path):
-                            st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('h1.vcf.gz') or f.endswith('h2.vcf.gz')]
-                            st.session_state.files = [self.load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
+                            with st.spinner("Loading public VCF files..."):
+                                st.session_state.file_paths = [f for f in os.listdir(st.session_state.hgsvc_path) if f.endswith('h1.vcf.gz') or f.endswith('h2.vcf.gz')]
+                                st.session_state.files = [self.load_vcf(st.session_state.hgsvc_path + f) for f in st.session_state.file_paths]
                         else:
                             st.session_state.files = None
                             st.session_state.file_paths = None
@@ -103,10 +124,12 @@ class CohortHandler(VCFHandler):
         if st.sidebar.button("Load Cohort"):
             if cohort_path:
                 st.session_state.path_to_cohort = cohort_path
-            st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('.vcf.gz')]
-            st.session_state.cohort_files = [self.load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
+            with st.spinner("Loading cohort files..."):
+                st.session_state.cohort_file_paths = [f for f in os.listdir(st.session_state.path_to_cohort) if f.endswith('.vcf.gz')]
+                st.session_state.cohort_files = [self.load_vcf(st.session_state.path_to_cohort + f) for f in st.session_state.cohort_file_paths]
             
-            st.session_state.cohorts_records_map = self.get_records_info(st.session_state.path_to_cohort + st.session_state.cohort_file_paths[0])
+            with st.spinner("Parsing cohort records..."):
+                st.session_state.cohorts_records_map = self.get_records_info(st.session_state.path_to_cohort + st.session_state.cohort_file_paths[0])
     def get_records_info(self, vcf_file):
         vcf = pysam.VariantFile(vcf_file)
         cohorts_map = {}
