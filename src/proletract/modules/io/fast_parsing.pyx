@@ -94,22 +94,38 @@ def count_motifs_fast(list motif_ids):
 
 def parse_vcf_record_ids_fast(object vcf_file):
     """
-    Fast parsing of VCF record IDs and mapping.
-    Returns tuple (records_ids dict, records_map dict).
+    Fast parsing of VCF record IDs, mapping, and genotypes.
+    Returns tuple (records_ids dict, records_map dict, region_genotypes dict).
     Optimized for speed with minimal Python overhead.
     """
-    cdef dict records_ids = {}
+    cdef dict records_ids = {}  # Maps region_str -> record_id
     cdef dict records_map = {}
+    cdef dict region_genotypes = {}  # Maps region_str -> genotype
     cdef int idx = 0
     cdef object rec
-    cdef str rec_id, region_str
+    cdef str rec_id, region_str, gt_str
+    cdef object gt
     
     for rec in vcf_file.fetch():
         rec_id = rec.id
         region_str = f"{rec.chrom}:{rec.pos}-{rec.stop}"
-        records_ids[rec_id] = region_str
+        records_ids[region_str] = rec_id  # Changed: region_str -> record_id (matches Python version)
         records_map[idx] = rec_id
+        
+        # Extract genotype
+        try:
+            gt = rec.samples[0]['GT']
+            if gt is not None:
+                if isinstance(gt, (tuple, list)):
+                    gt_str = '/'.join([str(i) for i in gt])
+                else:
+                    gt_str = str(gt)
+                region_genotypes[region_str] = gt_str
+            else:
+                region_genotypes[region_str] = './.'
+        except (KeyError, IndexError, AttributeError):
+            region_genotypes[region_str] = './.'
+        
         idx += 1
     
-    return records_ids, records_map
-
+    return records_ids, records_map, region_genotypes
