@@ -1,0 +1,233 @@
+.pathogenicity-panel {
+  background: var(--card-bg, #ffffff);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid var(--border-color, #e5e7eb);
+  transition: all 0.3s ease;
+}
+
+.pathogenicity-panel.pathogenic {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.pathogenicity-panel.benign {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.pathogenicity-panel.loading {
+  border-color: var(--border-color, #e5e7eb);
+  background: var(--card-bg, #ffffff);
+}
+
+.pathogenicity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--border-color, #e5e7eb);
+}
+
+.pathogenicity-panel.pathogenic .pathogenicity-header {
+  border-bottom-color: #ef4444;
+}
+
+.pathogenicity-panel.benign .pathogenicity-header {
+  border-bottom-color: #10b981;
+}
+
+.pathogenicity-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.pathogenicity-panel.pathogenic .pathogenicity-header h3 {
+  color: #dc2626;
+}
+
+.pathogenicity-panel.benign .pathogenicity-header h3 {
+  color: #059669;
+}
+
+.pathogenicity-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pathogenic-badge {
+  background: #ef4444;
+  color: white;
+}
+
+.pathogenicity-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pathogenicity-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.pathogenicity-label {
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  min-width: 120px;
+  font-size: 0.875rem;
+}
+
+.pathogenicity-value {
+  color: var(--text-primary, #111827);
+  font-size: 0.875rem;
+  flex: 1;
+}
+
+.pathogenicity-value.threshold {
+  font-weight: 700;
+  color: #dc2626;
+  font-size: 1rem;
+}
+
+.pathogenicity-description {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  border-left: 3px solid var(--primary-color, #667eea);
+}
+
+.pathogenicity-description p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-primary, #111827);
+  line-height: 1.5;
+}
+
+.pathogenicity-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.pathogenicity-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--primary-color, #667eea);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.pathogenicity-link:hover {
+  background: var(--primary-color-hover, #5568d3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.pathogenicity-link:active {
+  transform: translateY(0);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .pathogenicity-panel {
+    background: var(--card-bg-dark, #1f2937);
+    border-color: var(--border-color-dark, #374151);
+  }
+
+  .pathogenicity-panel.pathogenic {
+    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
+    border-color: #ef4444;
+  }
+
+  .pathogenicity-panel.benign {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    border-color: #10b981;
+  }
+
+  .pathogenicity-panel.loading {
+    background: var(--card-bg-dark, #1f2937);
+    border-color: var(--border-color-dark, #374151);
+  }
+
+  .pathogenicity-header {
+    border-bottom-color: var(--border-color-dark, #374151);
+  }
+
+  .pathogenicity-panel.pathogenic .pathogenicity-header {
+    border-bottom-color: #ef4444;
+  }
+
+  .pathogenicity-panel.benign .pathogenicity-header {
+    border-bottom-color: #10b981;
+  }
+
+  .pathogenicity-header h3 {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .pathogenicity-label {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .pathogenicity-value {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .pathogenicity-description {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .pathogenicity-description p {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .pathogenicity-actions {
+    border-top-color: var(--border-color-dark, #374151);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .pathogenicity-panel {
+    padding: 1rem;
+  }
+
+  .pathogenicity-item {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .pathogenicity-label {
+    min-width: auto;
+  }
+
+  .pathogenicity-actions {
+    flex-direction: column;
+  }
+}
+
+
+
+

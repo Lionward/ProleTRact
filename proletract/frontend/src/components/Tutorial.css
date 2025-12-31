@@ -1,0 +1,205 @@
+.tutorial-trigger-button {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--primary-color, #667eea);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transition: all 0.2s ease;
+}
+
+.tutorial-trigger-button:hover {
+  background: var(--primary-color-hover, #5568d3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.tutorial-icon {
+  font-size: 1.25rem;
+}
+
+.tutorial-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10000;
+}
+
+.tutorial-highlight {
+  border: 3px solid var(--primary-color, #667eea);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  z-index: 10001;
+  pointer-events: none;
+}
+
+.tutorial-modal {
+  background: var(--card-bg, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  width: 350px;
+  max-width: 90vw;
+  z-index: 10002;
+  display: flex;
+  flex-direction: column;
+}
+
+.tutorial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.tutorial-progress {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+}
+
+.tutorial-close {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.tutorial-content {
+  padding: 1.5rem;
+}
+
+.tutorial-content h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.tutorial-content p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.6;
+}
+
+.tutorial-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+  justify-content: space-between;
+}
+
+.tutorial-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tutorial-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tutorial-button-primary {
+  background: var(--primary-color, #667eea);
+  color: white;
+}
+
+.tutorial-button-primary:hover:not(:disabled) {
+  background: var(--primary-color-hover, #5568d3);
+}
+
+.tutorial-button-secondary {
+  background: var(--bg-secondary, #f3f4f6);
+  color: var(--text-primary, #111827);
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.tutorial-button-secondary:hover:not(:disabled) {
+  background: var(--bg-hover, #e5e7eb);
+}
+
+.tutorial-button-skip {
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  border: none;
+}
+
+.tutorial-button-skip:hover {
+  color: var(--text-primary, #111827);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .tutorial-modal {
+    background: var(--card-bg-dark, #1f2937);
+  }
+
+  .tutorial-header {
+    border-bottom-color: var(--border-color-dark, #374151);
+  }
+
+  .tutorial-progress {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .tutorial-close {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .tutorial-content h3 {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .tutorial-content p {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .tutorial-actions {
+    border-top-color: var(--border-color-dark, #374151);
+  }
+
+  .tutorial-button-secondary {
+    background: var(--bg-secondary-dark, #111827);
+    color: var(--text-primary-dark, #f9fafb);
+    border-color: var(--border-color-dark, #374151);
+  }
+
+  .tutorial-button-secondary:hover:not(:disabled) {
+    background: var(--bg-hover-dark, #374151);
+  }
+
+  .tutorial-button-skip {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .tutorial-button-skip:hover {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+}
+
+
+
+
