@@ -1,5 +1,5 @@
 <div align="center">
- <img width="300" alt="grafik" src="src/proletract/ProleTRact_logo.svg">
+ <img width="300" alt="grafik" src="assets/ProleTRact_logo.svg">
   </p>
 </div>
 <br />
@@ -75,7 +75,7 @@ proletract  # launches the web application</code></pre>
 
 <h2>Demo / Examples</h2>
 <p>Example screenshots and short walkthrough GIFs will be added here. For now, you can open <code>example.svg</code> for a preview:</p>
-<img src="example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
+<img src="assets/example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
 <ul>
   <li><em>Planned:</em> Individual-mode walkthrough </li>
   <li><em>Planned:</em> Cohort-mode walkthrough</li>
