@@ -1,4 +1,3 @@
-<br />
 <div align="center">
  <img width="300" alt="grafik" src="src/proletract/ProleTRact_logo.svg">
   </p>
@@ -17,28 +16,18 @@
   <li><strong>Fast navigation:</strong> Move across TR records with Previous/Next controls or jump to a specific region.</li>
 </ul>
 
-<h2>Installation Options</h2>
-<p>Pick the workflow that fits your environment:</p>
-
-<h3>Option A &mdash; Install from PyPI (recommended)</h3>
-<pre><code>pip install proleTRact
-proleTRact  # launches the Streamlit app</code></pre>
-<p>The launcher opens a browser locally. On headless machines set <code>STREAMLIT_SERVER_HEADLESS=true</code> before invoking <code>proleTRact</code>.</p>
-
-<h3>Option B &mdash; Clone and run locally (with conda)</h3>
-<pre><code>git clone git@github.com:Lionward/ProleTRact.git
-cd ProleTRact
-conda create -n proletract python=3.9
-conda activate proletract
-pip install -r requirements.txt
-pip install -e .
-streamlit run src/proletract/app.py
-</code></pre>
+<h2>Installation</h2>
+<p><strong>Requirements:</strong> Python 3.9, 3.10, 3.11, or 3.12 (Python 3.13+ may require building dependencies from source)</p>
+<p>Install from PyPI:</p>
+<pre><code>pip install proletract
+proletract  # launches the web application</code></pre>
+<p>The launcher starts both the backend API server (port 8502) and frontend web server (port 3000). The application will open in your browser automatically. On headless machines, access the frontend at <code>http://localhost:3000</code> after starting the application.</p>
+<p><strong>Note:</strong> If you encounter build errors (e.g., with Python 3.13+), ensure you're using Python 3.9–3.12, or install system dependencies: <code>liblzma-dev</code> (Ubuntu/Debian) or <code>xz-devel</code> (RHEL/CentOS/Fedora).</p>
 
 <h2>Quickstart</h2>
 <ol>
-  <li>Launch the app with one of the commands above.</li>
-  <li>Open the browser tab (Streamlit prints the URL if you are headless).</li>
+  <li>Launch the app with the command above: <code>proletract</code></li>
+  <li>Open the browser tab to <code>http://localhost:3000</code> (the URL will be shown in the terminal if you're running headless).</li>
   <li>Load an individual VCF or cohort folder from the sidebar and start exploring tandem repeats.</li>
 </ol>
 
@@ -48,7 +37,7 @@ streamlit run src/proletract/app.py
   <li>Select <strong>individual sample</strong> in the sidebar.</li>
   <li>Provide the absolute path to a bgzipped and tabix-indexed VCF (<code>.vcf.gz</code> with <code>.tbi</code>):
     <ul>
-      <li>Enter the path in the sidebar input, then click <strong>Upload VCF File</strong>.</li>
+      <li>Enter the path in the sidebar input, then click <strong>Load VCF</strong>.</li>
       <li>The app will parse records and enable navigation across TR variants.</li>
     </ul>
   </li>
@@ -56,10 +45,21 @@ streamlit run src/proletract/app.py
   <li>Inspect motif blocks, interruptions, and per-allele differences.</li>
 </ol>
 
-<h3>Cohort mode 👥👥</h3>
+<h3>Cohort mode  👥👥</h3>
+<h4>Reads-based VCF</h4>
 <ol>
-  <li>Select <strong>Cohort</strong> in the sidebar and choose <em>Reads-based VCF</em> or <em>Assembly VCF</em> view.</li>
-  <li>Provide the absolute path to a directory containing TandemTwister VCF files:</li>
+  <li>Select <strong>Cohort</strong> in the sidebar and choose <em>Reads-based VCF</em> view.</li>
+  <li>Provide the absolute path to a directory containing TandemTwister VCF files.</li>
+  <li>Click <strong>Load Cohort</strong> to scan the directory and enable cohort navigation.</li>
+  <li>Browse records and compare across samples.</li>
+  <li>Use <strong>Previous</strong>/<strong>Next</strong> to step through records or jump to a region like <code>chr1:1000-2000</code>.</li>
+  <li>Inspect motif blocks, interruptions, and per-allele differences.</li>
+</ol>
+
+<h4>Assembly VCF </h4>
+<ol>
+  <li>Select <strong>Cohort</strong> in the sidebar and choose <em>Assembly VCF</em> view.</li>
+  <li>Provide the absolute path to a directory containing TandemTwister VCF files.</li>
   <li>Click <strong>Load Cohort</strong> to scan the directory and enable cohort navigation.</li>
   <li>Browse records and compare across samples.</li>
   <li>Use <strong>Previous</strong>/<strong>Next</strong> to step through records or jump to a region like <code>chr1:1000-2000</code>.</li>
@@ -75,7 +75,7 @@ streamlit run src/proletract/app.py
 
 <h2>Demo / Examples</h2>
 <p>Example screenshots and short walkthrough GIFs will be added here. For now, you can open <code>example.svg</code> for a preview:</p>
-<img src="src/proletract/assets/example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
+<img src="example.svg" alt="Tandem Repeat Visualization Example" style="max-width: 100%; height: auto; border: 1px solid #ccc; padding: 10px;">
 <ul>
   <li><em>Planned:</em> Individual-mode walkthrough </li>
   <li><em>Planned:</em> Cohort-mode walkthrough</li>

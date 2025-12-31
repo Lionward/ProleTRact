@@ -1,0 +1,126 @@
+.keyboard-shortcuts-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 1rem;
+}
+
+.keyboard-shortcuts-modal {
+  background: var(--card-bg, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.keyboard-shortcuts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.keyboard-shortcuts-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.keyboard-shortcuts-close {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.keyboard-shortcuts-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.keyboard-shortcuts-empty {
+  text-align: center;
+  color: var(--text-secondary, #6b7280);
+  padding: 2rem;
+}
+
+.keyboard-shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.keyboard-shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 6px;
+}
+
+.keyboard-shortcut-keys {
+  font-family: monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--primary-color, #667eea);
+  background: rgba(102, 126, 234, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.keyboard-shortcut-description {
+  font-size: 0.875rem;
+  color: var(--text-primary, #111827);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .keyboard-shortcuts-modal {
+    background: var(--card-bg-dark, #1f2937);
+  }
+
+  .keyboard-shortcuts-header {
+    border-bottom-color: var(--border-color-dark, #374151);
+  }
+
+  .keyboard-shortcuts-header h2 {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .keyboard-shortcuts-close {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .keyboard-shortcuts-empty {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .keyboard-shortcut-item {
+    background: var(--bg-secondary-dark, #111827);
+  }
+
+  .keyboard-shortcut-description {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+}
+
+
+
+

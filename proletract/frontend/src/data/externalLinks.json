@@ -1,0 +1,106 @@
+{
+  "genomeBrowsers": [
+    {
+      "name": "UCSC Genome Browser",
+      "url": "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg38&position={chr}:{pos}-{stop}",
+      "icon": "🌐",
+      "description": "View region in UCSC Genome Browser"
+    },
+    {
+      "name": "Ensembl",
+      "url": "https://www.ensembl.org/Homo_sapiens/Location/View?r={chr}:{pos}-{stop}",
+      "icon": "🧬",
+      "description": "View region in Ensembl browser"
+    },
+    {
+      "name": "NCBI Genome Data Viewer",
+      "url": "https://www.ncbi.nlm.nih.gov/genome/gdv/browser/?context=genome&acc=GCF_000001405.26&chr={chr}&from={pos}&to={stop}",
+      "icon": "📊",
+      "description": "View in NCBI Genome Data Viewer"
+    }
+  ],
+  "variantDatabases": [
+    {
+      "name": "dbSNP",
+      "url": "https://www.ncbi.nlm.nih.gov/snp/?term={chr}:{pos}",
+      "icon": "🔍",
+      "description": "Search variants in dbSNP"
+    },
+    {
+      "name": "ClinVar",
+      "url": "https://www.ncbi.nlm.nih.gov/clinvar/?term={chr}:{pos}",
+      "icon": "🏥",
+      "description": "Check clinical significance in ClinVar"
+    },
+    {
+      "name": "gnomAD",
+      "url": "https://gnomad.broadinstitute.org/region/{chr}-{pos}-{stop}",
+      "icon": "👥",
+      "description": "View population frequencies in gnomAD"
+    }
+  ],
+  "tandemRepeatDatabases": [
+    {
+      "name": "STRBase",
+      "url": "https://strbase.nist.gov/",
+      "icon": "🔬",
+      "description": "STRBase - Short Tandem Repeat DNA Internet Database"
+    },
+    {
+      "name": "TRED",
+      "url": "https://tred.psych.ac.cn/",
+      "icon": "🧪",
+      "description": "Tandem Repeat Expansion Database"
+    },
+    {
+      "name": "STRING",
+      "url": "https://string-db.org/",
+      "icon": "🔗",
+      "description": "STRING - Protein-Protein Interaction Networks"
+    }
+  ],
+  "populationDatabases": [
+    {
+      "name": "1000 Genomes Project",
+      "url": "https://www.internationalgenome.org/data",
+      "icon": "🌍",
+      "description": "Browse 1000 Genomes Project data"
+    },
+    {
+      "name": "HGSVC",
+      "url": "https://www.internationalgenome.org/data-portal/data-collection/hgsvc",
+      "icon": "📈",
+      "description": "Human Genome Structural Variation Consortium"
+    },
+    {
+      "name": "ExAC Browser",
+      "url": "http://exac.broadinstitute.org/",
+      "icon": "📊",
+      "description": "Exome Aggregation Consortium Browser"
+    }
+  ],
+  "geneAnnotation": [
+    {
+      "name": "GeneCards",
+      "url": "https://www.genecards.org/cgi-bin/carddisp.pl?gene={gene}",
+      "icon": "🃏",
+      "description": "GeneCards - Human Gene Database"
+    },
+    {
+      "name": "UniProt",
+      "url": "https://www.uniprot.org/uniprot/?query={gene}",
+      "icon": "🧪",
+      "description": "UniProt Protein Database"
+    },
+    {
+      "name": "OMIM",
+      "url": "https://www.omim.org/search/?search={gene}",
+      "icon": "📚",
+      "description": "Online Mendelian Inheritance in Man"
+    }
+  ]
+}
+
+
+
+

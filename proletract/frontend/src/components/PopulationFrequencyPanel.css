@@ -1,0 +1,264 @@
+.population-frequency-panel {
+  background: var(--card-bg, #ffffff);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.population-frequency-header {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.population-frequency-header h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.population-frequency-summary {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.frequency-summary-item strong {
+  color: var(--text-primary, #111827);
+  font-weight: 600;
+}
+
+.population-frequency-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.frequency-chart-container h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+}
+
+.frequency-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.frequency-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.frequency-bar-item.current-allele {
+  background: rgba(102, 126, 234, 0.05);
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.frequency-bar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.allele-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary, #111827);
+  font-family: monospace;
+}
+
+.current-badge,
+.rare-badge,
+.novel-badge {
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.current-badge {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+}
+
+.rare-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.novel-badge {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.frequency-value {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.875rem;
+}
+
+.frequency-bar-wrapper {
+  height: 24px;
+  background: var(--bg-secondary, #f3f4f6);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.frequency-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.frequency-alerts {
+  margin-top: 0.5rem;
+}
+
+.frequency-alert {
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.rare-alert {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.novel-alert {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.frequency-alert strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-primary, #111827);
+}
+
+.alert-alleles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.alert-allele {
+  padding: 0.25rem 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.frequency-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .population-frequency-panel {
+    background: var(--card-bg-dark, #1f2937);
+    border-color: var(--border-color-dark, #374151);
+  }
+
+  .population-frequency-header {
+    border-bottom-color: var(--border-color-dark, #374151);
+  }
+
+  .population-frequency-header h3 {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .frequency-summary-item {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .frequency-summary-item strong {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .frequency-chart-container h4 {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .allele-label {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .frequency-value {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+
+  .frequency-bar-wrapper {
+    background: var(--bg-secondary-dark, #111827);
+  }
+
+  .frequency-alert strong {
+    color: var(--text-primary-dark, #f9fafb);
+  }
+
+  .frequency-legend {
+    border-top-color: var(--border-color-dark, #374151);
+  }
+
+  .legend-item {
+    color: var(--text-secondary-dark, #9ca3af);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .population-frequency-panel {
+    padding: 1rem;
+  }
+
+  .population-frequency-summary {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .frequency-legend {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+
+
+
