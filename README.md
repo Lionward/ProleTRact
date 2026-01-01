@@ -20,7 +20,7 @@
 <p><strong>Requirements:</strong> Python 3.9, 3.10, 3.11, or 3.12 (Python 3.13+ may require building dependencies from source)</p>
 <p>Install from PyPI:</p>
 <pre><code>pip install proletract
-proletract  # launches the web application</code></pre>
+proletract --install-deps  # launches the web application</code></pre>
 <p>The launcher starts both the backend API server (port 8502) and frontend web server (port 3000). The application will open in your browser automatically. On headless machines, access the frontend at <code>http://localhost:3000</code> after starting the application.</p>
 <p><strong>Note:</strong> If you encounter build errors (e.g., with Python 3.13+), ensure you're using Python 3.9–3.12, or install system dependencies: <code>liblzma-dev</code> (Ubuntu/Debian) or <code>xz-devel</code> (RHEL/CentOS/Fedora).</p>
 
