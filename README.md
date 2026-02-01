@@ -85,8 +85,20 @@ proletract --install-deps  # launches the web application</code></pre>
 <h2>Contributing</h2>
 <p>Contributions are welcome! Please <a href="https://github.com/Lionward/ProleTRact/issues">open an issue</a> to discuss changes.</p>
 
+
+<h2>Citation</h2>
+<p>If you use TandemTwister in your research or analysis, please cite our work as follows:</p>
+
+<blockquote>
+  <strong>TandemTwister: Scalable genotyping and advanced visualization of tandem repeats</strong><br>
+  Al Raei LW, Ghareghani M, Moeinzadeh H, Vingron M<br>
+  bioRxiv 2026.01.28.702315; doi: <a href="https://doi.org/10.64898/2026.01.28.702315">https://doi.org/10.64898/2026.01.28.702315</a><br>
+  <a href="https://www.biorxiv.org/content/10.64898/2026.01.28.702315v1">Preprint</a> |
+  <a href="https://github.com/Lionward/tandemtwister">GitHub Repository</a>
+</blockquote>
+
+
+
 <h2>License</h2>
 <p>This project is licensed under the BSD 3-Clause Non-Commercial License — see <code>LICENSE</code> for details. Commercial use is prohibited. This software is intended for academic research, educational purposes, and personal/private use only. For commercial licensing inquiries, please contact the author.</p>
 
-<h2>Citation</h2>
-<p>If you use ProleTRact in your work, please cite this repository. A formal citation entry will be added once available.</p>
