@@ -34,15 +34,13 @@ interface RegionVisualizationProps {
   vcfPath: string;
   publicVcfFolder?: string;
   onRegionSelect?: (region: string) => void;
-  onPathogenicRegionsChange?: (regions: Set<string>, filterActive: boolean) => void;
 }
 
 const RegionVisualization: React.FC<RegionVisualizationProps> = ({ 
   region, 
   vcfPath,
   publicVcfFolder,
-  onRegionSelect,
-  onPathogenicRegionsChange
+  onRegionSelect
 }) => {
   const [record, setRecord] = useState<Record | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,9 +54,6 @@ const RegionVisualization: React.FC<RegionVisualizationProps> = ({
     disease?: string;
     inheritance?: string;
   } | null>(null);
-  const [filterPathogenicOnly, setFilterPathogenicOnly] = useState(false);
-  const [pathogenicRegions, setPathogenicRegions] = useState<Set<string>>(new Set());
-  const [checkingPathogenic, setCheckingPathogenic] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('sequence');
   const scrollPositionRef = useRef<number>(0);
 
@@ -83,105 +78,6 @@ const RegionVisualization: React.FC<RegionVisualizationProps> = ({
 
     fetchRegions();
   }, [vcfPath]);
-
-  // when the pathogenic filter is on, check all regions to see which ones are pathogenic
-  useEffect(() => {
-    if (!filterPathogenicOnly || !vcfPath || availableRegions.length === 0) {
-      setPathogenicRegions(new Set());
-      setCheckingPathogenic(false);
-      return;
-    }
-
-    const checkPathogenicRegions = async () => {
-      setCheckingPathogenic(true);
-      const pathogenicSet = new Set<string>();
-
-      // loop through regions and check each one
-      for (const region of availableRegions) {
-        try {
-          // parse the region string to get chr, start, end
-          const regionMatch = region.match(/^([^:]+):(\d+)-(\d+)$/);
-          if (!regionMatch) continue;
-
-          const [, chr, startStr, endStr] = regionMatch;
-          const start = parseInt(startStr, 10);
-          const end = parseInt(endStr, 10);
-
-          // check if this region is in the pathogenic catalog
-          const pathogenicResponse = await axios.get(`${API_BASE}/api/pathogenic/check`, {
-            params: { chr, start, end }
-          });
-
-          if (pathogenicResponse.data.pathogenic && pathogenicResponse.data.pathogenic_threshold) {
-            // need to get the actual record to see if any alleles exceed the threshold
-            const recordResponse = await axios.get(`${API_BASE}/api/vcf/region/${encodeURIComponent(region)}`, {
-              params: { vcf_path: vcfPath }
-            });
-
-            if (recordResponse.data.record) {
-              const record = recordResponse.data.record;
-              const threshold = pathogenicResponse.data.pathogenic_threshold;
-
-              // count how many motifs we have
-              const calculateMotifCount = (motifIds: string[] | undefined): number => {
-                if (!motifIds || !Array.isArray(motifIds)) return 0;
-                return motifIds.filter(id => id && id !== '.' && id !== '').length;
-              };
-
-              const h1Count = calculateMotifCount(record.motif_ids_h1);
-              const h2Count = calculateMotifCount(record.motif_ids_h2);
-
-              // if either haplotype is above the threshold, mark it as pathogenic
-              if (h1Count >= threshold || h2Count >= threshold) {
-                pathogenicSet.add(region);
-                console.log(`Found pathogenic region: ${region} (h1: ${h1Count}, h2: ${h2Count}, threshold: ${threshold})`);
-              }
-            }
-          }
-        } catch (err) {
-          // skip regions that error out, just log it
-          console.error(`Error checking pathogenic status for ${region}:`, err);
-        }
-      }
-
-      setPathogenicRegions(pathogenicSet);
-      setCheckingPathogenic(false);
-      console.log(`Pathogenic filter complete: ${pathogenicSet.size} regions found`);
-      
-      // let the parent know which regions are pathogenic
-      if (onPathogenicRegionsChange) {
-        onPathogenicRegionsChange(pathogenicSet, filterPathogenicOnly);
-      }
-    };
-
-    checkPathogenicRegions();
-  }, [filterPathogenicOnly, availableRegions, vcfPath]);
-
-  // update parent whenever the filter or regions change
-  useEffect(() => {
-    if (onPathogenicRegionsChange) {
-      onPathogenicRegionsChange(pathogenicRegions, filterPathogenicOnly);
-    }
-  }, [filterPathogenicOnly, pathogenicRegions, onPathogenicRegionsChange]);
-
-  // filter the regions list if the pathogenic filter is on
-  const filteredAvailableRegions = React.useMemo(() => {
-    if (filterPathogenicOnly && pathogenicRegions.size > 0) {
-      return availableRegions.filter(r => pathogenicRegions.has(r));
-    }
-    return availableRegions;
-  }, [filterPathogenicOnly, availableRegions, pathogenicRegions]);
-
-  // decide if we should show the current region based on the filter
-  const shouldShowCurrentRegion = React.useMemo(() => {
-    if (!filterPathogenicOnly || pathogenicRegions.size === 0) {
-      return true; // filter is off, show everything
-    }
-    if (!region) {
-      return true; // no region selected yet
-    }
-    return pathogenicRegions.has(region); // only show if its in the pathogenic set
-  }, [filterPathogenicOnly, pathogenicRegions, region]);
 
   // keep track of scroll position as user scrolls
   useEffect(() => {
@@ -295,15 +191,6 @@ const RegionVisualization: React.FC<RegionVisualizationProps> = ({
     
     const trimmedQuery = regionToSearch.trim();
     
-    // If filter is active, check if the region is in the filtered list
-    if (filterPathogenicOnly && pathogenicRegions.size > 0) {
-      if (!pathogenicRegions.has(trimmedQuery)) {
-        // Region is not in the filtered list, don't allow navigation
-        alert(`This region is not in the pathogenic regions list. Please select a region from the filtered list.`);
-        return;
-      }
-    }
-    
     // Try to parse and validate the region format
     const regionPattern = /^([\w]+):(\d+)-(\d+)$/;
     const match = trimmedQuery.match(regionPattern);
@@ -319,17 +206,7 @@ const RegionVisualization: React.FC<RegionVisualizationProps> = ({
           params: { gene: trimmedQuery }
         });
         if (response.data.success && response.data.regions && response.data.regions.length > 0) {
-          // Filter results by pathogenic regions if filter is active
-          let regionsToUse = response.data.regions;
-          if (filterPathogenicOnly && pathogenicRegions.size > 0) {
-            regionsToUse = response.data.regions.filter((r: any) => pathogenicRegions.has(r.region));
-            if (regionsToUse.length === 0) {
-              alert(`No pathogenic regions found for gene: ${trimmedQuery}`);
-              return;
-            }
-          }
-          // Use the first matching region
-          const firstRegion = regionsToUse[0];
+          const firstRegion = response.data.regions[0];
           onRegionSelect(firstRegion.region);
           setSearchQuery('');
         } else {
@@ -359,60 +236,6 @@ const RegionVisualization: React.FC<RegionVisualizationProps> = ({
     return <div className="error-message">Error: {error}</div>;
   }
 
-  // If filter is active and current region is not pathogenic, show message
-  if (filterPathogenicOnly && pathogenicRegions.size > 0 && region && !shouldShowCurrentRegion) {
-    return (
-      <div className="region-visualization-container">
-        <div style={{ marginBottom: '1rem' }}>
-          <RegionSearchBar 
-            value={searchQuery} 
-            onChange={handleSearch}
-            onSubmit={handleSearchSubmit}
-            placeholder="Search region (e.g., chr1:1000-2000) or gene name"
-            availableRegions={filteredAvailableRegions}
-            showAllWhenEmpty={filterPathogenicOnly}
-          />
-          <div className="pathogenic-filter-container">
-            <label className="pathogenic-filter-label">
-              <input
-                type="checkbox"
-                checked={filterPathogenicOnly}
-                onChange={(e) => setFilterPathogenicOnly(e.target.checked)}
-                className="pathogenic-filter-checkbox"
-              />
-              <span className="pathogenic-filter-text">Show only regions with pathogenic alleles</span>
-            </label>
-            {checkingPathogenic && (
-              <span className="pathogenic-filter-status">Checking regions...</span>
-            )}
-            {filterPathogenicOnly && !checkingPathogenic && (
-              <span className="pathogenic-filter-status">
-                ({pathogenicRegions.size} pathogenic region{pathogenicRegions.size !== 1 ? 's' : ''} found)
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="no-data-message" style={{ 
-          padding: '2rem', 
-          textAlign: 'center',
-          background: 'rgba(239, 68, 68, 0.1)',
-          border: '2px solid rgba(239, 68, 68, 0.3)',
-          borderRadius: '8px'
-        }}>
-          <p style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem', color: '#DC2626' }}>
-            ⚠️ Current region is not pathogenic
-          </p>
-          <p style={{ color: '#6b7280' }}>
-            The region <strong>{region}</strong> does not have any alleles that exceed the pathogenic threshold.
-          </p>
-          <p style={{ color: '#6b7280', marginTop: '0.5rem' }}>
-            Please select a pathogenic region from the filtered list above.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   if (!record) {
     return (
       <div className="region-visualization-container">
@@ -422,28 +245,8 @@ const RegionVisualization: React.FC<RegionVisualizationProps> = ({
             onChange={handleSearch}
             onSubmit={handleSearchSubmit}
             placeholder="Search region (e.g., chr1:1000-2000) or gene name"
-            availableRegions={filteredAvailableRegions}
-            showAllWhenEmpty={filterPathogenicOnly}
+            availableRegions={availableRegions}
           />
-          <div className="pathogenic-filter-container">
-            <label className="pathogenic-filter-label">
-              <input
-                type="checkbox"
-                checked={filterPathogenicOnly}
-                onChange={(e) => setFilterPathogenicOnly(e.target.checked)}
-                className="pathogenic-filter-checkbox"
-              />
-              <span className="pathogenic-filter-text">Show only regions with pathogenic alleles</span>
-            </label>
-            {checkingPathogenic && (
-              <span className="pathogenic-filter-status">Checking regions...</span>
-            )}
-            {filterPathogenicOnly && !checkingPathogenic && (
-              <span className="pathogenic-filter-status">
-                ({pathogenicRegions.size} pathogenic region{pathogenicRegions.size !== 1 ? 's' : ''} found)
-              </span>
-            )}
-          </div>
         </div>
         <div className="no-data-message">No data available for this region</div>
       </div>
@@ -458,28 +261,8 @@ const RegionVisualization: React.FC<RegionVisualizationProps> = ({
           onChange={handleSearch}
           onSubmit={handleSearchSubmit}
           placeholder={`Search region (e.g., ${record.chr}:${record.pos}-${record.stop}) or gene name`}
-          availableRegions={filteredAvailableRegions}
-          showAllWhenEmpty={filterPathogenicOnly}
+          availableRegions={availableRegions}
         />
-        <div className="pathogenic-filter-container">
-          <label className="pathogenic-filter-label">
-            <input
-              type="checkbox"
-              checked={filterPathogenicOnly}
-              onChange={(e) => setFilterPathogenicOnly(e.target.checked)}
-              className="pathogenic-filter-checkbox"
-            />
-            <span className="pathogenic-filter-text">Show only regions with pathogenic alleles</span>
-          </label>
-          {checkingPathogenic && (
-            <span className="pathogenic-filter-status">Checking regions...</span>
-          )}
-          {filterPathogenicOnly && !checkingPathogenic && (
-            <span className="pathogenic-filter-status">
-              ({pathogenicRegions.size} pathogenic region{pathogenicRegions.size !== 1 ? 's' : ''} found)
-            </span>
-          )}
-        </div>
       </div>
       
       {/* Tabs for Sequence View and Population Comparison */}

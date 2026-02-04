@@ -14,6 +14,7 @@ interface PathogenicRegion {
   normal_range?: string;
   pathogenic_threshold?: number;
   description?: string;
+  motif?: string;
 }
 
 interface PathogenicityPanelProps {
@@ -53,9 +54,72 @@ const PathogenicityPanel: React.FC<PathogenicityPanelProps> = ({
           }
         });
         
+        // #region agent log
+        fetch('http://localhost:7245/ingest/c0592157-b6df-40a3-9d0d-4fc90d20aec3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PathogenicityPanel.tsx:56',message:'Pathogenic check response received',data:{pathogenic:response.data.pathogenic,hasGene:!!response.data.gene,hasDisease:!!response.data.disease,hasInheritance:!!response.data.inheritance,gene:response.data.gene,disease:response.data.disease,inheritance:response.data.inheritance,threshold:response.data.pathogenic_threshold,fullResponse:response.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'PATHOGENIC_PANEL'})}).catch(()=>{});
+        // #endregion
+        
         if (response.data.pathogenic) {
-          setPathogenicInfo(response.data);
+          // #region agent log
+          fetch('http://localhost:7245/ingest/c0592157-b6df-40a3-9d0d-4fc90d20aec3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PathogenicityPanel.tsx:62',message:'Setting pathogenicInfo in PathogenicityPanel',data:{gene:response.data.gene,typeOfGene:typeof response.data.gene,disease:response.data.disease,inheritance:response.data.inheritance,threshold:response.data.pathogenic_threshold,fullData:response.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'PATHOGENIC_PANEL'})}).catch(()=>{});
+          // #endregion
+          // Ensure we're setting all fields correctly - preserve values from API response
+          // Helper to safely convert and validate string values
+          const safeString = (value: any): string | undefined => {
+            // Handle null, undefined, or empty values
+            if (value === null || value === undefined || value === '') {
+              return undefined;
+            }
+            // Convert to string and trim whitespace
+            const str = String(value).trim();
+            // Return undefined for empty strings after trimming
+            return str.length > 0 ? str : undefined;
+          };
+          
+          // Extract and convert values
+          const geneValue = safeString(response.data.gene);
+          const diseaseValue = safeString(response.data.disease);
+          const inheritanceValue = safeString(response.data.inheritance);
+          
+          // Debug logging to help identify issues
+          console.log('PathogenicityPanel: API Response Data', {
+            raw: {
+              gene: response.data.gene,
+              disease: response.data.disease,
+              inheritance: response.data.inheritance,
+              threshold: response.data.pathogenic_threshold
+            },
+            processed: {
+              gene: geneValue,
+              disease: diseaseValue,
+              inheritance: inheritanceValue,
+              threshold: response.data.pathogenic_threshold
+            },
+            types: {
+              gene: typeof response.data.gene,
+              disease: typeof response.data.disease,
+              inheritance: typeof response.data.inheritance
+            }
+          });
+          
+          const newPathogenicInfo = {
+            chr: response.data.chr,
+            start: response.data.start,
+            end: response.data.end,
+            gene: geneValue,
+            disease: diseaseValue,
+            inheritance: inheritanceValue,
+            pathogenic_threshold: response.data.pathogenic_threshold,
+            motif: safeString(response.data.motif),
+            normal_range: safeString(response.data.normal_range),
+            description: safeString(response.data.description)
+          };
+          
+          console.log('PathogenicityPanel: Setting state with', newPathogenicInfo);
+          setPathogenicInfo(newPathogenicInfo);
         } else {
+          // #region agent log
+          fetch('http://localhost:7245/ingest/c0592157-b6df-40a3-9d0d-4fc90d20aec3',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PathogenicityPanel.tsx:67',message:'Pathogenic check returned false, clearing info',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'PATHOGENIC_PANEL'})}).catch(()=>{});
+          // #endregion
           setPathogenicInfo(null);
         }
       } catch (err: any) {
@@ -134,6 +198,7 @@ const PathogenicityPanel: React.FC<PathogenicityPanelProps> = ({
       </div>
       
       <div className="pathogenicity-content">
+        {/* Gene field */}
         {pathogenicInfo.gene && (
           <div className="pathogenicity-item">
             <span className="pathogenicity-label">Gene:</span>
@@ -141,6 +206,7 @@ const PathogenicityPanel: React.FC<PathogenicityPanelProps> = ({
           </div>
         )}
         
+        {/* Disease field */}
         {pathogenicInfo.disease && (
           <div className="pathogenicity-item">
             <span className="pathogenicity-label">Disease:</span>
@@ -148,6 +214,7 @@ const PathogenicityPanel: React.FC<PathogenicityPanelProps> = ({
           </div>
         )}
         
+        {/* Inheritance field */}
         {pathogenicInfo.inheritance && (
           <div className="pathogenicity-item">
             <span className="pathogenicity-label">Inheritance:</span>

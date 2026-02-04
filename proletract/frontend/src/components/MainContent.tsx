@@ -11,6 +11,7 @@ import FeaturesPage from './FeaturesPage';
 import TandemRepeatAnimation from './TandemRepeatAnimation';
 import { useKeyboardShortcuts, createAppShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useTheme } from '../contexts/ThemeContext';
+import { FilterResponse } from '../types';
 
 type AppMode = 'individual' | 'cohort-read' | 'cohort-assembly';
 
@@ -21,9 +22,11 @@ interface MainContentProps {
   loading: boolean;
   publicVcfFolder?: string;
   cohortFolder?: string;
+  regions?: FilterResponse | null;
   onRegionSelect?: (region: string) => void;
   onOpenSessionManager?: () => void;
-  onPathogenicRegionsChange?: (regions: Set<string>, filterActive: boolean) => void;
+  onClearFilter?: () => void;
+  getSessionData?: () => { vcfPath: string; selectedRegion: string; selectedGenotypes: string[]; publicVcfFolder: string; cohortFolder: string; mode: string };
 }
 
 const MainContent: React.FC<MainContentProps> = ({
@@ -33,9 +36,11 @@ const MainContent: React.FC<MainContentProps> = ({
   loading,
   publicVcfFolder,
   cohortFolder,
+  regions,
   onRegionSelect,
   onOpenSessionManager,
-  onPathogenicRegionsChange
+  onClearFilter,
+  getSessionData
 }) => {
   const [activeTab, setActiveTab] = useState<'visualization' | 'statistics'>('visualization');
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
@@ -174,10 +179,6 @@ const MainContent: React.FC<MainContentProps> = ({
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-            <div className="nav-badge">
-              <span className="badge-icon">📊</span>
-              <span className="badge-text">Analysis Ready</span>
-            </div>
           </div>
         </div>
       </div>
@@ -308,14 +309,29 @@ const MainContent: React.FC<MainContentProps> = ({
                     vcfPath={vcfPath}
                     publicVcfFolder={publicVcfFolder}
                     onRegionSelect={onRegionSelect}
-                    onPathogenicRegionsChange={onPathogenicRegionsChange}
                   />
                 </div>
               ) : (
                 <div className="no-region-selected">
-                  <div className="empty-state-icon">🗺️</div>
-                  <h3>No region selected</h3>
-                  <p>Please select a region from the sidebar to view its visualization.</p>
+                  {regions && regions.total_matching === 0 && regions.records.length === 0 && onClearFilter ? (
+                    <>
+                      <div className="empty-state-icon">🔍</div>
+                      <h3>No regions match the current filter</h3>
+                      <p>No pathogenic regions were found, or no regions match your filter criteria.</p>
+                      <button
+                        className="btn btn-primary btn-modern clear-filter-btn"
+                        onClick={onClearFilter}
+                      >
+                        Clear filter &amp; show all regions
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="empty-state-icon">🗺️</div>
+                      <h3>No region selected</h3>
+                      <p>Please select a region from the navigation below to view its visualization.</p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -327,6 +343,7 @@ const MainContent: React.FC<MainContentProps> = ({
           currentRegion={selectedRegion} 
           onBookmarkSelect={onRegionSelect}
           onOpenSessionManager={onOpenSessionManager}
+          getSessionData={getSessionData}
         />
         <KeyboardShortcutsHelp
           shortcuts={shortcuts}

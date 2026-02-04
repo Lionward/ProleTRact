@@ -91,7 +91,7 @@
 }
 
 .pathogenicity-value {
-  color: var(--text-primary, #111827);
+  color: #111827 !important;
   font-size: 0.875rem;
   flex: 1;
 }

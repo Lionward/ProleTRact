@@ -441,6 +441,17 @@ body.resizing .sidebar-toggle-fixed {
   background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
 }
 
+.sidebar-sessions-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.sidebar-sessions-icon {
+  font-size: 1.1rem;
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -516,6 +527,50 @@ body.resizing .sidebar-toggle-fixed {
 
 .input-wrapper {
   position: relative;
+}
+
+.input-with-browse {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.input-with-browse .modern-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-browse {
+  flex-shrink: 0;
+  padding: 0.625rem 1rem;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.2));
+  border: 1px solid rgba(102, 126, 234, 0.5);
+  border-radius: 8px;
+  color: #a5b4fc;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-browse:hover {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.35), rgba(118, 75, 162, 0.3));
+  border-color: #818cf8;
+  color: #c7d2fe;
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .btn-browse {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1));
+  border: 1px solid rgba(102, 126, 234, 0.4);
+  color: #667eea;
+}
+
+[data-theme="light"] .btn-browse:hover {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.15));
+  border-color: #667eea;
+  color: #4f46e5;
 }
 
 .modern-input {
@@ -733,6 +788,11 @@ body.resizing .sidebar-toggle-fixed {
 
 .filter-accordion-content {
   padding: 0.5rem 0;
+}
+
+.filter-accordion-content-scroll {
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 /* File Accordion (for VCF and Population Data sections) */

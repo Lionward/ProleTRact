@@ -1,7 +1,8 @@
 export interface VCFData {
   path: string;
-  totalRegions: number;
+  totalRegions: number | null;
   availableGenotypes: string[];
+  availableChromosomes?: string[];
 }
 
 export interface RegionInfo {
@@ -16,5 +17,6 @@ export interface FilterResponse {
   total_regions: number;
   current_page: number;
   total_pages: number;
+  available_genotypes?: string[];
 }
 

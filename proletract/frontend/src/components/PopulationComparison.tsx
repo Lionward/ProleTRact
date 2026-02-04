@@ -40,15 +40,25 @@ interface PopulationRecord {
   pos: number;
   stop: number;
   motifs: string[];
-  motif_ids_h: string[];
+  motif_ids_h?: string[];  // For assembly/single-haplotype records
+  motif_ids_h1?: string[]; // For diploid records
+  motif_ids_h2?: string[];  // For diploid records
   motif_ids_ref: string[];
   ref_CN: number;
-  CN_H: number;
-  spans: string;
+  CN_H?: number;  // For assembly/single-haplotype records
+  CN_H1?: string | null;  // For diploid records
+  CN_H2?: string | null;  // For diploid records
+  spans: string | string[];
   ref_allele: string;
-  alt_allele: string;
-  gt: string;
+  alt_allele?: string;  // For assembly/single-haplotype records
+  alt_allele1?: string; // For diploid records
+  alt_allele2?: string;  // For diploid records
+  gt: string;  // Can be "0", "1" (single-allele) or "0/0", "0/1", "1/1" (diploid)
   id: string;
+  // Additional fields for haplotype-specific files
+  original_sample_name?: string;
+  base_sample_name?: string;
+  haplotype?: string;
 }
 
 interface Record {
@@ -587,6 +597,19 @@ const PopulationComparison: React.FC<PopulationComparisonProps> = ({ record, reg
           console.warn('Response data:', response.data);
         } else {
           console.log(`Loaded ${Object.keys(records).length} population records for region ${region}`);
+          // Log sample of record structure for debugging
+          const firstRecord = Object.values(records)[0] as any;
+          if (firstRecord) {
+            console.log('Sample record structure:', {
+              has_alt_allele: !!firstRecord.alt_allele,
+              has_alt_allele1: firstRecord.alt_allele1 !== undefined,
+              has_alt_allele2: firstRecord.alt_allele2 !== undefined,
+              alt_allele_length: firstRecord.alt_allele?.length || 0,
+              alt_allele1_length: firstRecord.alt_allele1?.length || 0,
+              alt_allele2_length: firstRecord.alt_allele2?.length || 0,
+              sample_keys: Object.keys(firstRecord)
+            });
+          }
         }
         
         setPopulationRecords(records);
@@ -1058,25 +1081,58 @@ function computeGenotypeComparison(
   // Add current sample
   genotypes['Current Sample'] = record.gt;
   
-  // Group h1 and h2 records by base sample name
+  // Group h1 and h2 records by base sample name (for separate h1/h2 records)
   const sampleGroups: { [base: string]: { h1?: PopulationRecord; h2?: PopulationRecord } } = {};
   
   for (const [sampleName, popRecord] of Object.entries(populationRecords)) {
-    if (sampleName.endsWith('_h1')) {
+    const recordAny = popRecord as any;
+    
+    // Check if this is a diploid record with both alt_allele1 and alt_allele2
+    if (recordAny.alt_allele1 !== undefined || recordAny.alt_allele2 !== undefined) {
+      // Diploid record - use the gt field directly if available, or compute from haplotypes
+      if (recordAny.alt_allele1 && recordAny.alt_allele2) {
+        // Both alleles available - use gt field if it's already a diploid format, otherwise compute
+        if (popRecord.gt && (popRecord.gt.includes('/') || popRecord.gt.includes('|'))) {
+          // Already in diploid format (e.g., "0/1" or "0|1")
+          genotypes[sampleName] = popRecord.gt;
+        } else {
+          // Need to compute from individual haplotypes
+          const ids_h1 = recordAny.motif_ids_h1 || popRecord.motif_ids_h || [];
+          const ids_h2 = recordAny.motif_ids_h2 || popRecord.motif_ids_h || [];
+          // Parse gt to get individual haplotypes, or default to "1" if alt alleles exist
+          const gt_h1 = recordAny.gt_h1 || (recordAny.alt_allele1 ? '1' : '0');
+          const gt_h2 = recordAny.gt_h2 || (recordAny.alt_allele2 ? '1' : '0');
+          genotypes[sampleName] = computeDiploidGenotype(gt_h1, gt_h2, ids_h1, ids_h2);
+        }
+      } else if (recordAny.alt_allele1) {
+        // Only h1 available
+        genotypes[`${sampleName}_h1`] = popRecord.gt || '1';
+        genotypes[sampleName] = popRecord.gt || '1';
+      } else if (recordAny.alt_allele2) {
+        // Only h2 available
+        genotypes[`${sampleName}_h2`] = popRecord.gt || '1';
+        genotypes[sampleName] = popRecord.gt || '1';
+      } else {
+        // No alleles available, use default
+        genotypes[sampleName] = popRecord.gt || '0';
+      }
+    } else if (sampleName.endsWith('_h1')) {
+      // Separate h1 record
       const baseName = sampleName.slice(0, -3);
       if (!sampleGroups[baseName]) sampleGroups[baseName] = {};
       sampleGroups[baseName].h1 = popRecord;
     } else if (sampleName.endsWith('_h2')) {
+      // Separate h2 record
       const baseName = sampleName.slice(0, -3);
       if (!sampleGroups[baseName]) sampleGroups[baseName] = {};
       sampleGroups[baseName].h2 = popRecord;
     } else {
-      // Single haplotype file
+      // Single haplotype file (assembly format or single allele)
       genotypes[sampleName] = popRecord.gt || '0';
     }
   }
   
-  // Compute diploid genotypes from h1/h2 pairs
+  // Compute diploid genotypes from h1/h2 pairs (for separate records)
   for (const [baseName, group] of Object.entries(sampleGroups)) {
     if (group.h1 && group.h2) {
       // Both haplotypes available - compute diploid genotype
@@ -1139,13 +1195,31 @@ function createSequencesData(
   }
   
   // Add population samples - optimized with direct iteration
+  // Handle both assembly format (alt_allele) and diploid format (alt_allele1/alt_allele2)
   const popEntries = Object.entries(populationRecords);
   for (let i = 0; i < popEntries.length; i++) {
     const [sampleName, popRecord] = popEntries[i];
+    const recordAny = popRecord as any;
+    
     if (popRecord.alt_allele && popRecord.alt_allele !== '') {
+      // Assembly format - single haplotype
       sequences.push({ name: sampleName, sequence: popRecord.alt_allele });
-      spanList.push(popRecord.spans || '');
+      // Handle spans as either string or string array
+      const spansValue = Array.isArray(popRecord.spans) ? popRecord.spans[0] || '' : (popRecord.spans || '');
+      spanList.push(spansValue);
       motifIdsList.push(popRecord.motif_ids_h || []);
+    } else if (recordAny.alt_allele1 !== undefined) {
+      // Regular format - may have multiple haplotypes
+      if (recordAny.alt_allele1 && recordAny.alt_allele1 !== '') {
+        sequences.push({ name: `${sampleName}_h1`, sequence: recordAny.alt_allele1 });
+        spanList.push(Array.isArray(recordAny.spans) ? recordAny.spans[1] || '' : (recordAny.spans || ''));
+        motifIdsList.push(recordAny.motif_ids_h1 || []);
+      }
+      if (recordAny.alt_allele2 && recordAny.alt_allele2 !== '') {
+        sequences.push({ name: `${sampleName}_h2`, sequence: recordAny.alt_allele2 });
+        spanList.push(Array.isArray(recordAny.spans) ? recordAny.spans[2] || '' : (recordAny.spans || ''));
+        motifIdsList.push(recordAny.motif_ids_h2 || []);
+      }
     }
   }
   
@@ -2610,45 +2684,302 @@ const BarPlot: React.FC<BarPlotProps> = memo(({ sequences, motifIdsList, pathoge
 });
 BarPlot.displayName = 'BarPlot';
 
-// Cluster Plot Component (simplified - shows sample stats for clustering)
+// K-Means Clustering with Silhouette Score - same as cohort mode
+function standardScaler(data: number[][]): { scaled: number[][]; mean: number[]; std: number[] } {
+  if (data.length === 0) return { scaled: [], mean: [], std: [] };
+  const n = data[0].length;
+  const mean: number[] = [];
+  const std: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const values = data.map(row => row[i]);
+    mean[i] = values.reduce((a, b) => a + b, 0) / values.length;
+  }
+  for (let i = 0; i < n; i++) {
+    const values = data.map(row => row[i]);
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean[i], 2), 0) / values.length;
+    std[i] = Math.sqrt(variance) || 1;
+  }
+  const scaled = data.map(row => row.map((val, i) => (val - mean[i]) / std[i]));
+  return { scaled, mean, std };
+}
+
+function euclideanDistance(a: number[], b: number[]): number {
+  return Math.sqrt(a.reduce((sum, val, i) => sum + Math.pow(val - b[i], 2), 0));
+}
+
+function kMeans(data: number[][], k: number, maxIterations: number = 100, randomSeed: number = 42): number[] {
+  if (data.length === 0 || k <= 0 || k > data.length) return [];
+  let seed = randomSeed;
+  const random = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+  const centroids: number[][] = [];
+  const usedIndices = new Set<number>();
+  for (let i = 0; i < k; i++) {
+    let idx;
+    do { idx = Math.floor(random() * data.length); } while (usedIndices.has(idx));
+    usedIndices.add(idx);
+    centroids.push([...data[idx]]);
+  }
+  let labels: number[] = [];
+  let changed = true;
+  let iterations = 0;
+  while (changed && iterations < maxIterations) {
+    const newLabels = data.map(point => {
+      let minDist = Infinity;
+      let nearestCluster = 0;
+      centroids.forEach((centroid, idx) => {
+        const dist = euclideanDistance(point, centroid);
+        if (dist < minDist) { minDist = dist; nearestCluster = idx; }
+      });
+      return nearestCluster;
+    });
+    changed = !labels.every((label, i) => label === newLabels[i]);
+    labels = newLabels;
+    for (let i = 0; i < k; i++) {
+      const clusterPoints = data.filter((_, idx) => labels[idx] === i);
+      if (clusterPoints.length > 0) {
+        const n = data[0].length;
+        centroids[i] = [];
+        for (let j = 0; j < n; j++) {
+          centroids[i][j] = clusterPoints.reduce((acc, point) => acc + point[j], 0) / clusterPoints.length;
+        }
+      }
+    }
+    iterations++;
+  }
+  return labels;
+}
+
+function silhouetteScore(data: number[][], labels: number[]): number {
+  if (data.length === 0 || labels.length === 0) return -1;
+  const n = data.length;
+  const uniqueLabels = Array.from(new Set(labels));
+  if (uniqueLabels.length < 2) return -1;
+  let totalScore = 0;
+  for (let i = 0; i < n; i++) {
+    const point = data[i];
+    const label = labels[i];
+    const sameClusterPoints = data.filter((_, idx) => labels[idx] === label && idx !== i);
+    const a_i = sameClusterPoints.length > 0
+      ? sameClusterPoints.reduce((sum, p) => sum + euclideanDistance(point, p), 0) / sameClusterPoints.length
+      : 0;
+    let min_b_i = Infinity;
+    for (const otherLabel of uniqueLabels) {
+      if (otherLabel === label) continue;
+      const otherClusterPoints = data.filter((_, idx) => labels[idx] === otherLabel);
+      if (otherClusterPoints.length > 0) {
+        const b_i = otherClusterPoints.reduce((sum, p) => sum + euclideanDistance(point, p), 0) / otherClusterPoints.length;
+        min_b_i = Math.min(min_b_i, b_i);
+      }
+    }
+    if (min_b_i === Infinity) min_b_i = a_i;
+    const s_i = min_b_i > a_i ? (min_b_i - a_i) / Math.max(a_i, min_b_i) : 0;
+    totalScore += s_i;
+  }
+  return totalScore / n;
+}
+
+function calculateInertia(data: number[][], labels: number[], centroids: number[][]): number {
+  let inertia = 0;
+  data.forEach((point, idx) => {
+    const centroid = centroids[labels[idx]];
+    if (centroid) inertia += Math.pow(euclideanDistance(point, centroid), 2);
+  });
+  return inertia;
+}
+
 interface ClusterPlotProps {
   sequences: Array<{ name: string; sequence: string }>;
   motifIdsList: string[][];
 }
 
 const ClusterPlot: React.FC<ClusterPlotProps> = memo(({ sequences, motifIdsList }) => {
-  // Calculate copy number and length for each sample
+  const [clusterBy, setClusterBy] = useState<'Copy Number' | 'Length' | 'Both'>('Both');
+  const [numClusters, setNumClusters] = useState<number | null>(null);
+  const [userChangedK, setUserChangedK] = useState<boolean>(false);
+
   const sampleStats = useMemo(() => {
-    return sequences.map((seq, idx) => {
-      const motifIds = motifIdsList[idx] || [];
-      const validMotifs = motifIds.filter(id => id && id !== '.' && id !== '');
-      const copyNumber = validMotifs.length;
-      const length = seq.sequence.length;
-      
-      return {
-        sample: seq.name,
-        copyNumber,
-        length
-      };
-    });
+    return sequences
+      .map((seq, idx) => {
+        const motifIds = motifIdsList[idx] || [];
+        const validMotifs = motifIds.filter(id => id && id !== '.' && id !== '');
+        const copyNumber = validMotifs.length;
+        const length = seq.sequence.length;
+        return { sample: seq.name, copyNumber, length };
+      })
+      .filter(stat => stat.sample !== 'Interruption');
   }, [sequences, motifIdsList]);
-  
+
+  const { clusterData, scaledData, suggestedK, metrics } = useMemo(() => {
+    if (sampleStats.length < 2) {
+      return { clusterData: [] as number[][], scaledData: [] as number[][], suggestedK: 2, metrics: [] as Array<{ k: number; actualK: number; silhouette: number; inertia: number }> };
+    }
+    let X: number[][];
+    let X_use: number[][];
+    if (clusterBy === 'Both') {
+      X = sampleStats.map(s => [s.copyNumber, s.length]);
+      const scaled = standardScaler(X);
+      X_use = scaled.scaled;
+    } else if (clusterBy === 'Copy Number') {
+      X = sampleStats.map(s => [s.copyNumber]);
+      X_use = X;
+    } else {
+      X = sampleStats.map(s => [s.length]);
+      X_use = X;
+    }
+    const minK = 2;
+    const maxK = Math.min(8, sampleStats.length);
+    const metrics: Array<{ k: number; actualK: number; silhouette: number; inertia: number }> = [];
+    for (let k = minK; k <= maxK; k++) {
+      if (k >= sampleStats.length) break;
+      const labels = kMeans(X_use, k, 100, 42);
+      const actualK = Array.from(new Set(labels)).length;
+      const silhouette = silhouetteScore(X_use, labels);
+      const centroids: number[][] = [];
+      for (let i = 0; i < k; i++) {
+        const clusterPoints = X_use.filter((_, idx) => labels[idx] === i);
+        if (clusterPoints.length > 0) {
+          const n = X_use[0].length;
+          centroids[i] = [];
+          for (let j = 0; j < n; j++) {
+            centroids[i][j] = clusterPoints.reduce((acc, point) => acc + point[j], 0) / clusterPoints.length;
+          }
+        }
+      }
+      metrics.push({ k, actualK, silhouette, inertia: calculateInertia(X_use, labels, centroids) });
+    }
+    const validMetrics = metrics.filter(m => !isNaN(m.silhouette) && m.silhouette !== -1);
+    let suggestedK = 2;
+    if (validMetrics.length > 0) {
+      const perfectMetrics = validMetrics.filter(m => m.actualK === m.k);
+      const metricsToUse = perfectMetrics.length > 0 ? perfectMetrics : validMetrics;
+      const maxSilhouette = Math.max(...metricsToUse.map(m => m.silhouette));
+      const bestMetric = metricsToUse.find(m => m.silhouette === maxSilhouette);
+      if (bestMetric) suggestedK = bestMetric.k;
+    } else if (metrics.length > 1) {
+      const diffs = metrics.slice(1).map((m, i) => metrics[i].inertia - m.inertia);
+      const elbowIdx = diffs.indexOf(Math.max(...diffs));
+      suggestedK = metrics[elbowIdx + 1]?.k || 2;
+    }
+    return { clusterData: X, scaledData: X_use, suggestedK, metrics };
+  }, [sampleStats, clusterBy]);
+
+  const actualK = useMemo(() => {
+    if (numClusters !== null && userChangedK) return numClusters;
+    return suggestedK;
+  }, [numClusters, userChangedK, suggestedK]);
+
+  const prevClusterBy = useRef(clusterBy);
+  useEffect(() => {
+    if (prevClusterBy.current !== clusterBy) {
+      setNumClusters(null);
+      setUserChangedK(false);
+      prevClusterBy.current = clusterBy;
+    }
+  }, [clusterBy]);
+
+  const { labels, clusterColors, actualNumClusters } = useMemo(() => {
+    if (scaledData.length === 0 || actualK < 2 || actualK > sampleStats.length) {
+      return { labels: [] as number[], clusterColors: {} as { [key: number]: string }, actualNumClusters: 0 };
+    }
+    const clusterLabels = kMeans(scaledData, actualK, 100, 42);
+    const uniqueLabels = Array.from(new Set(clusterLabels)).sort((a, b) => a - b);
+    const actualNumClusters = uniqueLabels.length;
+    const labelMap: { [key: number]: number } = {};
+    uniqueLabels.forEach((oldLabel, idx) => { labelMap[oldLabel] = idx + 1; });
+    const labels = clusterLabels.map(l => labelMap[l] || 1);
+    const colors = ["#2E86AB", "#A23B72", "#F18F01", "#C73E1D", "#6A994E", "#7209B7", "#4361EE", "#4CC9F0"];
+    const uniqueClusters = Array.from(new Set(labels)).sort((a, b) => a - b);
+    const clusterColors: { [key: number]: string } = {};
+    uniqueClusters.forEach((cluster, idx) => { clusterColors[cluster] = colors[idx % colors.length]; });
+    return { labels, clusterColors, actualNumClusters };
+  }, [scaledData, actualK, sampleStats.length]);
+
+  const isCurrentSample = (sampleName: string): boolean => {
+    return sampleName === 'Ref' || sampleName === 'Current Sample' ||
+           sampleName.startsWith('Allel') || sampleName.startsWith('Allele');
+  };
+
   const maxCopyNumber = Math.max(...sampleStats.map(s => s.copyNumber), 1);
   const maxLength = Math.max(...sampleStats.map(s => s.length), 1);
-  
-  // Simple clustering visualization: scatter plot of copy number vs length
+
+  if (sampleStats.length < 2) {
+    return <div className="info-message">Need at least 2 samples for clustering.</div>;
+  }
+
   return (
     <div className="cluster-plot-container">
+      <div className="cluster-plot-controls">
+        <div className="cluster-control-group">
+          <label>Cluster by:</label>
+          <div className="cluster-radio-group">
+            <label>
+              <input type="radio" value="Copy Number" checked={clusterBy === 'Copy Number'} onChange={(e) => setClusterBy(e.target.value as 'Copy Number')} />
+              Copy Number
+            </label>
+            <label>
+              <input type="radio" value="Length" checked={clusterBy === 'Length'} onChange={(e) => setClusterBy(e.target.value as 'Length')} />
+              Length
+            </label>
+            <label>
+              <input type="radio" value="Both" checked={clusterBy === 'Both'} onChange={(e) => setClusterBy(e.target.value as 'Both')} />
+              Both
+            </label>
+          </div>
+        </div>
+        <div className="cluster-control-group">
+          <label htmlFor="num-clusters">
+            Number of Clusters (K):
+            <span className="cluster-suggested">(Suggested: {suggestedK})</span>
+            {actualNumClusters > 0 && actualNumClusters < actualK && (
+              <span className="cluster-warning" title={`Only ${actualNumClusters} clusters were created (some clusters were empty)`}>
+                ⚠️ Actual: {actualNumClusters}
+              </span>
+            )}
+          </label>
+          <input
+            id="num-clusters"
+            type="number"
+            min={2}
+            max={Math.min(8, sampleStats.length)}
+            value={actualK}
+            onChange={(e) => {
+              const val = parseInt(e.target.value);
+              if (!isNaN(val) && val >= 2 && val <= Math.min(8, sampleStats.length)) {
+                setNumClusters(val);
+                setUserChangedK(true);
+              }
+            }}
+            onBlur={(e) => {
+              const val = parseInt(e.target.value);
+              if (isNaN(val) || val < 2) { setNumClusters(2); setUserChangedK(true); }
+              else if (val > Math.min(8, sampleStats.length)) { setNumClusters(Math.min(8, sampleStats.length)); setUserChangedK(true); }
+            }}
+            title="Choose number of clusters. Current cluster number is calculated using silhouette score."
+          />
+        </div>
+      </div>
       <div className="cluster-plot-scatter">
         <div className="cluster-plot-axis-labels">
-          <div className="y-axis-label">Copy Number</div>
+          <div className="y-axis-label">{clusterBy === 'Both' ? 'Copy Number' : clusterBy}</div>
           <div className="cluster-plot-area">
             {sampleStats.map((stat, idx) => {
-              const xPercent = (stat.length / maxLength) * 100;
-              const yPercent = 100 - (stat.copyNumber / maxCopyNumber) * 100; // Invert Y for visual
-              const color = COLOR_PALETTE[idx % COLOR_PALETTE.length];
-              const isCurrent = stat.sample === 'Current Sample' || stat.sample.startsWith('Allel') || stat.sample === 'Ref';
-              
+              const clusterLabel = labels[idx] || 0;
+              const color = clusterColors[clusterLabel] || '#9ca3af';
+              const isCurrent = isCurrentSample(stat.sample);
+              let xPercent: number, yPercent: number;
+              if (clusterBy === 'Both') {
+                xPercent = (stat.length / maxLength) * 100;
+                yPercent = 100 - (stat.copyNumber / maxCopyNumber) * 100;
+              } else if (clusterBy === 'Copy Number') {
+                xPercent = (stat.copyNumber / maxCopyNumber) * 100;
+                yPercent = 50;
+              } else {
+                xPercent = (stat.length / maxLength) * 100;
+                yPercent = 50;
+              }
               return (
                 <div
                   key={stat.sample}
@@ -2660,45 +2991,39 @@ const ClusterPlot: React.FC<ClusterPlotProps> = memo(({ sequences, motifIdsList 
                     borderColor: isCurrent ? '#dc2626' : color,
                     borderWidth: isCurrent ? '3px' : '2px'
                   }}
-                  title={`${stat.sample}: Copy Number=${stat.copyNumber}, Length=${stat.length}bp`}
+                  title={`${stat.sample}: Cluster=${clusterLabel}, Copy Number=${stat.copyNumber}, Length=${stat.length}bp`}
                 >
                   <span className="cluster-point-label">{stat.sample}</span>
+                  {clusterLabel > 0 && <span className="cluster-number-badge">{clusterLabel}</span>}
                 </div>
               );
             })}
-            
-            {/* Grid lines */}
             <div className="cluster-grid-lines">
               {[0, 25, 50, 75, 100].map(percent => (
                 <React.Fragment key={percent}>
                   <div className="grid-line-vertical" style={{ left: `${percent}%` }} />
-                  <div className="grid-line-horizontal" style={{ bottom: `${percent}%` }} />
+                  {clusterBy === 'Both' && <div className="grid-line-horizontal" style={{ bottom: `${percent}%` }} />}
                 </React.Fragment>
               ))}
             </div>
           </div>
-          <div className="x-axis-label">Length (bp)</div>
+          <div className="x-axis-label">{clusterBy === 'Both' ? 'Length (bp)' : clusterBy}</div>
         </div>
       </div>
-      
       <div className="cluster-plot-legend">
+        <div className="legend-clusters">
+          <h4>Clusters</h4>
+          <div className="cluster-legend-items">
+            {Object.entries(clusterColors).map(([cluster, color]) => (
+              <div key={cluster} className="cluster-legend-item">
+                <span className="cluster-legend-color" style={{ backgroundColor: color }} />
+                <span>Cluster {cluster}</span>
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="legend-note">
           <span className="legend-current-marker" /> = Current Sample / Reference
-        </div>
-      </div>
-      
-      <div className="cluster-plot-stats">
-        <h4>Sample Statistics</h4>
-        <div className="cluster-stats-grid">
-          {sampleStats.map(stat => (
-            <div key={stat.sample} className="cluster-stat-item">
-              <div className="stat-sample">{stat.sample}</div>
-              <div className="stat-values">
-                <span>Copy #: {stat.copyNumber}</span>
-                <span>Length: {stat.length}bp</span>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </div>

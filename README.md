@@ -85,9 +85,11 @@ proletract --install-deps  # launches the web application</code></pre>
 <h2>Contributing</h2>
 <p>Contributions are welcome! Please <a href="https://github.com/Lionward/ProleTRact/issues">open an issue</a> to discuss changes.</p>
 
+<h2>Changelog</h2>
+<p>See <a href="CHANGELOG.md">CHANGELOG.md</a> for a list of changes in each version.</p>
 
 <h2>Citation</h2>
-<p>If you use TandemTwister in your research or analysis, please cite our work as follows:</p>
+<p>If you use TandemTwister/ProleTRact in your research or analysis, please cite our work as follows:</p>
 
 <blockquote>
   <strong>TandemTwister: Scalable genotyping and advanced visualization of tandem repeats</strong><br>

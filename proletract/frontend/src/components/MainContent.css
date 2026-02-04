@@ -676,3 +676,117 @@ body.resizing .main-content {
   opacity: 0.6;
   animation: float 3s ease-in-out infinite;
 }
+
+.no-region-selected .clear-filter-btn {
+  margin-top: 1.5rem;
+}
+
+/* Filter Panel Styles */
+.filter-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 0;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.filter-panel {
+  background: #1e1f2a;
+  width: 450px;
+  max-width: 90vw;
+  height: 100vh;
+  overflow-y: auto;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease-out;
+}
+
+[data-theme="light"] .filter-panel {
+  background: #ffffff;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.filter-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(102, 126, 234, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+[data-theme="light"] .filter-panel-header {
+  background: #f8f9fa;
+  border-bottom-color: #dee2e6;
+}
+
+.filter-panel-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #667eea;
+}
+
+[data-theme="light"] .filter-panel-header h3 {
+  color: #495057;
+}
+
+.filter-panel-close {
+  background: transparent;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+[data-theme="light"] .filter-panel-close {
+  border-color: #ced4da;
+  color: #6b7280;
+}
+
+.filter-panel-close:hover {
+  background: rgba(102, 126, 234, 0.1);
+  border-color: rgba(102, 126, 234, 0.5);
+  color: #667eea;
+}
+
+.filter-panel-content {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.filter-panel-content .filter-builder {
+  margin: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+[data-theme="light"] .filter-panel-content .filter-builder {
+  background: transparent;
+}

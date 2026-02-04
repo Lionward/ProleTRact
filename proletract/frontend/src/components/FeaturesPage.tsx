@@ -201,7 +201,7 @@ const FeaturesPage: React.FC = () => {
             </div>
             <div className="current-feature-item">
               <span className="feature-icon">✓</span>
-              <span>Pathogenic Region Filter</span>
+              <span>Pathogenic Filter (Advanced Filters)</span>
             </div>
             <div className="current-feature-item">
               <span className="feature-icon">✓</span>
