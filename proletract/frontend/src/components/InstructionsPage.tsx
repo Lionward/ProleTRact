@@ -722,9 +722,8 @@ const InstructionsPage: React.FC = () => {
                 automatically extends to include the threshold if it exceeds the maximum data value.
               </li>
               <li>
-                <strong>Pathogenic Filter:</strong> Enable the "Show only regions with pathogenic alleles" checkbox 
-                to filter the region list to only show regions where at least one allele exceeds the pathogenic threshold. 
-                When active, navigation, search, and all region listings only show pathogenic regions.
+                <strong>Pathogenic Filter:</strong> Use the Advanced Filters panel and enable &quot;Pathogenic only&quot; 
+                to filter the region list to only show regions where at least one allele exceeds the pathogenic threshold.
               </li>
               <li>
                 <strong>Gene Search:</strong> Search for regions by gene name in the search bar. The system will 
@@ -874,9 +873,9 @@ const InstructionsPage: React.FC = () => {
             <div className="step-item">
               <div className="step-number">4</div>
               <div className="step-content">
-                <h3>Use Pathogenic Filter (Optional)</h3>
-                <p>Enable the "Show only regions with pathogenic alleles" checkbox to filter to only regions where 
-                at least one allele exceeds the pathogenic threshold. This affects navigation, search, and all region listings.</p>
+                <h3>Use Advanced Filters (Optional)</h3>
+                <p>Open Advanced Filters and enable &quot;Pathogenic only&quot; to filter to regions where 
+                at least one allele exceeds the pathogenic threshold.</p>
               </div>
             </div>
             <div className="step-item">

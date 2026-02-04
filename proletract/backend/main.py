@@ -275,6 +275,21 @@ class FilterRequest(BaseModel):
     page: int = 0
     page_size: int = 50
 
+class FilterAdvancedRequest(BaseModel):
+    vcf_path: str
+    motif_size_min: Optional[int] = None
+    motif_size_max: Optional[int] = None
+    cn_min: Optional[float] = None
+    cn_max: Optional[float] = None
+    chromosomes: Optional[List[str]] = None
+    genotypes: Optional[List[str]] = None
+    pathogenic_only: bool = False
+    has_annotations: bool = False
+    annotation_tags: Optional[List[str]] = None
+    annotated_regions: Optional[List[str]] = None
+    page: int = 0
+    page_size: int = 50
+
 class RegionInfo(BaseModel):
     id: str
     region: str
@@ -286,11 +301,112 @@ class FilterResponse(BaseModel):
     total_regions: int
     current_page: int
     total_pages: int
+    available_genotypes: Optional[List[str]] = None
 
 @app.get("/")
 async def root():
     from proletract import __version__
     return {"message": "ProleTRact API", "version": __version__}
+
+
+# --- File browser API (for modern file/folder selection) ---
+import os
+
+def _get_browse_roots() -> List[str]:
+    """Return allowed root directories for browsing. Uses env var or defaults."""
+    env_root = os.environ.get("PROLETRACT_BROWSE_ROOT")
+    if env_root:
+        return [str(Path(env_root).resolve())]
+    roots = []
+    if os.name != "nt":
+        roots.append("/")
+    home = os.path.expanduser("~")
+    if home and home not in roots:
+        roots.append(str(Path(home).resolve()))
+    return roots or [str(Path.cwd())]
+
+
+def _path_is_allowed(requested: Path) -> bool:
+    """Check if path is within allowed browse roots (prevents path traversal)."""
+    try:
+        resolved = requested.resolve()
+        for root in _get_browse_roots():
+            root_path = Path(root).resolve()
+            try:
+                resolved.relative_to(root_path)
+                return True
+            except ValueError:
+                continue
+        return False
+    except (OSError, RuntimeError):
+        return False
+
+
+@app.get("/api/files/roots")
+async def get_file_browse_roots():
+    """Return root directories available for file browsing."""
+    return {"roots": [{"path": r, "name": Path(r).name or r} for r in _get_browse_roots()]}
+
+
+@app.get("/api/files/browse")
+async def browse_files(path: str = "", mode: str = "file"):
+    """
+    List directory contents for file browser.
+    mode: 'file' = show VCF files + dirs (for selecting a VCF file)
+          'folder' = show dirs only (for selecting a folder)
+    """
+    try:
+        roots = _get_browse_roots()
+        if not path:
+            # Return roots as "directories" when no path specified
+            dir_entries = []
+            for r in roots:
+                rp = Path(r)
+                name = rp.name if rp.name else ("Home" if "home" in r.lower() else "Root")
+                dir_entries.append({"name": name, "path": r})
+            return {
+                "path": "",
+                "parent": None,
+                "directories": dir_entries,
+                "files": [],
+            }
+        p = Path(path)
+        if not p.is_absolute():
+            p = Path(roots[0]) / path if roots else Path.cwd() / path
+        p = p.resolve()
+        if not _path_is_allowed(p):
+            raise HTTPException(status_code=403, detail="Path not allowed")
+        if not p.exists():
+            raise HTTPException(status_code=404, detail="Path not found")
+        if not p.is_dir():
+            raise HTTPException(status_code=400, detail="Not a directory")
+        dirs = []
+        files = []
+        for item in sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            try:
+                if item.is_dir() and not item.name.startswith("."):
+                    dirs.append({"name": item.name, "path": str(item)})
+                elif item.is_file():
+                    if mode == "file" and (item.name.endswith(".vcf") or item.name.endswith(".vcf.gz")):
+                        files.append({"name": item.name, "path": str(item)})
+                    elif mode == "folder":
+                        files.append({"name": item.name, "path": str(item)})
+            except (OSError, PermissionError):
+                continue
+        parent = str(p.parent) if str(p.parent) != str(p) else None
+        if parent and not _path_is_allowed(Path(parent)):
+            parent = None
+        return {
+            "path": str(p),
+            "parent": parent,
+            "directories": dirs,
+            "files": files,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/vcf/clear-cache")
 async def clear_vcf_cache(vcf_path: Optional[str] = None):
@@ -329,16 +445,46 @@ async def load_vcf(request: VCFLoadRequest):
         # stats can read 1.2M+ regions like this so we should be fine
         print("Reading all records from VCF file...")
         record_count = 0
+        chromosomes_seen = set()
         for rec in vcf.fetch():
             record_count += 1
             region_str = f"{rec.chrom}:{rec.pos}-{rec.stop}"
+            chromosomes_seen.add(rec.chrom)
+            
+            # motif size (max length of motifs in INFO)
+            motifs = rec.info.get('MOTIFS', [])
+            if isinstance(motifs, tuple):
+                motifs = list(motifs)
+            elif not isinstance(motifs, list):
+                motifs = [motifs] if motifs else []
+            motif_sizes = [len(str(m)) for m in motifs if m]
+            motif_size = max(motif_sizes) if motif_sizes else 0
+            
+            # copy number (max of CN from samples, or CN_ref from INFO)
+            cn_max_val = 0
+            try:
+                cn_ref = rec.info.get('CN_ref')
+                if cn_ref is not None:
+                    cn_max_val = max(cn_max_val, float(cn_ref))
+                cn = rec.samples[0].get('CN')
+                if cn is not None:
+                    if isinstance(cn, (tuple, list)):
+                        for c in cn:
+                            if c is not None:
+                                cn_max_val = max(cn_max_val, float(c))
+                    else:
+                        cn_max_val = max(cn_max_val, float(cn))
+            except (TypeError, ValueError, KeyError, IndexError):
+                pass
             
             records.append({
                 'id': rec.id,
                 'region': region_str,
                 'chrom': rec.chrom,
                 'pos': rec.pos,
-                'stop': rec.stop
+                'stop': rec.stop,
+                'motif_size': motif_size,
+                'cn_max': cn_max_val
             })
             
             # extract the genotype
@@ -367,11 +513,21 @@ async def load_vcf(request: VCFLoadRequest):
         }
         
         available_genotypes = sorted(set(region_genotypes.values()))
+        # Natural sort: chr1, chr2, ..., chr22, chrX, chrY, chrM
+        def chrom_sort_key(c):
+            s = str(c).replace('chr', '').replace('Chr', '')
+            if s == 'X': return (23, 'X')
+            if s == 'Y': return (24, 'Y')
+            if s in ('M', 'MT'): return (25, s)
+            try: return (int(s), s)
+            except ValueError: return (999, s)
+        available_chromosomes = sorted(chromosomes_seen, key=chrom_sort_key)
         
         return {
             "success": True,
             "total_regions": len(records),
             "available_genotypes": available_genotypes,
+            "available_chromosomes": available_chromosomes,
             "message": f"Loaded {len(records):,} regions"
         }
     except Exception as e:
@@ -418,15 +574,141 @@ async def filter_regions(request: FilterRequest):
         ]
         
         total_pages = (total_matching // request.page_size) + (1 if total_matching % request.page_size > 0 else 0)
+        available_genotypes = sorted(set(region_genotypes.values()))
         
         return FilterResponse(
             records=result_records,
             total_matching=total_matching,
             total_regions=len(records),
             current_page=request.page,
-            total_pages=total_pages
+            total_pages=total_pages,
+            available_genotypes=available_genotypes
         )
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def _is_pathogenic(region_str: str, cn_max: float, catalog) -> bool:
+    """Check if region is pathogenic (overlaps catalog and CN >= threshold)."""
+    if catalog is None:
+        return False
+    try:
+        parts = region_str.split(':')
+        if len(parts) < 2:
+            return False
+        chrom = parts[0]
+        pos_end = parts[1].split('-')
+        if len(pos_end) < 2:
+            return False
+        start = int(pos_end[0])
+        end = int(pos_end[1])
+        chr_norm = chrom if chrom.startswith('chr') else f'chr{chrom}'
+        if isinstance(catalog, list):
+            for entry in catalog:
+                if entry.get('chrom') not in (chrom, chr_norm):
+                    continue
+                if (entry['start'] <= end) and (entry['end'] >= start):
+                    thresh = entry.get('pathogenic_min')
+                    if thresh is not None and cn_max >= float(thresh):
+                        return True
+            return False
+        import pandas as pd
+        if isinstance(catalog, pd.DataFrame) and not catalog.empty:
+            chr_matches = catalog[(catalog['chrom'] == chrom) | (catalog['chrom'] == chr_norm)]
+            for _, row in chr_matches.iterrows():
+                if (row['start'] <= end) and (row['end'] >= start):
+                    thresh = row.get('pathogenic_min')
+                    if pd.notna(thresh) and cn_max >= float(thresh):
+                        return True
+        return False
+    except Exception:
+        return False
+
+@app.post("/api/vcf/filter-advanced", response_model=FilterResponse)
+async def filter_regions_advanced(request: FilterAdvancedRequest):
+    """Filter regions with advanced criteria (motif size, CN, chromosomes, genotypes, pathogenic)."""
+    try:
+        if request.vcf_path not in vcf_cache:
+            raise HTTPException(status_code=404, detail="VCF not loaded. Load VCF first.")
+        
+        cache = vcf_cache[request.vcf_path]
+        records = cache['records']
+        region_genotypes = cache['region_genotypes']
+        
+        # Build filtered list
+        filtered = []
+        pathogenic_catalog = load_pathogenic_catalog() if request.pathogenic_only else None
+        
+        for r in records:
+            region_str = r['region']
+            gt = region_genotypes.get(region_str, './.')
+            
+            # genotype filter
+            if request.genotypes and len(request.genotypes) > 0:
+                if gt not in request.genotypes:
+                    continue
+            
+            # chromosome filter
+            if request.chromosomes and len(request.chromosomes) > 0:
+                chrom = r.get('chrom', '')
+                if chrom not in request.chromosomes:
+                    continue
+            
+            # motif size filter
+            motif_size = r.get('motif_size', 0)
+            if request.motif_size_min is not None and motif_size < request.motif_size_min:
+                continue
+            if request.motif_size_max is not None and motif_size > request.motif_size_max:
+                continue
+            
+            # copy number filter
+            cn_max = r.get('cn_max', 0)
+            if request.cn_min is not None and cn_max < request.cn_min:
+                continue
+            if request.cn_max is not None and cn_max > request.cn_max:
+                continue
+            
+            # pathogenic filter
+            if request.pathogenic_only:
+                if not _is_pathogenic(region_str, cn_max, pathogenic_catalog):
+                    continue
+            
+            # annotated_regions filter (frontend sends client-filtered list)
+            if request.annotated_regions and len(request.annotated_regions) > 0:
+                if region_str not in request.annotated_regions:
+                    continue
+            
+            filtered.append(r)
+        
+        total_matching = len(filtered)
+        start_idx = request.page * request.page_size
+        end_idx = start_idx + request.page_size
+        page_records = filtered[start_idx:end_idx]
+        
+        result_records = [
+            RegionInfo(
+                id=r['id'],
+                region=r['region'],
+                genotype=region_genotypes.get(r['region'], './.')
+            )
+            for r in page_records
+        ]
+        
+        total_pages = (total_matching // request.page_size) + (1 if total_matching % request.page_size > 0 else 0)
+        available_genotypes = sorted(set(region_genotypes.values()))
+        
+        return FilterResponse(
+            records=result_records,
+            total_matching=total_matching,
+            total_regions=len(records),
+            current_page=request.page,
+            total_pages=total_pages,
+            available_genotypes=available_genotypes
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/vcf/regions")
@@ -854,16 +1136,9 @@ def extract_regions_from_vcf_file(args):
     try:
         regions = set()
         vcf = pysam.VariantFile(str(vcf_file_path))
-        # Only read first 1000 records per file to get a representative sample of regions
-        # This is MUCH faster than reading all records
-        record_count = 0
         for rec in vcf.fetch():
             region_str = f"{rec.chrom}:{rec.pos}-{rec.stop}"
             regions.add(region_str)
-            record_count += 1
-            # Limit to first 1000 records per file for speed
-            if record_count >= 1000:
-                break
         vcf.close()
         return list(regions)
     except Exception as e:
@@ -1322,8 +1597,9 @@ async def get_population_region_data(region_str: str, folder_path: str):
         
         population_records = {}
         
-        # Prepare arguments for parallel processing
-        file_args = [(str(vcf_file), region_str) for vcf_file in vcf_files]
+        # Prepare arguments for parallel processing (3 args: file_path, region_str, cohort_mode)
+        # Use None for cohort_mode to auto-detect format (individual mode has no explicit mode)
+        file_args = [(str(vcf_file), region_str, None) for vcf_file in vcf_files]
         
         # Use ProcessPoolExecutor for true parallel processing (CPU-bound parsing)
         with ProcessPoolExecutor(max_workers=COHORT_WORKERS) as executor:

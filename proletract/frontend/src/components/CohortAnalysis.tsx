@@ -97,13 +97,19 @@ const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ mode, region, publicVcf
     genotype: true,
     stackHeatmap: true,
     barPlot: true,
-    cluster: true
+    cluster: true,
+    samples: true
   });
+  // Quick filter for sample table: 'all' | 'loaded' | 'not-loaded'
+  const [statusFilter, setStatusFilter] = useState<'all' | 'loaded' | 'not-loaded'>('all');
 
   // Virtual scrolling state
   const [virtualScrollEnabled, setVirtualScrollEnabled] = useState(false);
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 });
   const VIRTUAL_SCROLL_THRESHOLD = 50;
+
+  // Ref to prevent concurrent loadRecordsBatch calls (set synchronously before async work)
+  const loadingRecordsRef = useRef(false);
 
   // Create sequences data from population records
   const sequencesData = useMemo(() => {
@@ -373,6 +379,12 @@ const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ mode, region, publicVcf
       });
     }
     
+    if (statusFilter === 'loaded') {
+      samples = samples.filter(s => loadedSamples.has(s) || s === 'Ref');
+    } else if (statusFilter === 'not-loaded') {
+      samples = samples.filter(s => !loadedSamples.has(s) && s !== 'Ref');
+    }
+    
     // Sort - prioritize loaded samples, then sort by criteria
     const loaded = samples.filter(s => loadedSamples.has(s) || s === 'Ref');
     const unloaded = samples.filter(s => !loadedSamples.has(s) && s !== 'Ref');
@@ -435,7 +447,7 @@ const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ mode, region, publicVcf
     });
     
     return [...sortedLoaded, ...unloaded];
-  }, [allSampleNames, sequencesData, searchQuery, selectedGenotypes, sortBy, sortDirection, genotypeComparisonData, loadedSamples]);
+  }, [allSampleNames, sequencesData, searchQuery, selectedGenotypes, statusFilter, sortBy, sortDirection, genotypeComparisonData, loadedSamples]);
 
   // Virtual scrolling
   const visibleSamples = useMemo(() => {
@@ -574,9 +586,13 @@ const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ mode, region, publicVcf
       // #endregion
       if (toLoad.length === 0) return prev;
       
+      // Prevent concurrent loads - set ref synchronously before async work
+      if (loadingRecordsRef.current) return prev;
+      loadingRecordsRef.current = true;
+      setLoadingRecords(true);
+      
       // Load the batch asynchronously
       (async () => {
-        setLoadingRecords(true);
         try {
           const url = `${API_BASE}/api/population/region/${encodeURIComponent(region)}/samples`;
           // #region agent log
@@ -605,6 +621,7 @@ const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ mode, region, publicVcf
           // #endregion
           console.error('Error loading records batch:', err);
         } finally {
+          loadingRecordsRef.current = false;
           setLoadingRecords(false);
         }
       })();
@@ -616,6 +633,8 @@ const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ mode, region, publicVcf
   // Load more records progressively
   useEffect(() => {
     if (sampleIds.length === 0 || loadedSamples.size >= sampleIds.length) return;
+    // Prevent duplicate loads - check both state and ref (ref is set synchronously)
+    if (loadingRecords || loadingRecordsRef.current) return;
     
     // Load next batch if we have unloaded samples
     const unloadedSamples = sampleIds
@@ -623,10 +642,12 @@ const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ mode, region, publicVcf
       .slice(0, BATCH_SIZE)
       .map(id => id.sample_name);
     
-    if (unloadedSamples.length > 0 && !loadingRecords) {
+    if (unloadedSamples.length > 0) {
       // Load next batch after a short delay to allow UI to render
       const timer = setTimeout(() => {
-        loadRecordsBatch(unloadedSamples);
+        if (!loadingRecordsRef.current) {
+          loadRecordsBatch(unloadedSamples);
+        }
       }, 500);
       
       return () => clearTimeout(timer);
@@ -1322,105 +1343,198 @@ const CohortAnalysis: React.FC<CohortAnalysisProps> = ({ mode, region, publicVcf
         </div>
       )}
 
-      {/* Sample List with Clickable Samples */}
+      {/* Sample Table with Sortable Columns and Quick Filters */}
       <div className="population-section">
         <div 
           className="section-header-collapsible"
-          onClick={() => setExpandedSections({...expandedSections, stackHeatmap: !expandedSections.stackHeatmap})}
+          onClick={() => setExpandedSections({...expandedSections, samples: !expandedSections.samples})}
         >
           <h3>Cohort Samples ({filteredSamples.length})</h3>
-          <span className="collapse-icon">{expandedSections.stackHeatmap ? '▼' : '▶'}</span>
+          <span className="collapse-icon">{expandedSections.samples ? '▼' : '▶'}</span>
         </div>
-        {expandedSections.stackHeatmap && (
+        {expandedSections.samples && (
           <>
-            {virtualScrollEnabled && (
-              <div className="virtual-scroll-info">
-                Showing {visibleSamples.length} of {filteredSamples.length} samples
-                <div className="virtual-scroll-controls">
-                  <button
-                    className="virtual-scroll-btn"
-                    onClick={() => {
-                      const populationCount = filteredSamples.filter(s => s !== 'Ref' && !s.startsWith('Allel')).length;
-                      setVisibleRange(prev => ({
-                        start: Math.max(0, prev.start - 20),
-                        end: Math.min(populationCount, prev.end - 20)
-                      }));
-                    }}
-                    disabled={visibleRange.start === 0}
-                  >
-                    ↑ Load More Above
-                  </button>
-                  <button
-                    className="virtual-scroll-btn"
-                    onClick={() => {
-                      const populationCount = filteredSamples.filter(s => s !== 'Ref' && !s.startsWith('Allel')).length;
-                      setVisibleRange(prev => ({
-                        start: prev.start + 20,
-                        end: Math.min(populationCount, prev.end + 20)
-                      }));
-                    }}
-                    disabled={visibleRange.end >= filteredSamples.filter(s => s !== 'Ref' && !s.startsWith('Allel')).length}
-                  >
-                    ↓ Load More Below
-                  </button>
+            {/* Quick Filters for table */}
+            <div className="cohort-table-filters">
+              <div className="cohort-filter-group">
+                <span className="cohort-filter-label">Status:</span>
+                <div className="cohort-filter-buttons">
+                  {(['all', 'loaded', 'not-loaded'] as const).map(f => (
+                    <button
+                      key={f}
+                      className={`cohort-filter-btn ${statusFilter === f ? 'active' : ''}`}
+                      onClick={() => setStatusFilter(f)}
+                    >
+                      {f === 'all' ? 'All' : f === 'loaded' ? 'Loaded' : 'Not Loaded'}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-            <div className="cohort-samples-list">
-              {visibleSamples.map(sample => {
-                const isLoaded = loadedSamples.has(sample) || sample === 'Ref';
-                const idx = sequencesData.sequences.findIndex(s => s.name === sample);
-                const sequence = idx >= 0 ? sequencesData.sequences[idx] : null;
-                const motifIds = idx >= 0 ? sequencesData.motifIdsList[idx] || [] : [];
-                const motifCount = motifIds.filter(id => id && id !== '.' && id !== '').length;
-                const genotype = genotypeComparisonData[sample] || '';
-                const isSelected = selectedSample === sample;
-                const isLoading = !isLoaded && loadingRecords;
-                
-                return (
-                  <div
-                    key={sample}
-                    className={`cohort-sample-item ${isSelected ? 'selected' : ''} ${sample === 'Ref' || sample.startsWith('Allel') ? 'reference-sample' : ''} ${!isLoaded ? 'not-loaded' : ''}`}
-                    onClick={() => {
-                      if (!isLoaded && !isLoading) {
-                        loadRecordsBatch([sample]);
-                      }
-                      handleSampleClick(sample);
-                    }}
-                    title={isLoaded 
-                      ? `Click to view details: ${sample}\nGenotype: ${genotype}\nLength: ${sequence ? sequence.sequence.length : 0} bp\nMotifs: ${motifCount}`
-                      : `Click to load: ${sample}`
-                    }
-                  >
-                    <div className="cohort-sample-name">
-                      {sample}
-                      {!isLoaded && <span className="loading-badge">⏳</span>}
-                    </div>
-                    <div className="cohort-sample-info">
-                      {isLoaded ? (
-                        <>
-                          <span className="cohort-sample-genotype">GT: {genotype || 'N/A'}</span>
-                          <span className="cohort-sample-length">
-                            {sequence ? `${sequence.sequence.length} bp` : 'N/A'}
-                          </span>
-                          <span className="cohort-sample-motifs">
-                            Motifs: {motifCount}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="cohort-sample-loading">Click to load data...</span>
-                      )}
-                    </div>
-                    {isSelected && <div className="cohort-sample-indicator">✓</div>}
-                  </div>
-                );
-              })}
-              {loadingRecords && (
-                <div className="cohort-loading-more">
-                  Loading more samples... ({loadedSamples.size} / {sampleIds.length} loaded)
+              <div className="cohort-filter-group">
+                <span className="cohort-filter-label">Genotype:</span>
+                <div className="cohort-filter-buttons">
+                  {availableGenotypes.map(gt => (
+                    <button
+                      key={gt}
+                      className={`cohort-filter-btn small ${selectedGenotypes.includes(gt) ? 'active' : ''}`}
+                      onClick={() => {
+                        if (selectedGenotypes.includes(gt)) {
+                          setSelectedGenotypes(selectedGenotypes.filter(g => g !== gt));
+                        } else {
+                          setSelectedGenotypes([...selectedGenotypes, gt]);
+                        }
+                      }}
+                    >
+                      {gt}
+                    </button>
+                  ))}
+                  {selectedGenotypes.length > 0 && (
+                    <button
+                      className="cohort-filter-btn small clear"
+                      onClick={() => setSelectedGenotypes([])}
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
-              )}
+              </div>
+              <div className="cohort-filter-group cohort-search-inline">
+                <input
+                  type="text"
+                  className="cohort-table-search"
+                  placeholder="Search samples..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
+            {/* Sortable Table */}
+            <div className="cohort-table-wrapper">
+              <table className="cohort-samples-table">
+                <thead>
+                  <tr>
+                    <th
+                      className="cohort-table-th sortable"
+                      onClick={() => {
+                        if (sortBy === 'name') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('name');
+                          setSortDirection('asc');
+                        }
+                      }}
+                      title="Click to sort"
+                    >
+                      Sample {sortBy === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      className="cohort-table-th sortable"
+                      onClick={() => {
+                        if (sortBy === 'genotype') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('genotype');
+                          setSortDirection('asc');
+                        }
+                      }}
+                      title="Click to sort"
+                    >
+                      Genotype {sortBy === 'genotype' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      className="cohort-table-th sortable"
+                      onClick={() => {
+                        if (sortBy === 'length') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('length');
+                          setSortDirection('desc');
+                        }
+                      }}
+                      title="Click to sort"
+                    >
+                      Length (bp) {sortBy === 'length' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      className="cohort-table-th sortable"
+                      onClick={() => {
+                        if (sortBy === 'motifCount') {
+                          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('motifCount');
+                          setSortDirection('desc');
+                        }
+                      }}
+                      title="Click to sort"
+                    >
+                      Motifs {sortBy === 'motifCount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="cohort-table-th">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSamples.map(sample => {
+                    const isLoaded = loadedSamples.has(sample) || sample === 'Ref';
+                    // Find sequence data: exact match, or base-name match for diploid (e.g. NA12878 -> NA12878_h1, NA12878_h2)
+                    const getBaseName = (name: string) => name.replace(/_(h[12]|hap[12]|haplotype_[12])$/i, '');
+                    const sampleBase = getBaseName(sample);
+                    const matchingIndices = sequencesData.sequences
+                      .map((s, i) => ({ seq: s, i }))
+                      .filter(({ seq }) => seq.name === sample || getBaseName(seq.name) === sampleBase);
+                    let totalLength = 0;
+                    let motifCount = 0;
+                    if (matchingIndices.length > 0) {
+                      totalLength = Math.max(...matchingIndices.map(({ seq }) => seq.sequence?.length || 0));
+                      motifCount = matchingIndices.reduce((sum, { i }) => {
+                        const ids = sequencesData.motifIdsList[i] || [];
+                        return sum + ids.filter(id => id && id !== '.' && id !== '').length;
+                      }, 0);
+                    }
+                    const genotype = genotypeComparisonData[sample] || '';
+                    const isSelected = selectedSample === sample;
+                    const isLoading = !isLoaded && loadingRecords;
+                    const isRef = sample === 'Ref' || sample.startsWith('Allel');
+                    
+                    return (
+                      <tr
+                        key={sample}
+                        className={`cohort-table-row ${isSelected ? 'selected' : ''} ${isRef ? 'reference' : ''} ${!isLoaded ? 'not-loaded' : ''}`}
+                        onClick={() => {
+                          if (!isLoaded && !isLoading) {
+                            loadRecordsBatch([sample]);
+                          }
+                          handleSampleClick(sample);
+                        }}
+                        title={isLoaded 
+                          ? `Click to view details: ${sample}`
+                          : `Click to load: ${sample}`
+                        }
+                      >
+                        <td className="cohort-table-td sample-name">
+                          {sample}
+                          {!isLoaded && <span className="loading-badge"> ⏳</span>}
+                        </td>
+                        <td className="cohort-table-td">{genotype || 'N/A'}</td>
+                        <td className="cohort-table-td numeric">
+                          {totalLength > 0 ? totalLength : '—'}
+                        </td>
+                        <td className="cohort-table-td numeric">{motifCount}</td>
+                        <td className="cohort-table-td">
+                          <span className={`status-badge ${isLoaded ? 'loaded' : 'pending'}`}>
+                            {isLoaded ? 'Loaded' : 'Click to load'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {loadingRecords && (
+              <div className="cohort-loading-more">
+                Loading more samples... ({loadedSamples.size} / {sampleIds.length} loaded)
+              </div>
+            )}
           </>
         )}
       </div>
@@ -2655,32 +2769,6 @@ const ClusterPlot: React.FC<ClusterPlotProps> = memo(({ sequences, motifIdsList 
         </div>
       </div>
       
-      {metrics.length > 0 && (
-        <div className="cluster-metrics">
-          <h4>Clustering Metrics</h4>
-          <div className="metrics-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>K</th>
-                  <th>Silhouette Score</th>
-                  <th>Inertia</th>
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.map(m => (
-                  <tr key={m.k} className={m.k === numClusters ? 'selected-k' : ''}>
-                    <td>{m.k}</td>
-                    <td>{isNaN(m.silhouette) || m.silhouette === -1 ? 'N/A' : m.silhouette.toFixed(3)}</td>
-                    <td>{m.inertia.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      
       <div className="cluster-plot-scatter">
         <div className="cluster-plot-axis-labels">
           <div className="y-axis-label">
@@ -2758,32 +2846,6 @@ const ClusterPlot: React.FC<ClusterPlotProps> = memo(({ sequences, motifIdsList 
         </div>
         <div className="legend-note">
           <span className="legend-current-marker" /> = Current Sample / Reference
-        </div>
-      </div>
-      
-      <div className="cluster-plot-stats">
-        <h4>Sample Statistics</h4>
-        <div className="cluster-stats-grid">
-          {sampleStats.map((stat, idx) => {
-            const clusterLabel = labels[idx] || 0;
-            const color = clusterColors[clusterLabel] || '#9ca3af';
-            return (
-              <div key={stat.sample} className="cluster-stat-item" style={{ borderLeftColor: color }}>
-                <div className="stat-sample">
-                  {stat.sample}
-                  {clusterLabel > 0 && (
-                    <span className="stat-cluster-badge" style={{ backgroundColor: color }}>
-                      C{clusterLabel}
-                    </span>
-                  )}
-                </div>
-                <div className="stat-values">
-                  <span>Copy #: {stat.copyNumber}</span>
-                  <span>Length: {stat.length}bp</span>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>

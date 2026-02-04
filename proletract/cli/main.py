@@ -158,7 +158,7 @@ def install_frontend_deps():
         return False
 
 
-def start_backend(port: int = 8502, host: str = "127.0.0.1", reload: bool = True, kill_existing: bool = False):
+def start_backend(port: int = 8502, host: str = "127.0.0.1", reload: bool = True, kill_existing: bool = False, workers: Optional[int] = None):
     """Start the FastAPI backend server"""
     if not BACKEND_DIR.exists():
         print("❌ Backend directory not found!")
@@ -196,6 +196,20 @@ def start_backend(port: int = 8502, host: str = "127.0.0.1", reload: bool = True
     
     print(f"🚀 Starting backend server on http://{host}:{port}")
     
+    # Set environment variable for workers (default is 4)
+    env = os.environ.copy()
+    env["PROLETRACT_WORKERS"] = str(workers)
+    import multiprocessing
+    max_cpus = multiprocessing.cpu_count()
+    if workers > max_cpus:
+        print(f"Warning: {workers} workers specified, but only {max_cpus} CPUs available. Using {max_cpus} workers.")
+        env["PROLETRACT_WORKERS"] = str(max_cpus)
+    elif workers <= 0:
+        print(f"Warning: Invalid workers value {workers}, using 4 workers (default)")
+        env["PROLETRACT_WORKERS"] = "4"
+    else:
+        print(f"Using {workers} CPU worker(s) for parallel processing")
+    
     # Start uvicorn in a subprocess
     cmd = [
         sys.executable, "-m", "uvicorn",
@@ -211,7 +225,8 @@ def start_backend(port: int = 8502, host: str = "127.0.0.1", reload: bool = True
         cmd,
         cwd=PACKAGE_DIR,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        env=env
     )
     
     # Wait a moment to check if it started successfully
@@ -359,6 +374,7 @@ Examples:
   proletract --frontend-only    # Start only the frontend server
   proletract --port 8080        # Use custom port for frontend
   proletract --backend-port 9000 # Use custom port for backend
+  proletract --workers 4        # Use 4 CPU workers for parallel processing
   proletract --install-deps     # Install frontend dependencies automatically
   proletract --no-browser        # Don't open browser automatically
         """
@@ -416,6 +432,12 @@ Examples:
         "--kill-existing",
         action="store_true",
         help="Kill processes using the required ports if they're in use"
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        help="Number of CPU workers for parallel processing (default: 4)"
     )
     
     args = parser.parse_args()
@@ -479,7 +501,8 @@ Examples:
                 port=args.backend_port,
                 host=args.host,
                 reload=not args.no_reload,
-                kill_existing=args.kill_existing
+                kill_existing=args.kill_existing,
+                workers=args.workers
             )
             if backend_process:
                 processes.append(backend_process)

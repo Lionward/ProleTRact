@@ -50,9 +50,9 @@
 }
 
 .session-manager-modal {
-  background: var(--card-bg, #ffffff);
+  background: #1f2937;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   max-width: 600px;
   width: 100%;
   max-height: 80vh;
@@ -66,21 +66,21 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.3);
 }
 
 .session-manager-header h2 {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--text-primary, #111827);
+  color: #f3f4f6;
 }
 
 .session-manager-close {
   background: transparent;
   border: none;
   font-size: 1.5rem;
-  color: var(--text-secondary, #6b7280);
+  color: #9ca3af;
   cursor: pointer;
   padding: 0.25rem;
   line-height: 1;
@@ -88,7 +88,7 @@
 }
 
 .session-manager-close:hover {
-  color: var(--text-primary, #111827);
+  color: #f3f4f6;
 }
 
 .session-manager-content {
@@ -125,13 +125,13 @@
 }
 
 .session-btn-secondary {
-  background: var(--bg-secondary, #f3f4f6);
-  color: var(--text-primary, #111827);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: #111827;
+  color: #f3f4f6;
+  border: 1px solid rgba(102, 126, 234, 0.3);
 }
 
 .session-btn-secondary:hover {
-  background: var(--bg-hover, #e5e7eb);
+  background: #374151;
 }
 
 .session-save-dialog {
@@ -141,17 +141,23 @@
 .session-save-dialog h3 {
   margin: 0 0 1rem 0;
   font-size: 1.25rem;
-  color: var(--text-primary, #111827);
+  color: #f3f4f6;
 }
 
 .session-name-input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--border-color, #e5e7eb);
+  border: 1px solid rgba(102, 126, 234, 0.3);
   border-radius: 6px;
   font-size: 0.875rem;
   margin-bottom: 1rem;
   box-sizing: border-box;
+  background: #111827;
+  color: #f3f4f6;
+}
+
+.session-name-input::placeholder {
+  color: #6b7280;
 }
 
 .session-save-actions {
@@ -161,8 +167,8 @@
 }
 
 .current-session-info {
-  background: var(--bg-secondary, #f9fafb);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: #111827;
+  border: 1px solid rgba(102, 126, 234, 0.2);
   border-radius: 8px;
   padding: 1rem;
   margin-bottom: 1.5rem;
@@ -171,29 +177,29 @@
 .current-session-info h3 {
   margin: 0 0 0.75rem 0;
   font-size: 1rem;
-  color: var(--text-primary, #111827);
+  color: #f3f4f6;
 }
 
 .session-info-item {
   font-size: 0.875rem;
-  color: var(--text-secondary, #6b7280);
+  color: #9ca3af;
   margin-bottom: 0.5rem;
 }
 
 .session-info-item strong {
-  color: var(--text-primary, #111827);
+  color: #f3f4f6;
   margin-right: 0.5rem;
 }
 
 .session-list h3 {
   margin: 0 0 1rem 0;
   font-size: 1rem;
-  color: var(--text-primary, #111827);
+  color: #f3f4f6;
 }
 
 .session-empty {
   text-align: center;
-  color: var(--text-secondary, #6b7280);
+  color: #9ca3af;
   padding: 2rem;
   font-size: 0.875rem;
 }
@@ -209,20 +215,20 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: var(--bg-secondary, #f9fafb);
-  border: 1px solid var(--border-color, #e5e7eb);
+  background: #111827;
+  border: 1px solid rgba(102, 126, 234, 0.2);
   border-radius: 8px;
   transition: all 0.2s ease;
 }
 
 .session-item:hover {
-  background: var(--bg-hover, #f3f4f6);
-  border-color: var(--primary-color, #667eea);
+  background: #374151;
+  border-color: rgba(102, 126, 234, 0.5);
 }
 
 .session-item.active {
-  background: rgba(102, 126, 234, 0.1);
-  border-color: var(--primary-color, #667eea);
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.5);
 }
 
 .session-item-content {
@@ -231,19 +237,19 @@
 
 .session-item-name {
   font-weight: 600;
-  color: var(--text-primary, #111827);
+  color: #f3f4f6;
   margin-bottom: 0.25rem;
 }
 
 .session-item-meta {
   font-size: 0.75rem;
-  color: var(--text-secondary, #6b7280);
+  color: #9ca3af;
   margin-bottom: 0.25rem;
 }
 
 .session-item-region {
   font-size: 0.75rem;
-  color: var(--text-secondary, #6b7280);
+  color: #9ca3af;
 }
 
 .session-item-actions {
@@ -269,90 +275,92 @@
   filter: brightness(0.8);
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .session-manager-modal {
-    background: var(--card-bg-dark, #1f2937);
-  }
+/* Light theme overrides */
+[data-theme="light"] .session-manager-modal {
+  background: #ffffff;
+}
 
-  .session-manager-header {
-    border-bottom-color: var(--border-color-dark, #374151);
-  }
+[data-theme="light"] .session-manager-header {
+  border-bottom-color: #e5e7eb;
+}
 
-  .session-manager-header h2 {
-    color: var(--text-primary-dark, #f9fafb);
-  }
+[data-theme="light"] .session-manager-header h2 {
+  color: #111827;
+}
 
-  .session-manager-close {
-    color: var(--text-secondary-dark, #9ca3af);
-  }
+[data-theme="light"] .session-manager-close {
+  color: #6b7280;
+}
 
-  .session-manager-close:hover {
-    color: var(--text-primary-dark, #f9fafb);
-  }
+[data-theme="light"] .session-manager-close:hover {
+  color: #111827;
+}
 
-  .session-btn-secondary {
-    background: var(--bg-secondary-dark, #111827);
-    color: var(--text-primary-dark, #f9fafb);
-    border-color: var(--border-color-dark, #374151);
-  }
+[data-theme="light"] .session-btn-secondary {
+  background: #f3f4f6;
+  color: #111827;
+  border-color: #e5e7eb;
+}
 
-  .session-btn-secondary:hover {
-    background: var(--bg-hover-dark, #374151);
-  }
+[data-theme="light"] .session-btn-secondary:hover {
+  background: #e5e7eb;
+}
 
-  .session-name-input {
-    background: var(--bg-secondary-dark, #111827);
-    border-color: var(--border-color-dark, #374151);
-    color: var(--text-primary-dark, #f9fafb);
-  }
+[data-theme="light"] .session-save-dialog h3 {
+  color: #111827;
+}
 
-  .current-session-info {
-    background: var(--bg-secondary-dark, #111827);
-    border-color: var(--border-color-dark, #374151);
-  }
+[data-theme="light"] .session-name-input {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #111827;
+}
 
-  .current-session-info h3 {
-    color: var(--text-primary-dark, #f9fafb);
-  }
+[data-theme="light"] .session-name-input::placeholder {
+  color: #9ca3af;
+}
 
-  .session-info-item {
-    color: var(--text-secondary-dark, #9ca3af);
-  }
+[data-theme="light"] .current-session-info {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
 
-  .session-info-item strong {
-    color: var(--text-primary-dark, #f9fafb);
-  }
+[data-theme="light"] .current-session-info h3 {
+  color: #111827;
+}
 
-  .session-list h3 {
-    color: var(--text-primary-dark, #f9fafb);
-  }
+[data-theme="light"] .session-info-item {
+  color: #6b7280;
+}
 
-  .session-empty {
-    color: var(--text-secondary-dark, #9ca3af);
-  }
+[data-theme="light"] .session-info-item strong {
+  color: #111827;
+}
 
-  .session-item {
-    background: var(--bg-secondary-dark, #111827);
-    border-color: var(--border-color-dark, #374151);
-  }
+[data-theme="light"] .session-list h3 {
+  color: #111827;
+}
 
-  .session-item:hover {
-    background: var(--bg-hover-dark, #374151);
-  }
+[data-theme="light"] .session-empty {
+  color: #6b7280;
+}
 
-  .session-item.active {
-    background: rgba(102, 126, 234, 0.2);
-  }
+[data-theme="light"] .session-item {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
 
-  .session-item-name {
-    color: var(--text-primary-dark, #f9fafb);
-  }
+[data-theme="light"] .session-item:hover {
+  background: #f3f4f6;
+}
 
-  .session-item-meta,
-  .session-item-region {
-    color: var(--text-secondary-dark, #9ca3af);
-  }
+[data-theme="light"] .session-item-name {
+  color: #111827;
+}
+
+[data-theme="light"] .session-item-meta,
+[data-theme="light"] .session-item-region {
+  color: #6b7280;
 }
 
 /* Responsive design */

@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FilterResponse } from '../types';
 import { RegionSearchBar } from './RegionVisualization';
+import FileBrowser from './FileBrowser';
 import './Sidebar.css';
+
+// Sidebar component with resizable functionality
 
 type AppMode = 'individual' | 'cohort-read' | 'cohort-assembly';
 
@@ -28,6 +31,7 @@ interface SidebarProps {
   cohortAvailableRegions?: string[];
   loadingCohortRegions?: boolean;
   cohortLoadProgress?: { current: number; total: number } | null;
+  onOpenSessionManager?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -51,12 +55,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   onCohortRegionSubmit,
   cohortAvailableRegions = [],
   loadingCohortRegions = false,
-  cohortLoadProgress = null
+  cohortLoadProgress = null,
+  onOpenSessionManager
 }) => {
-  const [filterExpanded, setFilterExpanded] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [vcfExpanded, setVcfExpanded] = useState(true);
   const [populationExpanded, setPopulationExpanded] = useState(true);
+  const [showVcfBrowser, setShowVcfBrowser] = useState(false);
+  const [showPublicFolderBrowser, setShowPublicFolderBrowser] = useState(false);
+  const [showCohortFolderBrowser, setShowCohortFolderBrowser] = useState(false);
   
   // Resizable sidebar state
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -78,18 +85,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       setPopulationExpanded(false);
     }
   }, [publicVcfFolder]);
-
-  const handleGenotypeToggle = (genotype: string) => {
-    if (selectedGenotypes.includes(genotype)) {
-      onGenotypeChange(selectedGenotypes.filter(g => g !== genotype));
-    } else {
-      onGenotypeChange([...selectedGenotypes, genotype]);
-    }
-  };
-
-  const resetFilter = () => {
-    onGenotypeChange(availableGenotypes);
-  };
 
   // Save sidebar width to localStorage and update CSS variable
   useEffect(() => {
@@ -232,7 +227,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <label>
                             VCF File Path
                           </label>
-                          <div className="input-wrapper">
+                          <div className="input-with-browse">
                             <input
                               type="text"
                               value={vcfPath}
@@ -241,11 +236,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                               onKeyPress={(e) => e.key === 'Enter' && onLoadVCF()}
                               className="modern-input"
                             />
+                            <button
+                              type="button"
+                              className="btn-browse"
+                              onClick={() => setShowVcfBrowser(true)}
+                              title="Browse for VCF file"
+                            >
+                              Browse
+                            </button>
                           </div>
                         </div>
                         <button
                           className="btn btn-primary btn-modern"
-                          onClick={onLoadVCF}
+                          onClick={() => onLoadVCF()}
                           disabled={loading || !vcfPath}
                         >
                           {loading ? <span className="spinner" /> : null}
@@ -278,7 +281,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <label>
                             Public VCF Folder
                           </label>
-                          <div className="input-wrapper">
+                          <div className="input-with-browse">
                             <input
                               type="text"
                               value={publicVcfFolder}
@@ -287,6 +290,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                               title="Path to folder containing population VCF files. Sample names will be extracted from VCF headers."
                               className="modern-input"
                             />
+                            <button
+                              type="button"
+                              className="btn-browse"
+                              onClick={() => setShowPublicFolderBrowser(true)}
+                              title="Browse for folder"
+                            >
+                              Browse
+                            </button>
                           </div>
                           <div className="input-hint">
                             For population comparison analysis
@@ -328,7 +339,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <label>
                             Cohort VCF Folder
                           </label>
-                          <div className="input-wrapper">
+                          <div className="input-with-browse">
                             <input
                               type="text"
                               value={cohortFolder}
@@ -338,6 +349,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                               onKeyPress={(e) => e.key === 'Enter' && onLoadCohortFolder()}
                               className="modern-input"
                             />
+                            <button
+                              type="button"
+                              className="btn-browse"
+                              onClick={() => setShowCohortFolderBrowser(true)}
+                              title="Browse for folder"
+                            >
+                              Browse
+                            </button>
                           </div>
                           <div className="input-hint">
                             Folder should contain multiple VCF files (.vcf.gz or .vcf). Sample names will be extracted from VCF headers.
@@ -407,57 +426,20 @@ const Sidebar: React.FC<SidebarProps> = ({
               </>
             ) : null}
 
-            {/* Genotype Filter */}
-            {availableGenotypes.length > 0 && (
+            {/* Sessions */}
+            {onOpenSessionManager && (
               <div className="sidebar-section">
-                <div className="filter-accordion">
-                  <div
-                    className="filter-accordion-header modern"
-                    onClick={() => setFilterExpanded(!filterExpanded)}
-                  >
-                    <div className="accordion-title">
-                      <span>Filter by Genotype</span>
-                      <span className="filter-badge">{selectedGenotypes.length}/{availableGenotypes.length}</span>
-                    </div>
-                    <span className="accordion-arrow">{filterExpanded ? '▼' : '▶'}</span>
-                  </div>
-                  {filterExpanded && (
-                    <div className="filter-accordion-content">
-                      <div className="multiselect modern">
-                        {availableGenotypes.map((gt) => {
-                          const isSelected = selectedGenotypes.includes(gt);
-                          return (
-                            <div
-                              key={gt}
-                              className={`multiselect-option modern ${isSelected ? 'selected' : ''}`}
-                              onClick={() => handleGenotypeToggle(gt)}
-                            >
-                              <div className="checkbox-wrapper">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => {}}
-                                  className="modern-checkbox"
-                                />
-                                <span className="checkmark"></span>
-                              </div>
-                              <span className="genotype-label">{gt}</span>
-                              {isSelected && <span className="check-icon">✓</span>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <button
-                        className="btn btn-reset"
-                        onClick={resetFilter}
-                      >
-                        <span>Reset Filter</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <button
+                  className="btn btn-secondary btn-modern sidebar-sessions-btn"
+                  onClick={onOpenSessionManager}
+                  title="Manage saved sessions"
+                >
+                  <span className="sidebar-sessions-icon">💾</span>
+                  <span>Sessions</span>
+                </button>
               </div>
             )}
+
           </>
         )}
         
@@ -492,6 +474,32 @@ const Sidebar: React.FC<SidebarProps> = ({
       
       {/* Overlay for mobile when sidebar is open */}
       {!sidebarCollapsed && <div className="sidebar-overlay" onClick={() => setSidebarCollapsed(true)}></div>}
+
+      {/* File browsers */}
+      <FileBrowser
+        isOpen={showVcfBrowser}
+        onClose={() => setShowVcfBrowser(false)}
+        onSelect={(path) => { setVcfPath(path); setShowVcfBrowser(false); }}
+        mode="file"
+        initialPath={vcfPath ? vcfPath.replace(/\/[^/]+$/, '') : ''}
+        title="Select VCF File"
+      />
+      <FileBrowser
+        isOpen={showPublicFolderBrowser}
+        onClose={() => setShowPublicFolderBrowser(false)}
+        onSelect={(path) => { setPublicVcfFolder(path); setShowPublicFolderBrowser(false); }}
+        mode="folder"
+        initialPath={publicVcfFolder || ''}
+        title="Select Population Folder"
+      />
+      <FileBrowser
+        isOpen={showCohortFolderBrowser}
+        onClose={() => setShowCohortFolderBrowser(false)}
+        onSelect={(path) => { setCohortFolder(path); setShowCohortFolderBrowser(false); }}
+        mode="folder"
+        initialPath={cohortFolder || ''}
+        title="Select Cohort Folder"
+      />
     </>
   );
 };

@@ -15,11 +15,12 @@ interface BookmarksPanelProps {
   currentRegion?: string;
   onBookmarkSelect?: (region: string) => void;
   onOpenSessionManager?: () => void;
+  getSessionData?: () => { vcfPath: string; selectedRegion: string; selectedGenotypes: string[]; publicVcfFolder: string; cohortFolder: string; mode: string };
 }
 
 const STORAGE_KEY = 'proletract_bookmarks';
 
-const BookmarksPanel: React.FC<BookmarksPanelProps> = ({ currentRegion, onBookmarkSelect, onOpenSessionManager }) => {
+const BookmarksPanel: React.FC<BookmarksPanelProps> = ({ currentRegion, onBookmarkSelect, onOpenSessionManager, getSessionData }) => {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [folders, setFolders] = useState<string[]>([]);
@@ -33,6 +34,7 @@ const BookmarksPanel: React.FC<BookmarksPanelProps> = ({ currentRegion, onBookma
   } = useSession();
   
   const [showSessionTooltip, setShowSessionTooltip] = useState(false);
+  const sessionTooltipTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     try {
@@ -47,6 +49,14 @@ const BookmarksPanel: React.FC<BookmarksPanelProps> = ({ currentRegion, onBookma
     } catch (error) {
       console.error('Error loading bookmarks:', error);
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (sessionTooltipTimerRef.current) {
+        clearTimeout(sessionTooltipTimerRef.current);
+      }
+    };
   }, []);
 
   const saveBookmarks = (updatedBookmarks: Bookmark[]) => {
@@ -122,14 +132,22 @@ const BookmarksPanel: React.FC<BookmarksPanelProps> = ({ currentRegion, onBookma
       const sessionName = prompt('Enter session name:');
       if (!sessionName) return;
       
-      saveSession({
-        name: sessionName,
+      const data = getSessionData?.() ?? {
         vcfPath: '',
         selectedRegion: currentRegion || '',
-        selectedGenotypes: [],
+        selectedGenotypes: [] as string[],
         publicVcfFolder: '',
         cohortFolder: '',
-        mode: 'individual',
+        mode: 'individual' as const,
+      };
+      saveSession({
+        name: sessionName,
+        vcfPath: data.vcfPath,
+        selectedRegion: data.selectedRegion,
+        selectedGenotypes: data.selectedGenotypes,
+        publicVcfFolder: data.publicVcfFolder,
+        cohortFolder: data.cohortFolder,
+        mode: data.mode === 'cohort-read' || data.mode === 'cohort-assembly' ? data.mode : 'individual',
       });
     } else {
       saveSession({
@@ -173,10 +191,19 @@ const BookmarksPanel: React.FC<BookmarksPanelProps> = ({ currentRegion, onBookma
         
         <div 
           className="session-save-button-wrapper"
-          onMouseEnter={() => setShowSessionTooltip(true)}
-          onMouseLeave={() => setShowSessionTooltip(false)}
+          onMouseEnter={() => {
+            sessionTooltipTimerRef.current = setTimeout(() => setShowSessionTooltip(true), 400);
+          }}
+          onMouseLeave={() => {
+            if (sessionTooltipTimerRef.current) {
+              clearTimeout(sessionTooltipTimerRef.current);
+              sessionTooltipTimerRef.current = null;
+            }
+            setShowSessionTooltip(false);
+          }}
         >
           <button
+            type="button"
             className="session-save-button"
             onClick={handleSaveSession}
             title={getSessionTooltipText()}

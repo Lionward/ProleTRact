@@ -4,9 +4,11 @@ import './SessionManager.css';
 
 interface SessionManagerProps {
   onClose?: () => void;
+  onSessionLoadRequested?: (session: { vcfPath?: string; selectedRegion?: string; selectedGenotypes?: string[]; publicVcfFolder?: string; cohortFolder?: string; mode?: string }) => void;
+  getSessionData?: () => { vcfPath: string; selectedRegion: string; selectedGenotypes: string[]; publicVcfFolder: string; cohortFolder: string; mode: string };
 }
 
-const SessionManager: React.FC<SessionManagerProps> = ({ onClose }) => {
+const SessionManager: React.FC<SessionManagerProps> = ({ onClose, onSessionLoadRequested, getSessionData }) => {
   const {
     sessions,
     currentSession,
@@ -44,14 +46,23 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onClose }) => {
       alert('Please enter a session name');
       return;
     }
+    const data = getSessionData?.() ?? currentSession ?? {
+      vcfPath: '',
+      selectedRegion: '',
+      selectedGenotypes: [] as string[],
+      publicVcfFolder: '',
+      cohortFolder: '',
+      mode: 'individual' as const,
+    };
+    const mode = (data.mode === 'cohort-read' || data.mode === 'cohort-assembly') ? data.mode : 'individual';
     saveSession({
       name: sessionName,
-      vcfPath: currentSession?.vcfPath,
-      selectedRegion: currentSession?.selectedRegion,
-      selectedGenotypes: currentSession?.selectedGenotypes,
-      publicVcfFolder: currentSession?.publicVcfFolder,
-      cohortFolder: currentSession?.cohortFolder,
-      mode: currentSession?.mode,
+      vcfPath: data.vcfPath ?? '',
+      selectedRegion: data.selectedRegion ?? '',
+      selectedGenotypes: data.selectedGenotypes ?? [],
+      publicVcfFolder: data.publicVcfFolder ?? '',
+      cohortFolder: data.cohortFolder ?? '',
+      mode,
     });
     setShowSaveDialog(false);
     setSessionName('');
@@ -210,7 +221,11 @@ const SessionManager: React.FC<SessionManagerProps> = ({ onClose }) => {
                             <div className="session-item-actions">
                               <button
                                 className="session-item-btn"
-                                onClick={() => loadSession(session.id)}
+                                onClick={() => {
+                                  loadSession(session.id);
+                                  onSessionLoadRequested?.(session);
+                                  onClose?.();
+                                }}
                                 title="Load session"
                               >
                                 📂

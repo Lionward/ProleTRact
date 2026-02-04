@@ -35,8 +35,13 @@ const FloatingNavigation: React.FC<FloatingNavigationProps> = ({
     }
   }, [editingRegion]);
 
-  // Show navigation if there are regions and either multiple pages or multiple records
-  if (!regions || (regions.total_pages <= 1 && regions.records.length <= 1)) {
+  // Show navigation if there are regions
+  // Hide only if regions is null, or if there's exactly 1 page AND only 1 record (to avoid clutter)
+  if (!regions) {
+    return null;
+  }
+  // Only hide if there's exactly 1 page, 1 record, AND total matching is 1 or less
+  if (regions.total_pages <= 1 && regions.records.length <= 1 && regions.total_matching <= 1) {
     return null;
   }
 
